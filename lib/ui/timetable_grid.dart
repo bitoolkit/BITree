@@ -156,6 +156,7 @@ class _TimetableGridState extends State<TimetableGrid> {
       final box = _grid.currentContext!.findRenderObject()! as RenderBox;
       _addMenu.open(position: box.globalToLocal(position));
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _menuClosed() {
@@ -263,11 +264,13 @@ class _TimetableGridState extends State<TimetableGrid> {
                         _dragSelection(details.globalPosition),
                     onLongPressEnd: (details) =>
                         _finishSelection(details.globalPosition),
-                    onLongPressCancel: _cancelSelection,
                     child: Listener(
                       onPointerDown: (_) {
                         _closedMenuOnPointerDown = _addMenu.isOpen;
                         if (_closedMenuOnPointerDown) _addMenu.close();
+                      },
+                      onPointerCancel: (_) {
+                        if (_autoScroller != null) _cancelSelection();
                       },
                       child: Stack(
                         key: _grid,

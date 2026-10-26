@@ -187,6 +187,64 @@ void main() {
     expect(taps, 1);
   });
 
+  testWidgets('Outside taps close the same menu without changing its actions', (
+    tester,
+  ) async {
+    await showGrid(tester);
+    await openMenu(tester, day: 6, section: 9);
+    final panel = find.byWidgetPredicate(
+      (widget) => widget is Material && widget.elevation == 6,
+    );
+    final opened = tester.getRect(panel);
+    var height = opened.height;
+    final gesture = await tester.startGesture(cell(tester, 3, 7));
+    await tester.pump();
+    await gesture.up();
+    for (var frame = 0; frame < 15; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(find.text('添加 DDL'), findsNothing);
+      if (panel.evaluate().isEmpty) break;
+      final closing = tester.getRect(panel);
+      expect(closing.height, lessThanOrEqualTo(height));
+      expect(closing.left, closeTo(opened.left, 0.1));
+      expect(closing.top, closeTo(opened.top, 0.1));
+      height = closing.height;
+    }
+    await tester.pumpAndSettle();
+    expectClosed(tester);
+  });
+
+  testWidgets('Cancelled drags clear the selection and a new drag can finish', (
+    tester,
+  ) async {
+    await showGrid(tester);
+    final cancelled = await tester.startGesture(cell(tester, 0, 2));
+    await tester.pump(const Duration(milliseconds: 600));
+    await cancelled.moveTo(cell(tester, 0, 4));
+    await tester.pump();
+    expect(
+      tester.widget<AddMenu>(find.byType(AddMenu)).selection!.endSection,
+      4,
+    );
+    await cancelled.cancel();
+    await tester.pumpAndSettle();
+    expectClosed(tester);
+
+    final completed = await tester.startGesture(cell(tester, 1, 3));
+    await tester.pump(const Duration(milliseconds: 600));
+    await completed.moveTo(cell(tester, 1, 5));
+    await tester.pump();
+    final selection = tester.widget<AddMenu>(find.byType(AddMenu)).selection!;
+    expect(selection.date.weekday, DateTime.tuesday);
+    expect(selection.startSection, 3);
+    expect(selection.endSection, 5);
+    await completed.up();
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(addCourse, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Menu actions retain the selected date and section', (
     tester,
   ) async {
