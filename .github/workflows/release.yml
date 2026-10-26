@@ -58,6 +58,9 @@ jobs:
 
   publish:
     needs: [prepare, build]
+    concurrency:
+      group: release-publish
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     permissions:
       contents: write
