@@ -20,15 +20,24 @@ class SchoolAccess {
     VerifySchoolLogin verify,
     Future<T> Function(SchoolSession) operation, {
     CancellationToken? cancellation,
+    Uri? service,
   }) async {
     cancellation?.check();
     final detach = cancellation?.onCancel(cancel);
     try {
       final result = await _run((session) async {
+        if (service != null) {
+          await SchoolLogin(session, verify).signInTo(service);
+        }
         try {
           return await operation(session);
         } on SessionExpired {
-          await SchoolLogin(session, verify).signIn();
+          final login = SchoolLogin(session, verify);
+          if (service == null) {
+            await login.signIn();
+          } else {
+            await login.signInTo(service);
+          }
           return operation(session);
         }
       });

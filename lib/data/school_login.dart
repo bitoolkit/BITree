@@ -46,11 +46,7 @@ class SchoolLogin {
 
   Future<void> signIn([SchoolCredentials? credentials]) async {
     final account = await _credentials(credentials);
-    if (session.network == SchoolNetwork.webvpn) {
-      await _prepareWebVpn();
-      final vpnCallback = await _authenticate(account, SchoolNetwork.vpnLogin);
-      await _openCallback(vpnCallback);
-    }
+    await _prepareNetwork(account);
 
     // The public entry supplies the CAS service; the VPN proxy rewrites it.
     final preflight = await session.request(
@@ -68,6 +64,25 @@ class SchoolLogin {
         session.network.accountPage,
         const SchoolRequestError('未能建立学校登录会话，请重试。'),
       );
+    }
+  }
+
+  Future<void> signInTo(Uri service) async {
+    final account = await _credentials(null);
+    await _prepareNetwork(account);
+    final callback = await _authenticate(account, service);
+    await session.request(
+      session.network.route(service),
+      followRedirects: false,
+    );
+    await _openCallback(callback);
+  }
+
+  Future<void> _prepareNetwork(SchoolCredentials account) async {
+    if (session.network == SchoolNetwork.webvpn) {
+      await _prepareWebVpn();
+      final vpnCallback = await _authenticate(account, SchoolNetwork.vpnLogin);
+      await _openCallback(vpnCallback);
     }
   }
 

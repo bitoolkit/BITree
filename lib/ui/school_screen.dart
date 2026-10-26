@@ -11,6 +11,8 @@ enum SchoolAction {
   signIn('登录学校账号'),
   importSchedule('导入课表'),
   importExams('获取考试安排'),
+  importGrades('导入成绩'),
+  importStudyPlan('更新学分进度'),
   importLexueDeadlines('更新乐学 DDL', source: DeadlineSource.lexue),
   importEclassDeadlines('更新新延河课堂 DDL', source: DeadlineSource.eclass);
 
@@ -30,7 +32,12 @@ Future<bool> _fetchSchoolData(
     term: term,
     verify: verify,
   ),
-  SchoolAction.importExams => controller.importExams(verify: verify),
+  SchoolAction.importExams => controller.importExams(
+    term: term,
+    verify: verify,
+  ),
+  SchoolAction.importGrades => controller.importGrades(verify: verify),
+  SchoolAction.importStudyPlan => controller.importStudyPlan(verify: verify),
   SchoolAction.importLexueDeadlines || SchoolAction.importEclassDeadlines =>
     controller.importDeadlines(action.source!, verify: verify),
 };
@@ -67,6 +74,8 @@ Future<bool?> openSchoolPage(
     showAppNotice(context, switch (action) {
       SchoolAction.importSchedule => '已更新课表',
       SchoolAction.importExams => '已更新考试安排',
+      SchoolAction.importGrades => '已更新成绩',
+      SchoolAction.importStudyPlan => '已更新学分进度',
       _ => '已更新${action.source!.label} DDL',
     });
   }
@@ -234,12 +243,16 @@ class _SchoolScreenState extends State<_SchoolScreen> {
                   SchoolAction.signIn => '登录中…',
                   SchoolAction.importSchedule => '导入中…',
                   SchoolAction.importExams ||
+                  SchoolAction.importGrades ||
+                  SchoolAction.importStudyPlan ||
                   SchoolAction.importLexueDeadlines ||
                   SchoolAction.importEclassDeadlines => '获取中…',
                   null => switch (widget.action) {
                     SchoolAction.signIn => '登录',
                     SchoolAction.importSchedule => '登录并导入',
                     SchoolAction.importExams ||
+                    SchoolAction.importGrades ||
+                    SchoolAction.importStudyPlan ||
                     SchoolAction.importLexueDeadlines ||
                     SchoolAction.importEclassDeadlines => '登录并获取',
                   },

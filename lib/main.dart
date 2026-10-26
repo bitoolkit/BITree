@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_controller.dart';
 import 'agenda/controller.dart';
+import 'academics/controller.dart';
+import 'data/academic_store.dart';
 import 'data/agenda_store.dart';
 import 'data/schedule_store.dart';
 import 'data/school_service.dart';
@@ -37,6 +39,7 @@ void main() {
     schoolStorage: SchoolStorage(),
     preferences: SharedPreferencesAsync(),
     agenda: AgendaController(AgendaStore()),
+    academics: AcademicController(AcademicStore()),
   );
   runApp(BitreeApp(controller: controller));
   WidgetsBinding.instance.addPostFrameCallback((_) => controller.initialize());

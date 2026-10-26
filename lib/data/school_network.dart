@@ -6,6 +6,8 @@ enum SchoolNetwork {
   static const _vpnHosts = {
     'jxzxehallapp.bit.edu.cn': '77726476706e69737468656265737421faef5b842238695c720999bcd6572a216b231105adc27d',
     'jxzxehall.bit.edu.cn': '77726476706e69737468656265737421faef5b842238695c72468ba58c1b26316e8e7f6f',
+    'jwms.bit.edu.cn':
+        '77726476706e69737468656265737421fae04c8f69326144300d8db9d6562d',
   };
 
   Uri get app =>
@@ -35,6 +37,8 @@ enum SchoolNetwork {
   static Uri get vpnLogin =>
       Uri.https('webvpn.bit.edu.cn', '/login', {'cas_login': 'true'});
 
+  static Uri get recordsService => Uri.http('jwms.bit.edu.cn', '/');
+
   Uri endpoint(String path, {String app = 'wdkbby'}) =>
       route(_campusApp.resolve('/jwapp/sys/$app/$path'));
 
@@ -49,8 +53,9 @@ enum SchoolNetwork {
 }
 
 bool isSchoolUrl(Uri uri) =>
-    uri.scheme == 'https' &&
-    (uri.host == 'bit.edu.cn' || uri.host.endsWith('.bit.edu.cn'));
+    (uri.scheme == 'https' &&
+        (uri.host == 'bit.edu.cn' || uri.host.endsWith('.bit.edu.cn'))) ||
+    (uri.scheme == 'http' && uri.host == 'jwms.bit.edu.cn');
 
 bool isSchoolLogin(Uri uri) =>
     isSchoolUrl(uri) &&

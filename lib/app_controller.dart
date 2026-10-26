@@ -6,12 +6,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'agenda/controller.dart';
 import 'agenda/deadline_source.dart';
+import 'academics/controller.dart';
 import 'classrooms/model.dart';
 import 'data/cancelable_request.dart';
 import 'data/desktop_widget.dart';
 import 'data/read_cache.dart';
 import 'data/schedule_store.dart';
 import 'data/school_access.dart';
+import 'data/school_academics.dart';
+import 'data/school_network.dart';
 import 'data/school_errors.dart';
 import 'data/school_classrooms.dart';
 import 'data/lexue_deadlines.dart';
@@ -32,8 +35,10 @@ class AppController extends ChangeNotifier {
     required this._schoolStorage,
     required this._preferences,
     required this.agenda,
+    required this.academics,
   }) {
     agenda.addListener(_agendaChanged);
+    academics.addListener(notifyListeners);
   }
 
   final ScheduleStore _store;
@@ -42,6 +47,7 @@ class AppController extends ChangeNotifier {
   late final _schoolAccess = SchoolAccess(_schoolStorage);
   final SharedPreferencesAsync _preferences;
   final AgendaController agenda;
+  final AcademicController academics;
   final _classroomDirectory = ReadCache<String, ClassroomDirectory?>(
     maxAge: const Duration(days: 1),
   );
@@ -51,7 +57,8 @@ class AppController extends ChangeNotifier {
         List<BuildingOccupancy>?
       >(maxAge: const Duration(minutes: 5));
 
-  SemesterSchedule? _schedule;
+  final _schedules = <String, SemesterSchedule>{};
+  String? _selectedTerm;
   bool ready = false;
   bool busy = false;
   AccountStatus accountStatus = AccountStatus.unverified;
@@ -62,7 +69,9 @@ class AppController extends ChangeNotifier {
   ThemeMode themeMode = ThemeMode.system;
   List<String> terms = [];
 
-  SemesterSchedule? get schedule => _schedule;
+  SemesterSchedule? get schedule => _schedules[_selectedTerm];
+
+  Iterable<SemesterSchedule> get schedules => _schedules.values;
 
   List<int> get weeks => schedule?.weeks ?? const [];
 
@@ -72,8 +81,10 @@ class AppController extends ChangeNotifier {
 
   Future<void> initialize() async {
     try {
-      _schedule = await _store.read();
-      terms = await _store.terms();
+      final library = await _store.read();
+      _schedules.addAll(library.schedules);
+      _selectedTerm = library.selectedTerm;
+      terms = _schedules.keys.toList();
 
       final theme = await _preferences.getString('theme');
       themeMode =
@@ -86,6 +97,7 @@ class AppController extends ChangeNotifier {
     }
 
     await agenda.load();
+    await academics.load(username);
     _goToCurrentWeek();
     ready = true;
     notifyListeners();
@@ -95,6 +107,8 @@ class AppController extends ChangeNotifier {
   void dispose() {
     agenda.removeListener(_agendaChanged);
     agenda.dispose();
+    academics.removeListener(notifyListeners);
+    academics.dispose();
     super.dispose();
   }
 
@@ -245,6 +259,7 @@ class AppController extends ChangeNotifier {
     await _schoolAccess.signIn(credentials, verify, source: source);
     if (username != credentials.username) _clearSchoolCache();
     username = credentials.username;
+    await academics.load(username);
     return true;
   });
 
@@ -270,12 +285,13 @@ class AppController extends ChangeNotifier {
           busy = true;
           notifyListeners();
           try {
-            final previous = await _store.readTerm(result.schedule.term);
+            final previous = _schedules[result.schedule.term];
             session.checkActive();
             final next = result.schedule.mergeLocalChanges(previous);
             await _store.write(next);
-            _schedule = next;
-            terms = {...await _store.terms(), ...result.terms}.toList();
+            _schedules[next.term] = next;
+            _selectedTerm = next.term;
+            terms = {..._schedules.keys, ...result.terms}.toList();
             _goToCurrentWeek();
             await _updateWidget();
             return true;
@@ -286,18 +302,42 @@ class AppController extends ChangeNotifier {
         }),
       );
 
-  Future<bool> importExams({required VerifySchoolLogin verify}) => _runSchool(
-    '获取考试安排',
-    () => _schoolAccess.read(verify, (session) async {
-      final result = await _school.exams(
-        session,
-        account: username!,
-        term: schedule?.term,
+  Future<bool> importExams({String? term, required VerifySchoolLogin verify}) =>
+      _runSchool(
+        '获取考试安排',
+        () => _schoolAccess.read(verify, (session) async {
+          final result = await _school.exams(
+            session,
+            account: username!,
+            term: term ?? schedule?.term,
+          );
+          session.checkActive();
+          return agenda.replaceExams(result.term, result.exams);
+        }),
       );
-      session.checkActive();
-      return agenda.replaceExams(result.term, result.exams);
-    }),
-  );
+
+  Future<bool> importGrades({required VerifySchoolLogin verify}) =>
+      _runSchool('导入成绩', () async {
+        final grades = await _schoolAccess.read(
+          verify,
+          fetchSchoolGrades,
+          service: SchoolNetwork.recordsService,
+        );
+        return academics.save(
+          academics.record.copyWith(
+            grades: grades,
+            gradesUpdatedAt: DateTime.now(),
+          ),
+        );
+      });
+
+  Future<bool> importStudyPlan({required VerifySchoolLogin verify}) =>
+      _runSchool('更新学分进度', () async {
+        final plan = await _schoolAccess.read(verify, fetchStudyPlan);
+        return academics.save(
+          academics.record.copyWith(plan: plan, planUpdatedAt: DateTime.now()),
+        );
+      });
 
   Future<bool> importDeadlines(
     DeadlineSource source, {
@@ -322,7 +362,7 @@ class AppController extends ChangeNotifier {
     Course? replacing,
     SemesterSchedule? semester,
   }) async {
-    final current = semester ?? _schedule;
+    final current = semester ?? schedule;
     if (current == null || busy) return false;
 
     return _save(
@@ -350,7 +390,7 @@ class AppController extends ChangeNotifier {
     if (busy) return false;
 
     try {
-      final saved = await _store.readTerm(term);
+      final saved = _schedules[term];
       if (busy) return false;
       if (saved == null) return await importTerm(term);
 
@@ -363,11 +403,11 @@ class AppController extends ChangeNotifier {
   }
 
   Future<bool> deleteCourse(Course course) async {
-    if (_schedule == null || busy) return false;
+    if (schedule == null || busy) return false;
 
     return _save(
-      _schedule!.copyWith(
-        courses: [..._schedule!.courses.where((item) => item.id != course.id)],
+      schedule!.copyWith(
+        courses: [...schedule!.courses.where((item) => item.id != course.id)],
       ),
     );
   }
@@ -378,8 +418,9 @@ class AppController extends ChangeNotifier {
 
     try {
       await _store.write(next);
-      final changingTerm = _schedule?.term != next.term;
-      _schedule = next;
+      final changingTerm = schedule?.term != next.term;
+      _schedules[next.term] = next;
+      _selectedTerm = next.term;
       if (changingTerm) {
         _goToCurrentWeek();
       } else {
@@ -421,6 +462,7 @@ class AppController extends ChangeNotifier {
       await _schoolStorage.clear();
       _clearSchoolCache();
       username = null;
+      await academics.load(null);
       accountStatus = AccountStatus.signedOut;
       return true;
     } catch (failure, stack) {
@@ -440,7 +482,8 @@ class AppController extends ChangeNotifier {
 
     try {
       await _store.clear();
-      _schedule = null;
+      _schedules.clear();
+      _selectedTerm = null;
       terms = [];
       _goToCurrentWeek();
       await _updateWidget();
