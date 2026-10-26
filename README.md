@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/brand/bitree.svg" width="160" alt="BITree 理枝 logo" />
+  <img src="assets/brand/bitree.svg" width="96" alt="BITree 理枝 logo" />
 </p>
 
 <h1 align="center">BITree 理枝</h1>
@@ -14,20 +14,57 @@
   <a href="https://github.com/so1ve/bitree/releases/tag/dev">下载测试版</a>
 </p>
 
-> [!WARNING]
->
-> 数据保存在本机，登录凭据使用系统安全存储。账号密码只用于学校认证，请求直接发往学校，没有中转服务器。
+## 能做什么
 
-## 发布构建与日志
+- **课表**：导入学校课表，也可手动添加课程。按周查看，显示当前时间，支持导出 ICS。
+- **日程**：管理 DDL、活动和考试，获取考试安排，同步乐学和新延河课堂的 DDL 与完成状态。
+- **空教室查询**：按校区、教学楼和日期查看空闲时段，也可筛选指定时段内全程空闲的教室。
+- **Android 小组件**：在桌面查看课程和日程，提供单列、双列两种布局。
 
-发布构建会分离 Dart 调试信息，减少安装包中的代码和元数据。CI 将符号文件单独保存为 `debug-symbols-平台-版本`，保留 90 天，不放进安装包或预发布下载列表。Android 的 APK 和 AAB 符号分别放在 `apk/`、`appbundle/` 下。
+支持浅色、深色和跟随系统。已保存的课表和日程可离线查看；教学中心直连失败时，会尝试通过 WebVPN 访问。
 
-导出的日志包含构建版本和运行环境。还原 Dart 堆栈时，从对应构建下载同一平台、架构的符号文件，将堆栈保存为 `stacktrace.txt`，再运行：
+## 下载
+
+前往 [正式版](https://github.com/so1ve/bitree/releases/latest) 或 [测试版](https://github.com/so1ve/bitree/releases/tag/dev)，按平台选择文件：
+
+| 平台 | 下载文件 |
+| --- | --- |
+| Android | APK，提供 `arm64-v8a`、`armeabi-v7a` 和 `x86_64` 三种架构 |
+| Windows | x64 EXE 安装包，包含运行依赖 |
+| macOS | 通用版 ZIP，解压后使用，未签名 |
+| Linux | x64 tar.xz，解压后运行 `bitree` |
+| iOS | arm64 IPA，需自行签名后安装 |
+
+## 数据与日志
+
+课表和日程保存在本机，账号密码和登录会话使用系统安全存储。学校请求直接发往学校，无需经过项目服务器。
+
+日志在本地保留七天。遇到问题，可在 **设置 → 导出日志** 中预览最近 100 行，或导出日志文件。文件包含构建版本和运行环境，便于排查问题。
+
+## 开发
+
+使用 Flutter 3.47.7，与 CI 保持一致。配置好目标平台的开发环境后运行：
+
+```sh
+flutter pub get
+flutter run
+```
+
+构建和打包脚本见 [`tool/build_release.py`](tool/build_release.py)，版本记录见 [CHANGELOG.md](CHANGELOG.md)。
+
+<details>
+<summary>发布构建与堆栈还原</summary>
+
+发布时会把 Dart 调试信息移出安装包，以减小包体。CI 将这些符号文件保存为 `debug-symbols-平台-版本`，保留 90 天。它们可在对应的 Actions 构建页面下载，不列入预发布下载列表。Android 的 APK 和 AAB 符号分别位于 `apk/`、`appbundle/` 目录。
+
+还原错误堆栈时，先下载与日志版本、平台和架构对应的符号文件，再把堆栈保存为 `stacktrace.txt`。以下以 Android arm64 为例：
 
 ```sh
 flutter symbolize --debug-info=app.android-arm64.symbols --input=stacktrace.txt
 ```
 
-## LICENSE
+</details>
 
-[Unlicense](LICENSE). Made with ❤️ by [Ray](https://github.com/so1ve)
+## 许可
+
+[Unlicense](LICENSE)。Made by [Ray](https://github.com/so1ve)。
