@@ -21,7 +21,6 @@ Future<void> editAgenda(
   context: context,
   useSafeArea: true,
   isScrollControlled: true,
-  constraints: const BoxConstraints(maxWidth: 560),
   builder: (_) => _AgendaEditor(
     controller: controller,
     entry: entry,

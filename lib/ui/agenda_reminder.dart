@@ -7,6 +7,7 @@ import '../app_controller.dart';
 import '../schedule/model.dart';
 import 'agenda_time.dart';
 import 'calendar_list.dart';
+import 'design.dart';
 
 class AgendaReminder extends StatefulWidget {
   const AgendaReminder({
@@ -162,7 +163,7 @@ class _AgendaReminderState extends State<AgendaReminder>
                       color: scheme.surfaceContainerLow,
                       elevation: 3,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: AppCorners.control,
                         side: BorderSide(color: scheme.outlineVariant),
                       ),
                       clipBehavior: Clip.antiAlias,

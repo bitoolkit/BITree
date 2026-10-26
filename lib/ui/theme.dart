@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../schedule/building_palette.dart';
 import '../schedule/model.dart';
+import 'design.dart';
 
 const copper = Color(0xFFA85E3E);
 
@@ -97,29 +98,81 @@ ThemeData bitreeTheme(Brightness brightness) {
     dividerTheme: DividerThemeData(color: scheme.outlineVariant, thickness: 1),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        minimumSize: const Size(48, 48),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        minimumSize: appControlSize,
+        padding: appControlPadding,
         textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: appControlShape,
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        minimumSize: const Size(48, 48),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        minimumSize: appControlSize,
+        padding: appControlPadding,
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         side: BorderSide(color: scheme.outlineVariant),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: appControlShape,
       ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        minimumSize: appControlSize,
+        padding: appControlPadding,
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        shape: appControlShape,
+      ),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: SegmentedButton.styleFrom(
+        minimumSize: appControlSize,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        backgroundColor: scheme.surfaceContainerLow,
+        foregroundColor: scheme.onSurfaceVariant,
+        selectedBackgroundColor: scheme.primaryContainer,
+        selectedForegroundColor: scheme.onPrimaryContainer,
+        side: BorderSide(color: scheme.outlineVariant),
+        shape: appControlShape,
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      shape: appControlShape,
+      side: BorderSide(color: scheme.outlineVariant),
+      backgroundColor: scheme.surfaceContainerLow,
+      selectedColor: scheme.primaryContainer,
+      labelStyle: TextStyle(fontSize: 14, color: scheme.onSurface),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    ),
+    searchBarTheme: SearchBarThemeData(
+      constraints: const BoxConstraints(minHeight: 48),
+      elevation: const WidgetStatePropertyAll(0),
+      backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerLow),
+      shape: WidgetStatePropertyAll(
+        appControlShape.copyWith(
+          side: BorderSide(color: scheme.outlineVariant),
+        ),
+      ),
+      textStyle: WidgetStatePropertyAll(
+        TextStyle(fontSize: 15, color: scheme.onSurface),
+      ),
+      hintStyle: WidgetStatePropertyAll(
+        TextStyle(fontSize: 15, color: scheme.onSurfaceVariant),
+      ),
+    ),
+    searchViewTheme: SearchViewThemeData(
+      backgroundColor: scheme.surfaceContainerLow,
+      surfaceTintColor: Colors.transparent,
+      shape: appControlShape,
     ),
     iconButtonTheme: IconButtonThemeData(
       style: IconButton.styleFrom(
-        minimumSize: const Size(48, 48),
+        minimumSize: appControlSize,
         foregroundColor: scheme.onSurfaceVariant,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: appControlShape,
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
       indicatorColor: scheme.primaryContainer,
+      indicatorShape: appControlShape,
       iconTheme: WidgetStateProperty.resolveWith(
         (states) => IconThemeData(
           size: 23,
@@ -143,6 +196,7 @@ ThemeData bitreeTheme(Brightness brightness) {
     ),
     listTileTheme: ListTileThemeData(
       minLeadingWidth: 24,
+      shape: appControlShape,
       horizontalTitleGap: 14,
       minVerticalPadding: 12,
       iconColor: scheme.onSurfaceVariant,
@@ -159,48 +213,65 @@ ThemeData bitreeTheme(Brightness brightness) {
         surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
         elevation: const WidgetStatePropertyAll(6),
         side: WidgetStatePropertyAll(BorderSide(color: scheme.outlineVariant)),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
+        shape: const WidgetStatePropertyAll(appControlShape),
+      ),
+    ),
+    menuButtonTheme: MenuButtonThemeData(
+      style: MenuItemButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        textStyle: const TextStyle(fontSize: 14),
+        shape: appControlShape,
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       isDense: true,
       filled: true,
       fillColor: scheme.surfaceContainerLow,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      border: const OutlineInputBorder(borderRadius: AppCorners.control),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: AppCorners.control,
         borderSide: BorderSide(color: scheme.outlineVariant),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: AppCorners.control,
         borderSide: BorderSide(color: scheme.primary, width: 1.5),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
     ),
     bottomSheetTheme: BottomSheetThemeData(
+      constraints: const BoxConstraints(maxWidth: 560),
       backgroundColor: scheme.surfaceContainerLow,
       surfaceTintColor: Colors.transparent,
       dragHandleColor: scheme.outlineVariant,
       dragHandleSize: const Size(32, 4),
       showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: AppCorners.sheet),
     ),
     dialogTheme: DialogThemeData(
       constraints: const BoxConstraints.tightFor(width: 360),
       insetPadding: const EdgeInsets.all(24),
       backgroundColor: scheme.surfaceContainerLow,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: appPanelShape,
+    ),
+    datePickerTheme: const DatePickerThemeData(
+      shape: appPanelShape,
+      dayShape: WidgetStatePropertyAll(appControlShape),
+      yearShape: WidgetStatePropertyAll(appControlShape),
     ),
     timePickerTheme: const TimePickerThemeData(
+      shape: appPanelShape,
+      hourMinuteShape: appControlShape,
+      dayPeriodShape: appControlShape,
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
     ),
-    tooltipTheme: const TooltipThemeData(
-      waitDuration: Duration(milliseconds: 500),
+    tooltipTheme: TooltipThemeData(
+      waitDuration: const Duration(milliseconds: 500),
+      decoration: BoxDecoration(
+        color: scheme.inverseSurface,
+        borderRadius: AppCorners.compact,
+      ),
+      textStyle: TextStyle(fontSize: 12, color: scheme.onInverseSurface),
     ),
   );
 }

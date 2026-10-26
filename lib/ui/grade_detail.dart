@@ -5,6 +5,7 @@ import '../app_controller.dart';
 import 'app_dropdown_field.dart';
 import 'grade_simulation_screen.dart';
 import 'sheet_layout.dart';
+import 'design.dart';
 
 Future<void> showGradeDetails(
   BuildContext pageContext,
@@ -14,32 +15,23 @@ Future<void> showGradeDetails(
   context: pageContext,
   useSafeArea: true,
   isScrollControlled: true,
-  constraints: const BoxConstraints(maxWidth: 560),
   builder: (context) => ListenableBuilder(
     listenable: controller.academics,
     builder: (context, _) => SafeArea(
       top: false,
       child: SheetLayout(
-        header: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 4, 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '课程成绩',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              IconButton(
-                tooltip: '关闭',
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ],
-          ),
+        header: SheetHeader(
+          title: const Text('课程成绩'),
+          actions: [
+            IconButton(
+              tooltip: '关闭',
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ],
         ),
         content: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: appSheetContentPadding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -118,7 +110,7 @@ Future<void> showGradeDetails(
           ),
         ),
         actions: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: appSheetActionPadding,
           child: SizedBox(
             width: double.infinity,
             child: FilledButton(

@@ -5,6 +5,7 @@ import '../schedule/model.dart';
 import 'course_detail.dart';
 import 'sheet_layout.dart';
 import 'theme.dart';
+import 'design.dart';
 
 class ConflictingCourses extends StatelessWidget {
   const ConflictingCourses({
@@ -23,27 +24,18 @@ class ConflictingCourses extends StatelessWidget {
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
-      constraints: const BoxConstraints(maxWidth: 560),
       builder: (context) => SafeArea(
         top: false,
         child: SheetLayout(
-          header: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 8, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '选择课程',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                IconButton(
-                  tooltip: '关闭',
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, size: 20),
-                ),
-              ],
-            ),
+          header: SheetHeader(
+            title: const Text('选择课程'),
+            actions: [
+              IconButton(
+                tooltip: '关闭',
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close_rounded, size: 20),
+              ),
+            ],
           ),
           content: Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -53,7 +45,7 @@ class ConflictingCourses extends StatelessWidget {
                 for (final course in courses)
                   ListTile(
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
+                      horizontal: 24,
                       vertical: 6,
                     ),
                     leading: Container(
@@ -105,7 +97,7 @@ class ConflictingCourses extends StatelessWidget {
           child: Material(
             color: fill,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: AppCorners.compact,
               side: isToday
                   ? BorderSide(color: scheme.primary, width: 1.5)
                   : BorderSide.none,

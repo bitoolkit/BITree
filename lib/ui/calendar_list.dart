@@ -9,6 +9,7 @@ import 'agenda_time.dart';
 import 'completion_text.dart';
 import 'course_detail.dart';
 import 'sheet_layout.dart';
+import 'design.dart';
 
 IconData agendaIcon(AgendaKind kind) => switch (kind) {
   AgendaKind.event => Icons.event_outlined,
@@ -51,37 +52,31 @@ Future<void> showCalendarItems(
     context: context,
     useSafeArea: true,
     isScrollControlled: true,
-    constraints: const BoxConstraints(maxWidth: 560),
     builder: (context) => SafeArea(
       top: false,
       child: SheetLayout(
-        header: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 8, 12),
-          child: Row(
+        header: SheetHeader(
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.titleLarge),
-                    if (items.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        '${items.length}项日程',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ],
+              Text(title, style: Theme.of(context).textTheme.titleLarge),
+              if (items.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '${items.length}项日程',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
-              ),
-              IconButton(
-                tooltip: '关闭',
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded, size: 20),
-              ),
+              ],
             ],
           ),
+          actions: [
+            IconButton(
+              tooltip: '关闭',
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close_rounded, size: 20),
+            ),
+          ],
         ),
         content: Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
@@ -236,7 +231,7 @@ class _CalendarItemRow extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: AppCorners.control,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
               child: Row(

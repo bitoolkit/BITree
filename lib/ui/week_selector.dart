@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../app_controller.dart';
 import '../schedule/model.dart';
 import 'app_menu_anchor.dart';
+import 'app_menu_trigger.dart';
+import 'design.dart';
 
 class WeekSelector extends StatelessWidget {
   const WeekSelector({super.key, required this.controller});
@@ -60,9 +62,7 @@ class WeekSelector extends StatelessWidget {
                                 ? FontWeight.w600
                                 : FontWeight.w400,
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                          shape: appControlShape,
                         ),
                         child: Center(
                           child: Text(
@@ -78,35 +78,15 @@ class WeekSelector extends StatelessWidget {
             ],
           ),
       ],
-      builder: (context, menu, isOpen) => TextButton(
+      builder: (context, menu, isOpen) => AppMenuTrigger(
+        label: schedule == null ? '课表' : '第${controller.week}周',
+        semanticsLabel: '选择周次',
+        isOpen: isOpen,
+        foregroundColor: scheme.onSurface,
+        textStyle: Theme.of(context).appBarTheme.titleTextStyle,
         onPressed: schedule == null
             ? null
             : () => isOpen ? menu.close() : menu.open(),
-        style: TextButton.styleFrom(
-          foregroundColor: scheme.onSurface,
-          disabledForegroundColor: scheme.onSurface,
-          minimumSize: const Size(48, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          alignment: Alignment.centerLeft,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: Theme.of(context).appBarTheme.titleTextStyle,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                schedule == null ? '课表' : '第${controller.week}周',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (schedule != null) ...[
-              const SizedBox(width: 4),
-              const Icon(Icons.keyboard_arrow_down_rounded, size: 19),
-            ],
-          ],
-        ),
       ),
     );
   }

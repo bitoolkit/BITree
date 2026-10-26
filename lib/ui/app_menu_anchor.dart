@@ -3,17 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'design.dart';
+
 typedef AppMenuAnchorBuilder = Widget Function(
   BuildContext context,
   MenuController menu,
   bool isOpen,
-);
-
-const _menuMotion = AnimationStyle(
-  duration: Durations.medium2,
-  reverseDuration: Durations.short4,
-  curve: Curves.easeOutCubic,
-  reverseCurve: Curves.easeInOutCubic,
 );
 
 class AppMenuAnchor extends StatefulWidget {
@@ -70,8 +65,8 @@ class _AppMenuAnchorState extends State<AppMenuAnchor>
     if (!_menu.isOpen) showOverlay();
     _animation.animateTo(
       1,
-      duration: _duration(_menuMotion.duration!),
-      curve: _menuMotion.curve!,
+      duration: _duration(appMenuMotion.duration!),
+      curve: appMenuMotion.curve!,
     );
   }
 
@@ -80,8 +75,8 @@ class _AppMenuAnchorState extends State<AppMenuAnchor>
     _animation
         .animateBack(
           0,
-          duration: _duration(_menuMotion.reverseDuration!),
-          curve: _menuMotion.reverseCurve!,
+          duration: _duration(appMenuMotion.reverseDuration!),
+          curve: appMenuMotion.reverseCurve!,
         )
         .then((_) {
           if (mounted) hideOverlay();
@@ -118,11 +113,7 @@ class _AppMenuAnchorState extends State<AppMenuAnchor>
     final menuStyle = (widget.style ?? const MenuStyle()).merge(
       MenuTheme.of(context).style,
     );
-    final shape =
-        menuStyle.shape?.resolve({}) ??
-        const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(4)),
-        );
+    final shape = menuStyle.shape?.resolve({}) ?? appControlShape;
 
     return AnimatedBuilder(
       animation: _animation,

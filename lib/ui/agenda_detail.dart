@@ -8,6 +8,7 @@ import 'agenda_operations.dart';
 import 'completion_text.dart';
 import 'external_link.dart';
 import 'sheet_layout.dart';
+import 'design.dart';
 
 Future<void> showAgendaEntry(
   BuildContext pageContext,
@@ -17,7 +18,6 @@ Future<void> showAgendaEntry(
   context: pageContext,
   useSafeArea: true,
   isScrollControlled: true,
-  constraints: const BoxConstraints(maxWidth: 560),
   builder: (sheetContext) => ListenableBuilder(
     listenable: controller.agenda,
     builder: (context, _) {
@@ -59,71 +59,66 @@ Future<void> showAgendaEntry(
       return SafeArea(
         top: false,
         child: SheetLayout(
-          header: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 8, 0),
-            child: Row(
+          header: SheetHeader(
+            title: Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 12,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        current.kind.label,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                      if (status != null)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              current.done
-                                  ? Icons.check_circle_outline_rounded
-                                  : Icons.schedule_rounded,
-                              size: 15,
-                              color: statusColor,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              status,
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: statusColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
+                Text(
+                  current.kind.label,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: scheme.onSurfaceVariant,
                   ),
                 ),
-                IconButton(
-                  tooltip: '删除',
-                  onPressed: controller.agenda.busy
-                      ? null
-                      : () async {
-                          if (await deleteAgendaEntry(
-                                context,
-                                controller,
-                                current,
-                              ) &&
-                              sheetContext.mounted) {
-                            Navigator.pop(sheetContext);
-                          }
-                        },
-                  icon: const Icon(Icons.delete_outline, size: 20),
-                ),
-                IconButton(
-                  tooltip: '关闭',
-                  onPressed: () => Navigator.pop(sheetContext),
-                  icon: const Icon(Icons.close_rounded, size: 20),
-                ),
+                if (status != null)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        current.done
+                            ? Icons.check_circle_outline_rounded
+                            : Icons.schedule_rounded,
+                        size: 15,
+                        color: statusColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        status,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: statusColor,
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
+            actions: [
+              IconButton(
+                tooltip: '删除',
+                onPressed: controller.agenda.busy
+                    ? null
+                    : () async {
+                        if (await deleteAgendaEntry(
+                              context,
+                              controller,
+                              current,
+                            ) &&
+                            sheetContext.mounted) {
+                          Navigator.pop(sheetContext);
+                        }
+                      },
+                icon: const Icon(Icons.delete_outline, size: 20),
+              ),
+              IconButton(
+                tooltip: '关闭',
+                onPressed: () => Navigator.pop(sheetContext),
+                icon: const Icon(Icons.close_rounded, size: 20),
+              ),
+            ],
           ),
           content: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            padding: appSheetContentPadding,
             child: SelectionArea(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -208,7 +203,7 @@ Future<void> showAgendaEntry(
           actions: SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 24, 16),
+              padding: appSheetActionPadding,
               child: current.isDeadline
                   ? OverflowBar(
                       alignment: MainAxisAlignment.spaceBetween,

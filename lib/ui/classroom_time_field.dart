@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../classrooms/model.dart';
 import '../schedule/model.dart';
 import 'app_dropdown_field.dart';
+import 'design.dart';
 
 enum _TimePreset { all, current, morning, afternoon, evening, custom }
 
@@ -172,7 +173,7 @@ class _ClassroomTimeDialogState extends State<_ClassroomTimeDialog> {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: scheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: AppCorners.control,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

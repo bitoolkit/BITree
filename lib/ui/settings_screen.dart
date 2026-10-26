@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_controller.dart';
 import '../app_version.dart';
 import 'app_menu_anchor.dart';
+import 'app_menu_trigger.dart';
 import 'app_page.dart';
 import 'external_link.dart';
 import 'logs_screen.dart';
@@ -199,22 +200,6 @@ class SettingsScreen extends StatelessWidget {
             SegmentedButton<ThemeMode>(
               expandedInsets: EdgeInsets.zero,
               showSelectedIcon: false,
-              style: SegmentedButton.styleFrom(
-                minimumSize: const Size(48, 44),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 10,
-                ),
-                textStyle: const TextStyle(fontSize: 14),
-                backgroundColor: scheme.surfaceContainerLow,
-                foregroundColor: scheme.onSurfaceVariant,
-                selectedBackgroundColor: scheme.primaryContainer,
-                selectedForegroundColor: scheme.onPrimaryContainer,
-                side: BorderSide(color: scheme.outlineVariant),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
               segments: const [
                 ButtonSegment(
                   value: ThemeMode.system,
@@ -254,12 +239,7 @@ class SettingsScreen extends StatelessWidget {
                     leading: const Icon(Icons.calendar_month_outlined),
                     title: const Text('学期'),
                     subtitle: Text(controller.schedule!.termLabel),
-                    trailing: Icon(
-                      isOpen
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
-                      size: 18,
-                    ),
+                    trailing: AppMenuArrow(isOpen: isOpen),
                     onTap: controller.busy
                         ? null
                         : () => isOpen ? menu.close() : menu.open(),

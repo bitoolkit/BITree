@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 import 'sheet_layout.dart';
+import 'design.dart';
 
 Future<void> showWidgetGuide(BuildContext context) =>
     showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
-      constraints: const BoxConstraints(maxWidth: 560),
       builder: (context) {
         final theme = Theme.of(context);
 
@@ -34,23 +34,18 @@ Future<void> showWidgetGuide(BuildContext context) =>
         return SafeArea(
           top: false,
           child: SheetLayout(
-            header: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 8, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text('桌面日程表', style: theme.textTheme.titleLarge),
-                  ),
-                  IconButton(
-                    tooltip: '关闭',
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded, size: 20),
-                  ),
-                ],
-              ),
+            header: SheetHeader(
+              title: const Text('桌面日程表'),
+              actions: [
+                IconButton(
+                  tooltip: '关闭',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                ),
+              ],
             ),
             content: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              padding: appSheetContentPadding,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -80,7 +75,7 @@ Future<void> showWidgetGuide(BuildContext context) =>
               ),
             ),
             actions: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              padding: appSheetActionPadding,
               child: FilledButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text('知道了'),

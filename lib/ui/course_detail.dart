@@ -9,6 +9,7 @@ import 'course_editor.dart';
 import 'sheet_layout.dart';
 import 'theme.dart';
 import 'wencui_map_screen.dart';
+import 'design.dart';
 
 Future<void> showCourse(
   BuildContext context,
@@ -18,7 +19,6 @@ Future<void> showCourse(
   context: context,
   useSafeArea: true,
   isScrollControlled: true,
-  constraints: const BoxConstraints(maxWidth: 560),
   builder: (sheetContext) => ListenableBuilder(
     listenable: controller,
     builder: (_, _) => _CourseDetails(
@@ -98,9 +98,8 @@ class _CourseDetails extends StatelessWidget {
     return SafeArea(
       top: false,
       child: SheetLayout(
-        header: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 8, 12),
-          child: Row(
+        header: SheetHeader(
+          title: Row(
             children: [
               Container(
                 width: 4,
@@ -112,19 +111,18 @@ class _CourseDetails extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(child: _CopyableCourseName(name: course.name)),
-              const SizedBox(width: 8),
-              IconButton(
-                tooltip: '关闭',
-                onPressed: controller.busy
-                    ? null
-                    : () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded, size: 20),
-              ),
             ],
           ),
+          actions: [
+            IconButton(
+              tooltip: '关闭',
+              onPressed: controller.busy ? null : () => Navigator.pop(context),
+              icon: const Icon(Icons.close_rounded, size: 20),
+            ),
+          ],
         ),
         content: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          padding: appSheetContentPadding,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,7 +152,7 @@ class _CourseDetails extends StatelessWidget {
           ),
         ),
         actions: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          padding: appSheetActionPadding,
           child: Row(
             children: [
               Expanded(

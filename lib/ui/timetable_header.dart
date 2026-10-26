@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_controller.dart';
 import '../schedule/model.dart';
 import 'calendar_list.dart';
+import 'design.dart';
 
 class TimetableHeader extends StatelessWidget {
   const TimetableHeader({
@@ -89,7 +90,9 @@ class _DateHeading extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 4),
           decoration: BoxDecoration(
             color: current ? todayBackground : null,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+            borderRadius: const BorderRadius.vertical(
+              top: AppCorners.controlRadius,
+            ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -113,7 +116,7 @@ class _DateHeading extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: current ? scheme.primary : null,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: AppCorners.control,
                   ),
                   child: Text(
                     '${date.day}',
@@ -137,7 +140,7 @@ class _DateHeading extends StatelessWidget {
                   decoration: agendaCount > 0
                       ? BoxDecoration(
                           color: scheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(5),
+                          borderRadius: AppCorners.compact,
                         )
                       : null,
                   child: Text(

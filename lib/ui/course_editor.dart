@@ -19,7 +19,6 @@ Future<void> editCourse(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
-  constraints: const BoxConstraints(maxWidth: 560),
   builder: (_) => _CourseEditor(
     controller: controller,
     course: course,

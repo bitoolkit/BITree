@@ -5,6 +5,7 @@ import '../agenda/model.dart';
 import '../app_controller.dart';
 import '../schedule/model.dart';
 import 'calendar_list.dart';
+import 'design.dart';
 import 'conflicting_courses.dart';
 import 'course_tile.dart';
 
@@ -57,7 +58,7 @@ class CalendarBlockTile extends StatelessWidget {
         child: Material(
           color: background,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: AppCorners.compact,
             side: BorderSide(
               color: exam ? scheme.error : scheme.outlineVariant,
               width: exam ? 1 : 0.7,

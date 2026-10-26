@@ -10,6 +10,7 @@ import '../wencui/atlas.dart';
 import '../wencui/place.dart';
 import 'app_dropdown_field.dart';
 import 'external_link.dart';
+import 'design.dart';
 
 class WencuiMapScreen extends StatefulWidget {
   const WencuiMapScreen({
@@ -152,6 +153,7 @@ class _WencuiMapScreenState extends State<WencuiMapScreen> {
   Widget _searchBar(bool narrow, WencuiAtlas atlas) => SearchAnchor(
     searchController: _search,
     isFullScreen: narrow,
+    viewShape: narrow ? const RoundedRectangleBorder() : null,
     viewHintText: '教室号、课程名、楼梯或电梯',
     viewOnSubmitted: (query) {
       final place = WencuiPlace.parse(query);
@@ -163,14 +165,6 @@ class _WencuiMapScreenState extends State<WencuiMapScreen> {
       hintText: '找教室，如 F704',
       onTap: controller.openView,
       leading: const Icon(Icons.search_rounded),
-      constraints: const BoxConstraints(minHeight: 48),
-      elevation: const WidgetStatePropertyAll(0),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
-      ),
     ),
   );
 
@@ -627,7 +621,7 @@ class _FloorMapState extends State<_FloorMap>
               top: 8,
               child: Material(
                 color: scheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: AppCorners.compact,
                 child: const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   child: Text('上东 · 左北'),
@@ -640,7 +634,7 @@ class _FloorMapState extends State<_FloorMap>
                 top: 8,
                 child: Material(
                   color: scheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: AppCorners.compact,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -655,7 +649,7 @@ class _FloorMapState extends State<_FloorMap>
               bottom: 12,
               child: Material(
                 color: scheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: AppCorners.control,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

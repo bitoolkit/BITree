@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../agenda/controller.dart';
 import '../agenda/model.dart';
 import 'app_notice.dart';
+import 'design.dart';
 import 'sheet_layout.dart';
 
 Future<void> showDeletedDeadlines(
@@ -12,7 +13,6 @@ Future<void> showDeletedDeadlines(
   context: context,
   useSafeArea: true,
   isScrollControlled: true,
-  constraints: const BoxConstraints(maxWidth: 560),
   builder: (sheetContext) => ListenableBuilder(
     listenable: controller,
     builder: (context, _) {
@@ -38,23 +38,15 @@ Future<void> showDeletedDeadlines(
       return SafeArea(
         top: false,
         child: SheetLayout(
-          header: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 4, 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '已删除的 DDL',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                IconButton(
-                  tooltip: '关闭',
-                  onPressed: () => Navigator.pop(sheetContext),
-                  icon: const Icon(Icons.close_rounded, size: 20),
-                ),
-              ],
-            ),
+          header: SheetHeader(
+            title: const Text('已删除的 DDL'),
+            actions: [
+              IconButton(
+                tooltip: '关闭',
+                onPressed: () => Navigator.pop(sheetContext),
+                icon: const Icon(Icons.close_rounded, size: 20),
+              ),
+            ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -67,6 +59,7 @@ Future<void> showDeletedDeadlines(
               for (final entry in entries)
                 ListTile(
                   key: ValueKey(entry.id),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 24),
                   title: Text(
                     entry.title,
                     maxLines: 2,
@@ -91,7 +84,7 @@ Future<void> showDeletedDeadlines(
           actions: SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: appSheetActionPadding,
               child: FilledButton(
                 onPressed: controller.busy || entries.isEmpty
                     ? null

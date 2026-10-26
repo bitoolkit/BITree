@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'app_page.dart';
+import 'design.dart';
 
 OverlayEntry? _notice;
 Timer? _dismissTimer;
@@ -51,7 +52,7 @@ void showOverlayNotice(
                 behavior: HitTestBehavior.opaque,
                 child: Material(
                   color: theme.colorScheme.inverseSurface,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: AppCorners.control,
                   elevation: 6,
                   child: Semantics(
                     liveRegion: true,

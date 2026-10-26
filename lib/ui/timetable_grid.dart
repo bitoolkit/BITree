@@ -13,6 +13,7 @@ import '../schedule/time_position.dart';
 import 'add_menu.dart';
 import 'calendar_block.dart';
 import 'current_time_indicator.dart';
+import 'design.dart';
 
 class TimetableGrid extends StatefulWidget {
   const TimetableGrid({
@@ -334,7 +335,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                                       color: scheme.primary,
                                       width: 1.5,
                                     ),
-                                    borderRadius: BorderRadius.circular(6),
+                                    borderRadius: AppCorners.compact,
                                   ),
                                 ),
                               ),

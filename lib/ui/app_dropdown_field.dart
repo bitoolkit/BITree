@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app_menu_anchor.dart';
+import 'design.dart';
+import 'app_menu_trigger.dart';
 
 class AppDropdownField<T> extends StatefulWidget {
   const AppDropdownField({
@@ -99,7 +101,7 @@ class _AppDropdownFieldState<T> extends State<AppDropdownField<T>> {
               expanded: isOpen,
               onTap: enabled ? toggle : null,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 48),
+                constraints: BoxConstraints(minHeight: appControlSize.height),
                 child: InkWell(
                   focusNode: _focusNode,
                   canRequestFocus: enabled,
@@ -107,7 +109,7 @@ class _AppDropdownFieldState<T> extends State<AppDropdownField<T>> {
                       setState(() => _focused = focused),
                   onTap: enabled ? toggle : null,
                   excludeFromSemantics: true,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: AppCorners.control,
                   child: ExcludeSemantics(
                     child: InputDecorator(
                       isFocused: _focused || isOpen,
@@ -119,12 +121,7 @@ class _AppDropdownFieldState<T> extends State<AppDropdownField<T>> {
                           width: 36,
                           height: 44,
                         ),
-                        suffixIcon: Icon(
-                          isOpen
-                              ? Icons.expand_less_rounded
-                              : Icons.expand_more_rounded,
-                          size: 18,
-                        ),
+                        suffixIcon: AppMenuArrow(isOpen: isOpen),
                       ),
                       child: Text(
                         selected.label,

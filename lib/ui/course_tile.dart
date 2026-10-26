@@ -4,6 +4,7 @@ import '../app_controller.dart';
 import '../schedule/model.dart';
 import 'course_detail.dart';
 import 'theme.dart';
+import 'design.dart';
 
 class CourseTile extends StatelessWidget {
   const CourseTile({
@@ -33,7 +34,7 @@ class CourseTile extends StatelessWidget {
           child: Material(
             color: colors.fill,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: AppCorners.compact,
               side: isCurrent
                   ? BorderSide(color: colors.accent, width: 1.5)
                   : BorderSide.none,

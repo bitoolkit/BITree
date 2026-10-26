@@ -6,6 +6,7 @@ import '../schedule/model.dart';
 import 'add_menu.dart';
 import 'agenda_list_tile.dart';
 import 'app_menu_anchor.dart';
+import 'app_menu_trigger.dart';
 import 'app_page.dart';
 import 'pull_to_reveal_list.dart';
 import 'school_import_button.dart';
@@ -193,8 +194,7 @@ class _AgendaKindFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final scheme = Theme.of(context).colorScheme;
 
     return AppMenuAnchor(
       menuChildren: [
@@ -215,37 +215,14 @@ class _AgendaKindFilter extends StatelessWidget {
             ),
           ),
       ],
-      builder: (context, menu, isOpen) => Semantics(
-        label: '日程类型',
-        expanded: isOpen,
-        child: TextButton(
-          onPressed: () => isOpen ? menu.close() : menu.open(),
-          style: TextButton.styleFrom(
-            foregroundColor: value == null
-                ? scheme.onSurfaceVariant
-                : scheme.primary,
-            minimumSize: const Size(48, 48),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            textStyle: theme.textTheme.bodyMedium,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  value?.label ?? '全部',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                isOpen ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                size: 18,
-              ),
-            ],
-          ),
-        ),
+      builder: (context, menu, isOpen) => AppMenuTrigger(
+        label: value?.label ?? '全部',
+        semanticsLabel: '日程类型',
+        isOpen: isOpen,
+        foregroundColor: value == null
+            ? scheme.onSurfaceVariant
+            : scheme.primary,
+        onPressed: () => isOpen ? menu.close() : menu.open(),
       ),
     );
   }
