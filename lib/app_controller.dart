@@ -167,17 +167,14 @@ class AppController extends ChangeNotifier {
     required VerifySchoolLogin verify,
   }) => _readSchool('加载教学楼', fetchClassroomDirectory, verify);
 
-  Future<List<ClassroomOccupancy>?> classroomOccupancy({
-    required String buildingCode,
+  Future<List<BuildingOccupancy>?> classroomOccupancy({
+    required List<SchoolBuilding> buildings,
     required DateTime date,
     required VerifySchoolLogin verify,
   }) => _readSchool(
     '查询空教室',
-    (session) => fetchClassroomOccupancy(
-      session,
-      buildingCode: buildingCode,
-      date: date,
-    ),
+    (session) =>
+        fetchClassroomOccupancy(session, buildings: buildings, date: date),
     verify,
   );
 

@@ -28,18 +28,19 @@ Future<ClassroomDirectory> fetchClassroomDirectory(
     ],
     buildings: [
       for (final row in buildings)
-        SchoolBuilding(
-          code: row['JXLDM'] as String,
-          name: row['JXLMC'] as String,
-          campusCode: row['XXXQDM'] as String?,
-        ),
+        if ((row['JXLMC'] as String).trim() != '文萃楼')
+          SchoolBuilding(
+            code: row['JXLDM'] as String,
+            name: row['JXLMC'] as String,
+            campusCode: row['XXXQDM'] as String?,
+          ),
     ],
   );
 }
 
-Future<List<ClassroomOccupancy>> fetchClassroomOccupancy(
+Future<List<BuildingOccupancy>> fetchClassroomOccupancy(
   SchoolSession session, {
-  required String buildingCode,
+  required List<SchoolBuilding> buildings,
   required DateTime date,
 }) async {
   await _openClassroomApp(session, 'kxjas');
@@ -53,12 +54,33 @@ Future<List<ClassroomOccupancy>> fetchClassroomOccupancy(
     'XQ': term['XQDM'].toString(),
   });
 
-  const pageSize = 50;
   final form = {
     'XNXQDM': term['DM'] as String,
     'ZC': day['ZC'].toString(),
     'XQ': day['XQJ'].toString(),
     'RQ': dateText(date),
+  };
+
+  final result = <BuildingOccupancy>[];
+  for (final building in buildings) {
+    result.add(
+      BuildingOccupancy(
+        building: building,
+        rooms: await _buildingOccupancy(session, building.code, form),
+      ),
+    );
+  }
+  return result;
+}
+
+Future<List<ClassroomOccupancy>> _buildingOccupancy(
+  SchoolSession session,
+  String buildingCode,
+  Map<String, String> date,
+) async {
+  const pageSize = 50;
+  final form = {
+    ...date,
     'querySetting': jsonEncode([
       {
         'name': 'JXLDM',

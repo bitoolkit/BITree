@@ -1,5 +1,32 @@
 import '../schedule/model.dart';
 
+typedef ClassroomPeriod = ({int start, int end});
+
+extension ClassroomPeriodLabels on ClassroomPeriod {
+  String get timeLabel =>
+      '${sectionTimes[start - 1].$1}–${sectionTimes[end - 1].$2}';
+
+  String get sectionLabel => start == end ? '第$start节' : '第$start–$end节';
+
+  bool contains(int section) => start <= section && section <= end;
+
+  bool includes(ClassroomPeriod other) =>
+      start <= other.start && end >= other.end;
+}
+
+int? currentClassroomSection(DateTime now) {
+  int minutes(String time) {
+    final parts = time.split(':');
+    return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+  }
+
+  final minute = now.hour * 60 + now.minute;
+  final index = sectionTimes.indexWhere(
+    (time) => minutes(time.$1) <= minute && minute < minutes(time.$2),
+  );
+  return index < 0 ? null : index + 1;
+}
+
 class SchoolCampus {
   const SchoolCampus({required this.code, required this.name});
 
@@ -26,26 +53,43 @@ class ClassroomDirectory {
   final List<SchoolBuilding> buildings;
 }
 
+class BuildingOccupancy {
+  const BuildingOccupancy({required this.building, required this.rooms});
+
+  final SchoolBuilding building;
+  final List<ClassroomOccupancy> rooms;
+}
+
 class ClassroomOccupancy {
   const ClassroomOccupancy({required this.name, required this.busySections});
 
   final String name;
   final Set<int> busySections;
 
-  /// The continuous free period containing the entire requested range.
-  ({int start, int end})? freePeriod(int start, int end) {
-    for (var section = start; section <= end; section++) {
-      if (busySections.contains(section)) return null;
+  List<({ClassroomPeriod period, bool busy})> get periods {
+    final result = <({ClassroomPeriod period, bool busy})>[];
+    for (var section = 1; section <= sectionTimes.length; section++) {
+      final busy = busySections.contains(section);
+      if (result.isNotEmpty && result.last.busy == busy) {
+        final previous = result.removeLast();
+        result.add((
+          period: (start: previous.period.start, end: section),
+          busy: busy,
+        ));
+      } else {
+        result.add((period: (start: section, end: section), busy: busy));
+      }
     }
-
-    var first = start;
-    var last = end;
-    while (first > 1 && !busySections.contains(first - 1)) {
-      first--;
-    }
-    while (last < sectionTimes.length && !busySections.contains(last + 1)) {
-      last++;
-    }
-    return (start: first, end: last);
+    return result;
   }
+
+  List<ClassroomPeriod> get freePeriods => [
+    for (final block in periods)
+      if (!block.busy) block.period,
+  ];
+
+  /// The continuous free period containing the entire requested range.
+  ClassroomPeriod? freePeriod(int start, int end) => freePeriods
+      .where((period) => period.includes((start: start, end: end)))
+      .firstOrNull;
 }
