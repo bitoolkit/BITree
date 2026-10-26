@@ -48,6 +48,7 @@ class CalendarBlockTile extends StatelessWidget {
       button: true,
       label: summary,
       child: Tooltip(
+        triggerMode: TooltipTriggerMode.manual,
         message: summary,
         child: Material(
           color: background,

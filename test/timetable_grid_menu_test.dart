@@ -9,6 +9,7 @@ import 'package:bitree/ui/app_dropdown_field.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:bitree/ui/timetable_grid.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _Agenda extends ChangeNotifier with Fake implements AgendaController {
@@ -68,9 +69,10 @@ void main() {
   Future<void> showGrid(
     WidgetTester tester, {
     VoidCallback? onOutsideTap,
+    Size size = const Size(800, 1000),
   }) async {
     tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.physicalSize = size;
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
     final controller = _Controller(schedule, _Agenda([event]));
@@ -187,32 +189,34 @@ void main() {
     expect(taps, 1);
   });
 
-  testWidgets('Outside taps close the same menu without changing its actions', (
-    tester,
-  ) async {
-    await showGrid(tester);
-    await openMenu(tester, day: 6, section: 9);
-    final panel = find.byWidgetPredicate(
-      (widget) => widget is Material && widget.elevation == 6,
-    );
-    final opened = tester.getRect(panel);
-    var height = opened.height;
-    final gesture = await tester.startGesture(cell(tester, 3, 7));
-    await tester.pump();
-    await gesture.up();
-    for (var frame = 0; frame < 15; frame++) {
-      await tester.pump(const Duration(milliseconds: 16));
-      expect(find.text('添加 DDL'), findsNothing);
-      if (panel.evaluate().isEmpty) break;
-      final closing = tester.getRect(panel);
-      expect(closing.height, lessThanOrEqualTo(height));
-      expect(closing.left, closeTo(opened.left, 0.1));
-      expect(closing.top, closeTo(opened.top, 0.1));
-      height = closing.height;
-    }
-    await tester.pumpAndSettle();
-    expectClosed(tester);
-  });
+  for (final kind in [PointerDeviceKind.touch, PointerDeviceKind.mouse]) {
+    testWidgets('$kind outside taps keep the closing menu actions unchanged', (
+      tester,
+    ) async {
+      await showGrid(tester);
+      await openMenu(tester, day: 6, section: 9);
+      final panel = find.byWidgetPredicate(
+        (widget) => widget is Material && widget.elevation == 6,
+      );
+      final opened = tester.getRect(panel);
+      var height = opened.height;
+      final gesture = await tester.startGesture(cell(tester, 3, 7), kind: kind);
+      await tester.pump();
+      await gesture.up();
+      for (var frame = 0; frame < 15; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(find.text('添加 DDL'), findsNothing);
+        if (panel.evaluate().isEmpty) break;
+        final closing = tester.getRect(panel);
+        expect(closing.height, lessThanOrEqualTo(height));
+        expect(closing.left, closeTo(opened.left, 0.1));
+        expect(closing.top, closeTo(opened.top, 0.1));
+        height = closing.height;
+      }
+      await tester.pumpAndSettle();
+      expectClosed(tester);
+    });
+  }
 
   testWidgets('Cancelled drags clear the selection and a new drag can finish', (
     tester,
@@ -244,6 +248,79 @@ void main() {
     expect(addCourse, findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final (kind, day, start, end) in [
+    (PointerDeviceKind.mouse, 1, 2, 5),
+    (PointerDeviceKind.touch, 4, 2, 5),
+    (PointerDeviceKind.touch, 4, 3, 6),
+    (PointerDeviceKind.touch, 5, 5, 7),
+    (PointerDeviceKind.mouse, 4, 4, 2),
+    (PointerDeviceKind.mouse, 5, 4, 6),
+  ]) {
+    testWidgets('$kind selects day $day from $start through $end', (
+      tester,
+    ) async {
+      await showGrid(tester);
+      final gesture = await tester.startGesture(
+        cell(tester, day, start),
+        kind: kind,
+      );
+      if (kind == PointerDeviceKind.touch) {
+        await tester.pump(const Duration(milliseconds: 600));
+      }
+      await gesture.moveTo(cell(tester, day, end));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(addCourse, findsOneWidget);
+      expect(find.byType(BottomSheet), findsNothing);
+      final selection = tester.widget<AddMenu>(find.byType(AddMenu)).selection!;
+      expect(selection.date, monday.add(Duration(days: day)));
+      expect(selection.startSection, start < end ? start : end);
+      expect(selection.endSection, start > end ? start : end);
+      if (kind == PointerDeviceKind.touch && day == 4 && start == 3) {
+        await tester.tap(addCourse);
+        await tester.pumpAndSettle();
+        for (final (label, section) in [('开始节次', 3), ('结束节次', 6)]) {
+          final field = find.byWidgetPredicate(
+            (widget) =>
+                widget is AppDropdownField<int> && widget.label == label,
+          );
+          expect(tester.widget<AppDropdownField<int>>(field).value, section);
+        }
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'Releasing an edge drag stops scrolling and keeps the menu open',
+    (tester) async {
+      await showGrid(tester, size: const Size(390, 600));
+      final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+      final start = cell(tester, 0, 2);
+      final gesture = await tester.startGesture(start);
+      await tester.pump(const Duration(milliseconds: 600));
+      await gesture.moveTo(Offset(start.dx, 596));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(scrollable.position.pixels, greaterThan(0));
+      expect(scrollable.position.isScrollingNotifier.value, isTrue);
+      await gesture.up();
+      final releasedOffset = scrollable.position.pixels;
+      for (var frame = 0; frame < 24; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(scrollable.position.isScrollingNotifier.value, isFalse);
+      expect(addCourse, findsOneWidget);
+      expect(scrollable.position.pixels, releasedOffset);
+      final offset = scrollable.position.pixels;
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(scrollable.position.pixels, offset);
+      expect(addCourse, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('Menu actions retain the selected date and section', (
     tester,

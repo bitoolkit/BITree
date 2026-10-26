@@ -93,6 +93,7 @@ class ConflictingCourses extends StatelessWidget {
       label: '${courses.length}门课程时间重叠，$summary，选择课程',
       child: ExcludeSemantics(
         child: Tooltip(
+          triggerMode: TooltipTriggerMode.manual,
           message: summary,
           child: Material(
             color: fill,

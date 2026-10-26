@@ -28,6 +28,7 @@ class CourseTile extends StatelessWidget {
           '${course.name}，${course.timeLabel}，${course.room}${isToday ? '，今天' : ''}，查看详情',
       child: ExcludeSemantics(
         child: Tooltip(
+          triggerMode: TooltipTriggerMode.manual,
           message: '${course.name}\n${course.room}\n${course.teacher}',
           child: Material(
             color: colors.fill,
