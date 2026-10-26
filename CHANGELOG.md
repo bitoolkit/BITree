@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- fix(schedule): dismiss add menu before handling grid taps ([dad60c9](https://github.com/so1ve/bitree/commit/dad60c9be8d6f1b3f90122b567fda434eebfb42a))
 - feat(release): migrate dev builds to versioned prereleases ([2704117](https://github.com/so1ve/bitree/commit/2704117a5570be59c87219cb72a04ef4fb84afdf))
 - fix(academics): constrain simulation dialog before layout ([7bcd7ff](https://github.com/so1ve/bitree/commit/7bcd7ff41e4a28a583e124420bdd80c59814d2a6))
 - Revert "fix(release): keep dev builds at the top of releases" ([ea3e867](https://github.com/so1ve/bitree/commit/ea3e867eb6b97d11b6a76c3043ac0771379efa1f))
