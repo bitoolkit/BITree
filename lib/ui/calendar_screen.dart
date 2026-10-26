@@ -54,7 +54,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
       actions: [
         AddButton(controller: controller, includeCourse: false),
-        SchoolImportButton(controller: controller, includeSchedule: false),
+        SchoolImportButton(controller: controller),
       ],
       child: SwipePager(
         index: _status,

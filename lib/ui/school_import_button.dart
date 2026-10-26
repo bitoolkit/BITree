@@ -6,31 +6,25 @@ import 'deleted_deadlines.dart';
 import 'school_screen.dart';
 
 class SchoolImportButton extends StatelessWidget {
-  const SchoolImportButton({
-    super.key,
-    required this.controller,
-    this.includeSchedule = true,
-  });
+  const SchoolImportButton({super.key, required this.controller});
   final AppController controller;
-  final bool includeSchedule;
 
   @override
   Widget build(BuildContext context) {
     final busy = controller.busy || controller.schoolBusy;
     return AppMenuAnchor(
       menuChildren: [
-        if (includeSchedule)
-          AppMenuItemButton(
-            leadingIcon: const Icon(Icons.input_rounded),
-            onPressed: busy
-                ? null
-                : () => openSchoolPage(
-                    context,
-                    controller,
-                    action: SchoolAction.importSchedule,
-                  ),
-            child: const Text('导入课表'),
-          ),
+        AppMenuItemButton(
+          leadingIcon: const Icon(Icons.input_rounded),
+          onPressed: busy
+              ? null
+              : () => openSchoolPage(
+                  context,
+                  controller,
+                  action: SchoolAction.importSchedule,
+                ),
+          child: const Text('导入课表'),
+        ),
         AppMenuItemButton(
           leadingIcon: const Icon(Icons.edit_note_rounded),
           onPressed: busy || !controller.agenda.ready
