@@ -126,7 +126,13 @@ class _AgendaListTileState extends State<AgendaListTile> {
                 children: [
                   SizedBox.square(
                     dimension: 44,
-                    child: entry.isDeadline
+                    child: _deleteArmed
+                        ? IconButton(
+                            tooltip: '取消删除',
+                            onPressed: _cancelDelete,
+                            icon: const Icon(Icons.close_rounded, size: 20),
+                          )
+                        : entry.isDeadline
                         ? Tooltip(
                             message: entry.done ? '标为未完成' : '标记完成',
                             child: Checkbox(
@@ -159,18 +165,16 @@ class _AgendaListTileState extends State<AgendaListTile> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (_deleteArmed || subtitle.isNotEmpty) ...[
+                        if (subtitle.isNotEmpty) ...[
                           const SizedBox(height: 5),
                           Text(
-                            _deleteArmed ? '再次左滑删除' : subtitle,
+                            subtitle,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 12,
                               height: 1.45,
-                              color: _deleteArmed
-                                  ? scheme.onErrorContainer
-                                  : scheme.onSurfaceVariant,
+                              color: scheme.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -178,50 +182,58 @@ class _AgendaListTileState extends State<AgendaListTile> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  if (_deleteArmed)
-                    IconButton(
-                      tooltip: '取消删除',
-                      onPressed: _cancelDelete,
-                      icon: const Icon(Icons.close_rounded, size: 20),
-                    )
-                  else
-                    SizedBox(
-                      width: MediaQuery.textScalerOf(context).scale(72),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            agendaClockLabel(entry),
-                            style: TextStyle(
-                              fontSize: 16,
-                              height: 1.3,
-                              fontWeight: FontWeight.w500,
-                              color: timeColor,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                          if (caption.isNotEmpty) ...[
-                            const SizedBox(height: 5),
+                  SizedBox(
+                    width: MediaQuery.textScalerOf(context).scale(72),
+                    child: IndexedStack(
+                      index: _deleteArmed ? 1 : 0,
+                      alignment: Alignment.topRight,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
                             Text(
-                              caption,
-                              maxLines: 2,
-                              textAlign: TextAlign.right,
+                              agendaClockLabel(entry),
                               style: TextStyle(
-                                fontSize: 11,
-                                height: 1.4,
-                                color: entry.overdue(now)
-                                    ? scheme.error
-                                    : dueToday
-                                    ? scheme.primary
-                                    : scheme.onSurfaceVariant,
+                                fontSize: 16,
+                                height: 1.3,
+                                fontWeight: FontWeight.w500,
+                                color: timeColor,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
                               ),
                             ),
+                            if (caption.isNotEmpty) ...[
+                              const SizedBox(height: 5),
+                              Text(
+                                caption,
+                                maxLines: 2,
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  height: 1.4,
+                                  color: entry.overdue(now)
+                                      ? scheme.error
+                                      : dueToday
+                                      ? scheme.primary
+                                      : scheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
+                        ),
+                        Text(
+                          '再次左滑',
+                          semanticsLabel: '再次左滑删除',
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.45,
+                            color: scheme.onErrorContainer,
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
                 ],
               ),
             ),
