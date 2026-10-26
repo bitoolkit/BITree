@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- fix(academics): constrain simulation dialog before layout ([7bcd7ff](https://github.com/so1ve/bitree/commit/7bcd7ff41e4a28a583e124420bdd80c59814d2a6))
 - Revert "fix(release): keep dev builds at the top of releases" ([ea3e867](https://github.com/so1ve/bitree/commit/ea3e867eb6b97d11b6a76c3043ac0771379efa1f))
 - fix(schedule): measure wrapped text before applying ellipsis ([ef29827](https://github.com/so1ve/bitree/commit/ef298277564d2eabcadae7e1dae1fa3433767864))
 - fix(release): keep dev builds at the top of releases ([4a53f75](https://github.com/so1ve/bitree/commit/4a53f756f123c64dd42794a51cae249632f5d738))
