@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- fix(schedule): measure wrapped text before applying ellipsis ([ef29827](https://github.com/so1ve/bitree/commit/ef298277564d2eabcadae7e1dae1fa3433767864))
 - fix(release): keep dev builds at the top of releases ([4a53f75](https://github.com/so1ve/bitree/commit/4a53f756f123c64dd42794a51cae249632f5d738))
 - fix(ui): block notice tap-through and finish swipe dismissal ([b86defa](https://github.com/so1ve/bitree/commit/b86defa55e80a1afbc82ab071b31f471fd9197ce))
 - fix(schedule): fit course text to actual card space ([4d8aafa](https://github.com/so1ve/bitree/commit/4d8aafa237be22ca12117795f533a58fad4a1ae5))
