@@ -52,7 +52,9 @@ class _TimetableGridState extends State<TimetableGrid> {
 
   @override
   void dispose() {
+    _dragPosition = null;
     _autoScroller?.stopAutoScroll();
+    _autoScroller = null;
     super.dispose();
   }
 

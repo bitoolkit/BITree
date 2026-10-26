@@ -322,6 +322,24 @@ void main() {
     },
   );
 
+  testWidgets('Leaving the grid during edge scrolling releases the drag', (
+    tester,
+  ) async {
+    await showGrid(tester, size: const Size(390, 600));
+    final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+    final start = cell(tester, 0, 2);
+    final gesture = await tester.startGesture(start);
+    await tester.pump(const Duration(milliseconds: 600));
+    await gesture.moveTo(Offset(start.dx, 596));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(scrollable.position.isScrollingNotifier.value, isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Menu actions retain the selected date and section', (
     tester,
   ) async {
