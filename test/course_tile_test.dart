@@ -1,5 +1,7 @@
 import 'package:bitree/app_controller.dart';
+import 'package:bitree/agenda/calendar.dart';
 import 'package:bitree/schedule/model.dart';
+import 'package:bitree/ui/calendar_block.dart';
 import 'package:bitree/ui/course_tile.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
@@ -45,7 +47,6 @@ void main() {
                   course: shownCourse ?? course,
                   controller: _Controller(),
                   isToday: false,
-                  isCurrent: false,
                 ),
               ),
             ),
@@ -65,6 +66,63 @@ void main() {
     }
     expect(tester.takeException(), isNull);
   }
+
+  testWidgets('All today courses keep their outline regardless of class time', (
+    tester,
+  ) async {
+    final today = calendarDate(campusNow());
+    for (final brightness in Brightness.values) {
+      for (final dayOffset in [0, 7]) {
+        for (final section in [1, sectionTimes.length]) {
+          final date = today.add(Duration(days: dayOffset));
+          final shownCourse = Course(
+            id: 'section-$section',
+            name: '数据结构',
+            room: '综教B103',
+            weekday: date.weekday,
+            startSection: section,
+            endSection: section,
+            weeks: [1],
+          );
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: bitreeTheme(brightness),
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 70,
+                    height: 160,
+                    child: CalendarBlockTile(
+                      items: [CalendarItem.course(shownCourse, date)],
+                      controller: _Controller(),
+                      isToday: dayOffset == 0,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          final tile = find.byType(CourseTile);
+          final material = tester.widget<Material>(
+            find.descendant(of: tile, matching: find.byType(Material)).first,
+          );
+          final side = (material.shape! as RoundedRectangleBorder).side;
+          if (dayOffset == 0) {
+            expect(side.style, BorderStyle.solid);
+            expect(side.width, 1.5);
+            expect(
+              side.color,
+              courseColors(tester.element(tile), shownCourse).accent,
+            );
+          } else {
+            expect(side, BorderSide.none);
+          }
+          expect(tester.takeException(), isNull);
+        }
+      }
+    }
+  });
 
   testWidgets('Narrow cards show all wrapped text when it fits', (
     tester,

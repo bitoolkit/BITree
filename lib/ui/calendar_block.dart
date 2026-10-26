@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../agenda/calendar.dart';
 import '../agenda/model.dart';
 import '../app_controller.dart';
-import '../schedule/model.dart';
 import 'calendar_list.dart';
 import 'design.dart';
 import 'conflicting_courses.dart';
@@ -23,17 +22,12 @@ class CalendarBlockTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = campusNow();
     if (items.every((item) => item.course != null)) {
       return items.length == 1
           ? CourseTile(
               course: items.single.course!,
               controller: controller,
               isToday: isToday,
-              isCurrent:
-                  isToday &&
-                  !items.single.startsAt.isAfter(now) &&
-                  items.single.endsAt!.isAfter(now),
             )
           : ConflictingCourses(
               courses: items.map((item) => item.course!).toList(),

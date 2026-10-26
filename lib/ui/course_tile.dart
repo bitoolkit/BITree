@@ -12,13 +12,11 @@ class CourseTile extends StatelessWidget {
     required this.course,
     required this.controller,
     required this.isToday,
-    required this.isCurrent,
   });
 
   final Course course;
   final AppController controller;
   final bool isToday;
-  final bool isCurrent;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +33,7 @@ class CourseTile extends StatelessWidget {
             color: colors.fill,
             shape: RoundedRectangleBorder(
               borderRadius: AppCorners.compact,
-              side: isCurrent
+              side: isToday
                   ? BorderSide(color: colors.accent, width: 1.5)
                   : BorderSide.none,
             ),
