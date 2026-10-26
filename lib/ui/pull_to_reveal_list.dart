@@ -24,23 +24,12 @@ class PullToRevealList extends StatefulWidget {
 }
 
 class _PullToRevealListState extends State<PullToRevealList>
-    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin {
+  static const _current = ValueKey('current');
   static const _threshold = 64.0;
   static const _duration = Duration(milliseconds: 320);
   static const _collapseDuration = Duration(milliseconds: 260);
   final _scroll = ScrollController();
-  late final _reveal =
-      AnimationController(
-        vsync: this,
-        duration: _duration,
-        reverseDuration: _collapseDuration,
-      )..addStatusListener((status) {
-        if (status == AnimationStatus.dismissed) setState(() {});
-      });
-  late final _expansion = CurvedAnimation(
-    parent: _reveal,
-    curve: Curves.easeInOutCubic,
-  );
   bool _revealed = false;
   bool _dragging = false;
   double _pull = 0;
@@ -51,9 +40,17 @@ class _PullToRevealListState extends State<PullToRevealList>
   bool get wantKeepAlive => true;
 
   @override
+  void didUpdateWidget(covariant PullToRevealList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_revealed && widget.hiddenChildren.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _setRevealed(false);
+      });
+    }
+  }
+
+  @override
   void dispose() {
-    _expansion.dispose();
-    _reveal.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -87,86 +84,54 @@ class _PullToRevealListState extends State<PullToRevealList>
 
   Future<void> _setRevealed(bool value) async {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    if (!value && !reduceMotion && _scroll.hasClients && _scroll.offset > 0) {
-      // Bring the collapsing content into view before changing its height.
-      await _scroll.animateTo(
-        0,
-        duration: _collapseDuration,
-        curve: Curves.easeOutCubic,
-      );
-      if (!mounted) return;
-      // A new drag takes precedence over the collapse request.
-      if (_scroll.offset > 1) return;
+    if (value) {
+      setState(() {
+        _revealed = true;
+        _pull = 0;
+      });
+      // Lay out the history above the existing origin without moving the list.
+      await WidgetsBinding.instance.endOfFrame;
     }
+    if (!mounted || !_scroll.hasClients) return;
 
-    setState(() {
-      _revealed = value;
-      _pull = 0;
-    });
+    // The origin separates overdue and upcoming items. One viewport of history
+    // places its final item, the collapse button, at the bottom of the screen.
+    final target = value ? -_scroll.position.viewportDimension : 0.0;
     if (reduceMotion) {
-      _reveal.value = value ? 1 : 0;
-    } else if (value) {
-      _reveal.forward();
+      _scroll.jumpTo(target);
     } else {
-      _reveal.reverse();
+      await _scroll.animateTo(
+        target,
+        duration: value ? _duration : _collapseDuration,
+        curve: Curves.easeInOutCubic,
+      );
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scroll.hasClients) return;
-      if (reduceMotion) {
-        _scroll.jumpTo(0);
-      } else {
-        _scroll.animateTo(0, duration: _duration, curve: Curves.easeOutCubic);
-      }
-    });
+    if (!mounted) return;
+
+    // A new drag can cancel the scroll; keep history until it is offscreen.
+    if (!value && _scroll.offset.abs() < 1) {
+      setState(() {
+        _revealed = false;
+        _pull = 0;
+      });
+    }
   }
 
-  Widget _revealedList() => Padding(
+  Widget _history() => Padding(
     padding: const EdgeInsets.only(bottom: 24),
     child: Column(
-      // The footer uses spare space; tall lists keep their natural height.
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      // Short histories end at the same boundary as long, scrollable histories.
+      mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizeTransition(
-              sizeFactor: _expansion,
-              alignment: Alignment.topCenter,
-              child: FadeTransition(
-                opacity: _expansion,
-                child: AnimatedBuilder(
-                  animation: _expansion,
-                  builder: (context, child) => Transform.translate(
-                    offset: Offset(0, -32 * (1 - _expansion.value)),
-                    child: child,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: widget.hiddenChildren,
-                  ),
-                ),
-              ),
+        ...widget.hiddenChildren,
+        Center(
+          child: TextButton(
+            onPressed: () => _setRevealed(false),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
             ),
-            ...widget.children,
-          ],
-        ),
-        SizeTransition(
-          sizeFactor: _expansion,
-          alignment: Alignment.bottomCenter,
-          child: FadeTransition(
-            opacity: _expansion,
-            child: Center(
-              child: TextButton(
-                onPressed: () => _setRevealed(false),
-                style: TextButton.styleFrom(
-                  foregroundColor: Theme.of(context).colorScheme.error,
-                ),
-                child: const Text('收回'),
-              ),
-            ),
+            child: const Text('收回'),
           ),
         ),
       ],
@@ -211,27 +176,23 @@ class _PullToRevealListState extends State<PullToRevealList>
                     children: [
                       CustomScrollView(
                         controller: _scroll,
-                        physics: _canReveal
-                            ? const _TopPullPhysics(
-                                parent: AlwaysScrollableScrollPhysics(),
-                              )
-                            : const ClampingScrollPhysics(),
+                        center: _current,
+                        physics: const _TopPullPhysics(
+                          parent: AlwaysScrollableScrollPhysics(),
+                        ),
                         slivers: [
-                          if ((_revealed || !_reveal.isDismissed) &&
-                              widget.hiddenChildren.isNotEmpty)
+                          if (_revealed)
                             SliverFillRemaining(
                               hasScrollBody: false,
-                              child: _revealedList(),
-                            )
-                          else ...[
-                            AnimatedSliverChildren(
-                              key: const ValueKey('current'),
-                              children: widget.children,
+                              child: _history(),
                             ),
-                            const SliverPadding(
-                              padding: EdgeInsets.only(bottom: 24),
-                            ),
-                          ],
+                          AnimatedSliverChildren(
+                            key: _current,
+                            children: widget.children,
+                          ),
+                          const SliverPadding(
+                            padding: EdgeInsets.only(bottom: 24),
+                          ),
                         ],
                       ),
                       if (_canReveal && _pull > 0)
@@ -284,7 +245,7 @@ class _PullToRevealListState extends State<PullToRevealList>
   }
 }
 
-/// Bounces only at the top while the extra items are hidden.
+/// Bounces at the top while keeping the bottom edge clamped.
 class _TopPullPhysics extends BouncingScrollPhysics {
   const _TopPullPhysics({super.parent});
 
