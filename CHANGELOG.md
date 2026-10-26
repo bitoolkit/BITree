@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.2.0 - 2026-10-27
+
 - fix(agenda): delete on swipe and confirm button actions ([1272e35](https://github.com/so1ve/bitree/commit/1272e35bc407cb07d5e8ca42973b1bf76f366f83))
 - feat(classrooms): add Wencui building group filter ([9d6e675](https://github.com/so1ve/bitree/commit/9d6e6758f350bed69dabad625f6a6c26eaf5ecd5))
 - refactor(requests): cancel superseded classroom queries ([485a939](https://github.com/so1ve/bitree/commit/485a93957854b866eb52f0c376b1b7f62fc6562f))
