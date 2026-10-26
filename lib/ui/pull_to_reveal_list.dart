@@ -26,12 +26,17 @@ class PullToRevealList extends StatefulWidget {
 class _PullToRevealListState extends State<PullToRevealList>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   static const _threshold = 64.0;
-  static const _duration = Duration(milliseconds: 220);
+  static const _duration = Duration(milliseconds: 320);
+  static const _collapseDuration = Duration(milliseconds: 260);
   final _scroll = ScrollController();
-  late final _reveal = AnimationController(vsync: this, duration: _duration)
-    ..addStatusListener((status) {
-      if (status == AnimationStatus.dismissed) setState(() {});
-    });
+  late final _reveal =
+      AnimationController(
+        vsync: this,
+        duration: _duration,
+        reverseDuration: _collapseDuration,
+      )..addStatusListener((status) {
+        if (status == AnimationStatus.dismissed) setState(() {});
+      });
   late final _expansion = CurvedAnimation(
     parent: _reveal,
     curve: Curves.easeInOutCubic,
@@ -80,8 +85,20 @@ class _PullToRevealListState extends State<PullToRevealList>
     if (reveal) _setRevealed(true);
   }
 
-  void _setRevealed(bool value) {
+  Future<void> _setRevealed(bool value) async {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    if (!value && !reduceMotion && _scroll.hasClients && _scroll.offset > 0) {
+      // Bring the collapsing content into view before changing its height.
+      await _scroll.animateTo(
+        0,
+        duration: _collapseDuration,
+        curve: Curves.easeOutCubic,
+      );
+      if (!mounted) return;
+      // A new drag takes precedence over the collapse request.
+      if (_scroll.offset > 1) return;
+    }
+
     setState(() {
       _revealed = value;
       _pull = 0;
@@ -103,44 +120,56 @@ class _PullToRevealListState extends State<PullToRevealList>
     });
   }
 
-  Widget _revealedList(double viewportHeight) => AnimatedBuilder(
-    animation: _expansion,
-    builder: (context, child) => ConstrainedBox(
-      constraints: BoxConstraints(minHeight: viewportHeight * _expansion.value),
-      child: child,
-    ),
-    child: Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      // Align the entire list at the bottom only when it fits in the viewport.
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          SizeTransition(
-            sizeFactor: _expansion,
-            alignment: Alignment.topCenter,
-            child: FadeTransition(
-              opacity: _expansion,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ...widget.hiddenChildren,
-                  Center(
-                    child: TextButton(
-                      onPressed: () => _setRevealed(false),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Theme.of(context).colorScheme.error,
-                      ),
-                      child: const Text('收回'),
-                    ),
+  Widget _revealedList() => Padding(
+    padding: const EdgeInsets.only(bottom: 24),
+    child: Column(
+      // The footer uses spare space; tall lists keep their natural height.
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizeTransition(
+              sizeFactor: _expansion,
+              alignment: Alignment.topCenter,
+              child: FadeTransition(
+                opacity: _expansion,
+                child: AnimatedBuilder(
+                  animation: _expansion,
+                  builder: (context, child) => Transform.translate(
+                    offset: Offset(0, -32 * (1 - _expansion.value)),
+                    child: child,
                   ),
-                ],
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: widget.hiddenChildren,
+                  ),
+                ),
+              ),
+            ),
+            ...widget.children,
+          ],
+        ),
+        SizeTransition(
+          sizeFactor: _expansion,
+          alignment: Alignment.bottomCenter,
+          child: FadeTransition(
+            opacity: _expansion,
+            child: Center(
+              child: TextButton(
+                onPressed: () => _setRevealed(false),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                ),
+                child: const Text('收回'),
               ),
             ),
           ),
-          ...widget.children,
-        ],
-      ),
+        ),
+      ],
     ),
   );
 
@@ -190,13 +219,9 @@ class _PullToRevealListState extends State<PullToRevealList>
                         slivers: [
                           if ((_revealed || !_reveal.isDismissed) &&
                               widget.hiddenChildren.isNotEmpty)
-                            SliverLayoutBuilder(
-                              builder: (context, constraints) =>
-                                  SliverToBoxAdapter(
-                                    child: _revealedList(
-                                      constraints.viewportMainAxisExtent,
-                                    ),
-                                  ),
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: _revealedList(),
                             )
                           else ...[
                             AnimatedSliverChildren(
@@ -217,10 +242,28 @@ class _PullToRevealListState extends State<PullToRevealList>
                           height: math.min(_pull, 96),
                           child: IgnorePointer(
                             child: Center(
-                              child: Text(
-                                '${_pull >= _threshold ? '松开查看' : '下拉查看'}'
-                                '${widget.hiddenLabel}',
-                                style: TextStyle(color: scheme.error),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Transform.rotate(
+                                    angle:
+                                        math.pi *
+                                        (_pull / _threshold).clamp(0.0, 1.0),
+                                    child: Icon(
+                                      Icons.expand_more_rounded,
+                                      size: 20,
+                                      color: scheme.error,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      '${_pull >= _threshold ? '松开查看' : '下拉查看'}'
+                                      '${widget.hiddenLabel}',
+                                      style: TextStyle(color: scheme.error),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
