@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- docs: update README ([4e6c064](https://github.com/so1ve/bitree/commit/4e6c064d9ff322ecb1e5e7cef67b005c2e2e4269))
 - feat(agenda): animate overdue sections and share continuous paging ([4fc096b](https://github.com/so1ve/bitree/commit/4fc096bbe03fb6c7bb4a8ca6500b84f89add6fce))
 - docs: introduce BITree features and simplify release guidance ([1c42acb](https://github.com/so1ve/bitree/commit/1c42acb9300835b1ae18dc37ce7e31f80014c144))
 - perf(build): shrink release packages and separate debug symbols ([8aac505](https://github.com/so1ve/bitree/commit/8aac50507489e2ca0b5194839dd36fa3911a3ac9))
