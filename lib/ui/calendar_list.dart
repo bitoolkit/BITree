@@ -5,6 +5,7 @@ import '../agenda/model.dart';
 import '../app_controller.dart';
 import '../schedule/model.dart';
 import 'agenda_detail.dart';
+import 'agenda_time.dart';
 import 'completion_text.dart';
 import 'course_detail.dart';
 import 'sheet_layout.dart';
@@ -55,13 +56,23 @@ Future<void> showCalendarItems(
       top: false,
       child: SheetLayout(
         header: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 4, 4),
+          padding: const EdgeInsets.fromLTRB(24, 0, 8, 12),
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleLarge,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleLarge),
+                    if (items.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '${items.length}项日程',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
                 ),
               ),
               IconButton(
@@ -72,46 +83,206 @@ Future<void> showCalendarItems(
             ],
           ),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final item in items)
-              ListTile(
-                leading: Icon(
-                  item.entry == null
-                      ? Icons.school_outlined
-                      : agendaIcon(item.entry!.kind),
+        content: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var index = 0; index < items.length; index++) ...[
+                if (index > 0)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Divider(height: 1),
+                  ),
+                _CalendarItemRow(
+                  item: items[index],
+                  now: campusNow(),
+                  showDate: showDates,
+                  onTap: () => Navigator.pop(context, items[index]),
                 ),
-                title: CompletionText(
-                  item.title,
-                  completed: item.entry?.done == true,
+              ],
+              if (items.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 20, 12, 28),
+                  child: Text(
+                    emptyMessage,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ),
-                subtitle: CompletionText(
-                  [
-                    item.kindLabel,
-                    if (item.entry?.source != null) item.entry!.source!.label,
-                    if (item.entry?.course.isNotEmpty == true)
-                      item.entry!.course,
-                    if (showDates) agendaDateLabel(item.startsAt),
-                    item.timeLabel,
-                    if (item.location.isNotEmpty) item.location,
-                  ].join('\n'),
-                  completed: item.entry?.done == true,
-                ),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Navigator.pop(context, item),
-              ),
-            if (items.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(emptyMessage),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     ),
   );
   if (selected != null && context.mounted) {
     await openCalendarItem(context, controller, selected);
+  }
+}
+
+class _CalendarItemRow extends StatelessWidget {
+  const _CalendarItemRow({
+    required this.item,
+    required this.now,
+    required this.showDate,
+    required this.onTap,
+  });
+
+  final CalendarItem item;
+  final DateTime now;
+  final bool showDate;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final entry = item.entry;
+    final overdue = entry?.overdue(now) == true;
+    final dueToday =
+        entry?.isDeadline == true &&
+        !entry!.done &&
+        calendarDate(item.startsAt) == calendarDate(now);
+    final timeColor = overdue
+        ? scheme.error
+        : dueToday
+        ? scheme.primary
+        : scheme.onSurface;
+    final captionStyle = theme.textTheme.bodySmall?.copyWith(
+      color: overdue
+          ? scheme.error
+          : dueToday
+          ? scheme.primary
+          : scheme.onSurfaceVariant,
+    );
+    final clock = entry == null
+        ? clockText(item.startsAt)
+        : agendaClockLabel(entry);
+    final caption = entry == null
+        ? '${clockText(item.endsAt!)} 结束'
+        : agendaTimeCaption(entry, now);
+    final metadata = [
+      item.kindLabel,
+      if (entry?.source case final source?) source.label,
+    ].join(' · ');
+
+    Widget time({required bool inline}) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          clock,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontSize: 20,
+            height: 1.2,
+            color: timeColor,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+        if (!inline && caption.isNotEmpty) ...[
+          const SizedBox(height: 5),
+          Text(caption, style: captionStyle),
+        ],
+      ],
+    );
+
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CompletionText(
+          item.title,
+          completed: entry?.done == true,
+          style: theme.textTheme.titleMedium?.copyWith(fontSize: 17),
+        ),
+        if (entry?.course.isNotEmpty == true) ...[
+          const SizedBox(height: 5),
+          Text(
+            entry!.course,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+        if (item.location.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            item.location,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+        const SizedBox(height: 7),
+        Text(metadata, style: theme.textTheme.bodySmall),
+        if (showDate) ...[
+          const SizedBox(height: 4),
+          Text(
+            agendaDateLabel(item.startsAt),
+            style: theme.textTheme.bodySmall,
+          ),
+        ],
+      ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked =
+            constraints.maxWidth < 330 ||
+            MediaQuery.textScalerOf(context).scale(14) > 20;
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!stacked) ...[
+                    SizedBox(width: 76, child: time(inline: false)),
+                    const SizedBox(width: 16),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (stacked) ...[
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              time(inline: true),
+                              if (caption.isNotEmpty)
+                                Text(caption, style: captionStyle),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        content,
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Icon(
+                      Icons.chevron_right_rounded,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
