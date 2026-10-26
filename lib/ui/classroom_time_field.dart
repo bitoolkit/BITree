@@ -53,7 +53,6 @@ class ClassroomTimeField extends StatelessWidget {
     return AppDropdownField<_TimePreset>(
       label: '空闲时段',
       value: selected,
-      menuWidth: math.min(360, MediaQuery.sizeOf(context).width - 32),
       textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 13),
       entries: [
         for (final preset in [

@@ -14,7 +14,6 @@ class AppDropdownField<T> extends StatefulWidget {
     required this.onChanged,
     this.textStyle,
     this.maxLines = 1,
-    this.menuWidth,
   });
 
   final String label;
@@ -23,7 +22,6 @@ class AppDropdownField<T> extends StatefulWidget {
   final ValueChanged<T>? onChanged;
   final TextStyle? textStyle;
   final int? maxLines;
-  final double? menuWidth;
 
   @override
   State<AppDropdownField<T>> createState() => _AppDropdownFieldState<T>();
@@ -60,7 +58,9 @@ class _AppDropdownFieldState<T> extends State<AppDropdownField<T>> {
       builder: (context, constraints) => AppMenuAnchor(
         childFocusNode: _focusNode,
         onOpen: _scrollToSelection,
-        menuWidth: widget.menuWidth ?? constraints.maxWidth,
+        style: MenuStyle(
+          minimumSize: WidgetStatePropertyAll(Size(constraints.maxWidth, 0)),
+        ),
         menuChildren: [
           for (final entry in widget.entries)
             Semantics(

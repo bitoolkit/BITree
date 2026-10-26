@@ -1,5 +1,6 @@
 import 'package:bitree/ui/app_menu_anchor.dart';
 import 'package:bitree/ui/app_dropdown_field.dart';
+import 'package:bitree/ui/classroom_time_field.dart';
 import 'package:bitree/ui/app_page.dart';
 import 'package:bitree/ui/week_selector.dart';
 import 'package:bitree/app_controller.dart';
@@ -312,4 +313,63 @@ void main() {
     expect(_panel, findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  for (final (size, scale) in [
+    (const Size(390, 844), 1.0),
+    (const Size(390, 844), 1.8),
+    (const Size(1440, 900), 1.0),
+  ]) {
+    testWidgets('Classroom time menu fits its content at $size / $scale', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = size;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      ({int start, int end})? selected;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: bitreeTheme(Brightness.light),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: size.width < 600 ? (size.width - 40) / 2 : 220,
+                  child: ClassroomTimeField(
+                    value: null,
+                    date: DateTime.utc(2026, 10, 27),
+                    now: DateTime.utc(2026, 10, 27, 6),
+                    onChanged: (period) => selected = period,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final field = find.byType(ClassroomTimeField);
+      await tester.tap(field);
+      await tester.pumpAndSettle();
+      final panel = tester.getRect(_panel);
+      expect(panel.width, greaterThanOrEqualTo(tester.getSize(field).width));
+      expect(panel.top, closeTo(tester.getRect(field).bottom, 0.1));
+      expect(panel.left, greaterThanOrEqualTo(8));
+      expect(panel.right, lessThanOrEqualTo(size.width - 8));
+      if (scale == 1) expect(panel.width, lessThan(340));
+      final afternoon = find.text('下午');
+      await tester.ensureVisible(afternoon);
+      await tester.tap(afternoon);
+      await tester.pumpAndSettle();
+      expect(selected, (start: 6, end: 10));
+      expect(_panel, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

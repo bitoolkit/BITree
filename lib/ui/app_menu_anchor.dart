@@ -139,7 +139,10 @@ class _AppMenuAnchorState extends State<AppMenuAnchor>
                 onTapOutside: (_) => _menu.close(),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    minWidth: widget.menuWidth ?? 0,
+                    minWidth:
+                        widget.menuWidth ??
+                        menuStyle.minimumSize?.resolve({})?.width ??
+                        0,
                     maxWidth: widget.menuWidth ?? double.infinity,
                     maxHeight: math.min(
                       320,

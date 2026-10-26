@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -276,7 +275,6 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
         : _date == tomorrow
         ? _DateChoice.tomorrow
         : _DateChoice.other;
-    final menuWidth = math.min(360.0, MediaQuery.sizeOf(context).width - 32);
     final style = Theme.of(context).textTheme.bodyMedium
         ?.copyWith(fontSize: 13);
 
@@ -286,7 +284,6 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
           label: '校区',
           value: _campusCode!,
           textStyle: style,
-          menuWidth: menuWidth,
           entries: [
             for (final campus in directory.campuses)
               DropdownMenuEntry(value: campus.code, label: campus.name),
@@ -297,7 +294,6 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
           label: '日期',
           value: dateChoice,
           textStyle: style,
-          menuWidth: menuWidth,
           entries: [
             DropdownMenuEntry(
               value: _DateChoice.today,
@@ -330,7 +326,6 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
           label: '教学楼',
           value: _buildingFilter,
           textStyle: style,
-          menuWidth: menuWidth,
           entries: [
             const DropdownMenuEntry(value: null, label: '全部教学楼'),
             if (_buildings.any((building) => building.isWenCui))
