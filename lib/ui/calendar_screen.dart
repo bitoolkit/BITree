@@ -9,6 +9,7 @@ import 'app_menu_anchor.dart';
 import 'app_page.dart';
 import 'pull_to_reveal_list.dart';
 import 'school_import_button.dart';
+import 'swipe_pager.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({
@@ -24,30 +25,103 @@ class CalendarScreen extends StatefulWidget {
   State<CalendarScreen> createState() => _CalendarScreenState();
 }
 
-class _CalendarScreenState extends State<CalendarScreen>
-    with SingleTickerProviderStateMixin {
+class _CalendarScreenState extends State<CalendarScreen> {
   AgendaKind? _kind;
-  late final _status = TabController(length: 2, vsync: this)
-    ..addListener(_statusChanged);
-
-  void _statusChanged() => setState(() {});
-
-  @override
-  void dispose() {
-    _status.dispose();
-    super.dispose();
-  }
+  int _status = 0;
 
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final now = widget.now;
     final scheme = Theme.of(context).colorScheme;
-    final completed = _status.index == 1;
     final entries = controller.agenda.entries
         .where((entry) => _kind == null || entry.kind == _kind)
         .toList();
     final doneCount = entries.where((entry) => entry.isFinished(now)).length;
+
+    return AppPage(
+      title: Row(
+        children: [
+          const Text('日程'),
+          const SizedBox(width: 8),
+          Flexible(
+            child: _AgendaKindFilter(
+              value: _kind,
+              onChanged: (kind) => setState(() => _kind = kind),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        AddButton(controller: controller, includeCourse: false),
+        SchoolImportButton(controller: controller, includeSchedule: false),
+      ],
+      child: SwipePager(
+        index: _status,
+        itemCount: 2,
+        onChanged: (index) => setState(() => _status = index),
+        headerBuilder: (context, tabs) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TabBar(
+              controller: tabs,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              indicatorSize: TabBarIndicatorSize.label,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+              labelColor: scheme.primary,
+              unselectedLabelColor: scheme.onSurfaceVariant,
+              labelStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+              tabs: [
+                Tab(text: '未完成 ${entries.length - doneCount}'),
+                Tab(text: '已完成 $doneCount'),
+              ],
+            ),
+            if (!controller.agenda.ready && controller.agenda.busy)
+              const LinearProgressIndicator(minHeight: 3),
+            if (!controller.agenda.ready && !controller.agenda.busy)
+              TextButton.icon(
+                onPressed: controller.agenda.load,
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('重新加载日程'),
+              ),
+          ],
+        ),
+        itemBuilder: (context, index) => _AgendaStatusList(
+          key: ValueKey((_kind, index)),
+          controller: controller,
+          entries: entries,
+          completed: index == 1,
+          now: now,
+        ),
+      ),
+    );
+  }
+}
+
+class _AgendaStatusList extends StatelessWidget {
+  const _AgendaStatusList({
+    super.key,
+    required this.controller,
+    required this.entries,
+    required this.completed,
+    required this.now,
+  });
+
+  final AppController controller;
+  final List<AgendaEntry> entries;
+  final bool completed;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
     final visible =
         entries.where((entry) => entry.isFinished(now) == completed).toList()
           ..sort((a, b) {
@@ -84,82 +158,29 @@ class _CalendarScreenState extends State<CalendarScreen>
       (count, entries) => count + entries.length,
     );
 
-    return AppPage(
-      title: Row(
-        children: [
-          const Text('日程'),
-          const SizedBox(width: 8),
-          Flexible(
-            child: _AgendaKindFilter(
-              value: _kind,
-              onChanged: (kind) => setState(() => _kind = kind),
+    return PullToRevealList(
+      hiddenLabel: '$overdueCount项逾期日程',
+      hiddenChildren: dayRows(overdueDays),
+      children: [
+        if (days.isEmpty && controller.agenda.ready)
+          Padding(
+            key: const ValueKey('empty-state'),
+            padding: const EdgeInsets.symmetric(vertical: 64),
+            child: Center(
+              child: Text(
+                completed
+                    ? '还没有已完成的日程'
+                    : overdueCount > 0
+                    ? '没有即将到来的日程'
+                    : '没有未完成的日程',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
           ),
-        ],
-      ),
-      actions: [
-        AddButton(controller: controller, includeCourse: false),
-        SchoolImportButton(controller: controller, includeSchedule: false),
+        ...dayRows(days),
       ],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TabBar(
-            controller: _status,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            indicatorSize: TabBarIndicatorSize.label,
-            labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-            labelColor: scheme.primary,
-            unselectedLabelColor: scheme.onSurfaceVariant,
-            labelStyle: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-            ),
-            tabs: [
-              Tab(text: '未完成 ${entries.length - doneCount}'),
-              Tab(text: '已完成 $doneCount'),
-            ],
-          ),
-          if (!controller.agenda.ready && controller.agenda.busy)
-            const LinearProgressIndicator(minHeight: 3),
-          if (!controller.agenda.ready && !controller.agenda.busy)
-            TextButton.icon(
-              onPressed: controller.agenda.load,
-              icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('重新加载日程'),
-            ),
-          Expanded(
-            child: PullToRevealList(
-              key: ValueKey((_kind, completed)),
-              hiddenLabel: '$overdueCount项逾期日程',
-              hiddenChildren: dayRows(overdueDays),
-              children: [
-                if (days.isEmpty && controller.agenda.ready)
-                  Padding(
-                    key: const ValueKey('empty-state'),
-                    padding: const EdgeInsets.symmetric(vertical: 64),
-                    child: Center(
-                      child: Text(
-                        completed
-                            ? '还没有已完成的日程'
-                            : overdueCount > 0
-                            ? '没有即将到来的日程'
-                            : '没有未完成的日程',
-                        style: TextStyle(color: scheme.onSurfaceVariant),
-                      ),
-                    ),
-                  ),
-                ...dayRows(days),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

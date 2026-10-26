@@ -23,9 +23,19 @@ class PullToRevealList extends StatefulWidget {
   State<PullToRevealList> createState() => _PullToRevealListState();
 }
 
-class _PullToRevealListState extends State<PullToRevealList> {
+class _PullToRevealListState extends State<PullToRevealList>
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   static const _threshold = 64.0;
+  static const _duration = Duration(milliseconds: 220);
   final _scroll = ScrollController();
+  late final _reveal = AnimationController(vsync: this, duration: _duration)
+    ..addStatusListener((status) {
+      if (status == AnimationStatus.dismissed) setState(() {});
+    });
+  late final _expansion = CurvedAnimation(
+    parent: _reveal,
+    curve: Curves.easeInOutCubic,
+  );
   bool _revealed = false;
   bool _dragging = false;
   double _pull = 0;
@@ -33,7 +43,12 @@ class _PullToRevealListState extends State<PullToRevealList> {
   bool get _canReveal => !_revealed && widget.hiddenChildren.isNotEmpty;
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   void dispose() {
+    _expansion.dispose();
+    _reveal.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -66,26 +81,72 @@ class _PullToRevealListState extends State<PullToRevealList> {
   }
 
   void _setRevealed(bool value) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     setState(() {
       _revealed = value;
       _pull = 0;
     });
+    if (reduceMotion) {
+      _reveal.value = value ? 1 : 0;
+    } else if (value) {
+      _reveal.forward();
+    } else {
+      _reveal.reverse();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (MediaQuery.disableAnimationsOf(context)) {
+      if (!mounted || !_scroll.hasClients) return;
+      if (reduceMotion) {
         _scroll.jumpTo(0);
       } else {
-        _scroll.animateTo(
-          0,
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-        );
+        _scroll.animateTo(0, duration: _duration, curve: Curves.easeOutCubic);
       }
     });
   }
 
+  Widget _revealedList(double viewportHeight) => AnimatedBuilder(
+    animation: _expansion,
+    builder: (context, child) => ConstrainedBox(
+      constraints: BoxConstraints(minHeight: viewportHeight * _expansion.value),
+      child: child,
+    ),
+    child: Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      // Align the entire list at the bottom only when it fits in the viewport.
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          SizeTransition(
+            sizeFactor: _expansion,
+            alignment: Alignment.topCenter,
+            child: FadeTransition(
+              opacity: _expansion,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ...widget.hiddenChildren,
+                  Center(
+                    child: TextButton(
+                      onPressed: () => _setRevealed(false),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Theme.of(context).colorScheme.error,
+                      ),
+                      child: const Text('收回'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          ...widget.children,
+        ],
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final scheme = Theme.of(context).colorScheme;
     final behavior = ScrollConfiguration.of(context);
     final scrollbarGutter = switch (behavior.getPlatform(context)) {
@@ -127,40 +188,13 @@ class _PullToRevealListState extends State<PullToRevealList> {
                               )
                             : const ClampingScrollPhysics(),
                         slivers: [
-                          if (_revealed && widget.hiddenChildren.isNotEmpty)
+                          if ((_revealed || !_reveal.isDismissed) &&
+                              widget.hiddenChildren.isNotEmpty)
                             SliverLayoutBuilder(
                               builder: (context, constraints) =>
                                   SliverToBoxAdapter(
-                                    child: ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        minHeight:
-                                            constraints.viewportMainAxisExtent,
-                                      ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 24,
-                                        ),
-                                        // Include upcoming items before deciding whether there is spare space.
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.end,
-                                          children: [
-                                            ...widget.hiddenChildren,
-                                            Center(
-                                              child: TextButton(
-                                                onPressed: () =>
-                                                    _setRevealed(false),
-                                                style: TextButton.styleFrom(
-                                                  foregroundColor: scheme.error,
-                                                ),
-                                                child: const Text('收回'),
-                                              ),
-                                            ),
-                                            ...widget.children,
-                                          ],
-                                        ),
-                                      ),
+                                    child: _revealedList(
+                                      constraints.viewportMainAxisExtent,
                                     ),
                                   ),
                             )
