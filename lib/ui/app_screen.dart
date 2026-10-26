@@ -79,7 +79,7 @@ class _AppScreenState extends State<AppScreen> {
 
   Widget _build(BuildContext context, DateTime now) {
     final count = widget.controller.agenda.ready
-        ? widget.controller.agenda.pendingOn(now).length
+        ? widget.controller.agenda.pendingOn(now, now: now).length
         : 0;
     final scheme = Theme.of(context).colorScheme;
 

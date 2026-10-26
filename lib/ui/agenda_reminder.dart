@@ -5,10 +5,8 @@ import 'package:flutter/material.dart';
 import '../agenda/model.dart';
 import '../app_controller.dart';
 import '../schedule/model.dart';
-import 'agenda_list_tile.dart';
+import 'agenda_day.dart';
 import 'agenda_time.dart';
-import 'campus_time_builder.dart';
-import 'sheet_layout.dart';
 
 class AgendaReminder extends StatefulWidget {
   const AgendaReminder({
@@ -97,7 +95,7 @@ class _AgendaReminderState extends State<AgendaReminder>
 
   Future<void> _open() async {
     _dismiss();
-    await _showTodayAgenda(context, widget.controller);
+    await showAgendaDay(context, widget.controller, calendarDate(widget.now));
   }
 
   @override
@@ -235,64 +233,3 @@ class _AgendaReminderState extends State<AgendaReminder>
     );
   }
 }
-
-Future<void> _showTodayAgenda(BuildContext context, AppController controller) =>
-    showModalBottomSheet<void>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      constraints: const BoxConstraints(maxWidth: 560),
-      builder: (sheetContext) => ListenableBuilder(
-        listenable: controller.agenda,
-        builder: (context, _) => CampusTimeBuilder(
-          active: true,
-          builder: (context, now) {
-            final entries = controller.agenda.pendingOn(now);
-            return SafeArea(
-              top: false,
-              child: SheetLayout(
-                header: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 4, 4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${now.month}月${now.day}日待办',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: '关闭',
-                        onPressed: () => Navigator.pop(sheetContext),
-                        icon: const Icon(Icons.close_rounded, size: 20),
-                      ),
-                    ],
-                  ),
-                ),
-                content: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final entry in entries)
-                        AgendaListTile(
-                          key: ValueKey(entry.id),
-                          controller: controller,
-                          entry: entry,
-                          now: now,
-                        ),
-                      if (entries.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: Center(child: Text('暂无待办')),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );

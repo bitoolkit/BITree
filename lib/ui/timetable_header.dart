@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../agenda/calendar.dart';
-import '../agenda/model.dart';
 import '../app_controller.dart';
 import '../schedule/model.dart';
-import 'calendar_list.dart';
+import 'agenda_day.dart';
 
 class TimetableHeader extends StatelessWidget {
   const TimetableHeader({
@@ -12,7 +10,6 @@ class TimetableHeader extends StatelessWidget {
     required this.controller,
     required this.monday,
     required this.now,
-    required this.days,
     required this.gutterWidth,
     required this.todayBackground,
   });
@@ -20,27 +17,21 @@ class TimetableHeader extends StatelessWidget {
   final AppController controller;
   final DateTime monday;
   final DateTime now;
-  final List<List<CalendarItem>> days;
   final double gutterWidth;
   final Color todayBackground;
-
-  void _showItems(BuildContext context, int day, List<CalendarItem> items) {
-    showCalendarItems(
-      context,
-      controller,
-      agendaDateLabel(monday.add(Duration(days: day))),
-      items,
-      emptyMessage: '没有未完成的日程',
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final today = calendarDate(now);
-    final dailyAgenda = [
-      for (final items in days)
-        items.where((item) => item.entry?.isFinished(now) == false).toList(),
+    final dayCounts = [
+      for (var day = 0; day < 7; day++)
+        (
+          date: monday.add(Duration(days: day)),
+          count: controller.agenda
+              .pendingOn(monday.add(Duration(days: day)), now: now)
+              .length,
+        ),
     ];
 
     return Row(
@@ -54,15 +45,15 @@ class TimetableHeader extends StatelessWidget {
             ),
           ),
         ),
-        for (final (day, items) in dailyAgenda.indexed)
+        for (final day in dayCounts)
           Expanded(
             child: InkWell(
-              onTap: () => _showItems(context, day, items),
+              onTap: () => showAgendaDay(context, controller, day.date),
               child: _DateHeading(
-                date: monday.add(Duration(days: day)),
+                date: day.date,
                 today: today,
                 todayBackground: todayBackground,
-                agendaCount: items.length,
+                agendaCount: day.count,
               ),
             ),
           ),

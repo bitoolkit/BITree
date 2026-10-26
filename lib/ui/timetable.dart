@@ -234,7 +234,6 @@ class _TimetableState extends State<Timetable> with WidgetsBindingObserver {
           controller: controller,
           monday: monday,
           now: _currentTime.value,
-          days: days,
           gutterWidth: gutterWidth,
           todayBackground: todayBackground,
         ),

@@ -110,7 +110,7 @@ class HomeScreen extends StatelessWidget {
                 child: AgendaReminder(
                   controller: controller,
                   entries: controller.agenda.ready
-                      ? controller.agenda.pendingOn(now)
+                      ? controller.agenda.pendingOn(now, now: now)
                       : const [],
                   now: now,
                   active: active,
