@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- refactor(data): share school reads and cache classroom queries ([c829b45](https://github.com/so1ve/bitree/commit/c829b4587dcf9060ba3db7fac2f757e738080f4b))
 - fix(agenda): anchor overdue reveal at the collapse boundary ([225fbde](https://github.com/so1ve/bitree/commit/225fbde1b58e731d55e378af2d68aa8d9f6ea28c))
 - fix(agenda): restore the original day list for both entry points ([fee1ab5](https://github.com/so1ve/bitree/commit/fee1ab50181127d08ddcdd0e266549f5bdfd6e7c))
 - fix(agenda): clarify overdue motion and anchor collapse footer ([b6fdc0b](https://github.com/so1ve/bitree/commit/b6fdc0b5d09f1915e8a0bd4bc0aa1de908130cdf))
