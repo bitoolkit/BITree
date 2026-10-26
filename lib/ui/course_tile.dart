@@ -84,7 +84,6 @@ class CourseTile extends StatelessWidget {
                             defaults.textHeightBehavior ??
                             DefaultTextHeightBehavior.maybeOf(context),
                         textWidthBasis: defaults.textWidthBasis,
-                        ellipsis: '…',
                       )..layout(maxWidth: width);
 
                   final title = measure(course.name, titleStyle);
@@ -160,12 +159,15 @@ class CourseTile extends StatelessWidget {
 }
 
 int _fittingLines(TextPainter painter, double width, double height) {
+  // Measure every wrapped line before applying a limit and an ellipsis.
   painter.maxLines = null;
+  painter.ellipsis = null;
   painter.layout(maxWidth: width);
   var upper = painter.computeLineMetrics().length;
   if (painter.height <= height) return upper;
 
   var lower = 0;
+  painter.ellipsis = '…';
   while (lower < upper) {
     final middle = (lower + upper + 1) ~/ 2;
     painter.maxLines = middle;
