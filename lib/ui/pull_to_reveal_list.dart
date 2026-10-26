@@ -24,14 +24,21 @@ class PullToRevealList extends StatefulWidget {
 }
 
 class _PullToRevealListState extends State<PullToRevealList>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
   static const _current = ValueKey('current');
   static const _threshold = 64.0;
   static const _duration = Duration(milliseconds: 320);
   static const _collapseDuration = Duration(milliseconds: 260);
-  final _scroll = ScrollController();
-  final _historyKey = GlobalKey();
-  final _collapseKey = GlobalKey();
+  static const _historySpacing = 24.0;
+  late final _scroll = _RevealScrollController(_layoutOffset);
+  late final _animation = AnimationController(vsync: this)
+    ..addStatusListener((_) => setState(() {}));
+  double _historyHeight = 0;
+  ScrollHoldController? _hold;
+  bool _following = false;
+  double _fromPixels = 0;
+  double _fromFactor = 0;
+  double _collapseTarget = 0;
   bool _revealed = false;
   bool _dragging = false;
   double _pull = 0;
@@ -53,6 +60,8 @@ class _PullToRevealListState extends State<PullToRevealList>
 
   @override
   void dispose() {
+    _releaseHold();
+    _animation.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -85,63 +94,86 @@ class _PullToRevealListState extends State<PullToRevealList>
   }
 
   Future<void> _setRevealed(bool value) async {
-    if (value == _revealed) return;
+    if (value == _revealed || !_scroll.hasClients) return;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    if (value) {
-      setState(() {
-        _revealed = true;
-        _pull = 0;
-      });
-      // Let the ordinary list measure the inserted history before locating its footer.
-      await WidgetsBinding.instance.endOfFrame;
-    }
-    if (!mounted || !_scroll.hasClients) return;
-
-    final position = _scroll.position;
-    if (value) {
-      await position.ensureVisible(
-        _collapseKey.currentContext!.findRenderObject()!,
-        alignment: 1,
-        duration: reduceMotion ? Duration.zero : _duration,
-        curve: Curves.easeInOutCubic,
-      );
+    _releaseHold();
+    _fromPixels = _scroll.offset;
+    _fromFactor = _animation.value;
+    _collapseTarget = math.max(0, _fromPixels - _historyHeight * _fromFactor);
+    _following = true;
+    _hold = _scroll.position.hold(() {
+      // A new drag takes over scrolling without fighting the reveal animation.
+      _following = false;
+      _hold = null;
+    });
+    setState(() {
+      _revealed = value;
+      _pull = 0;
+    });
+    try {
+      final duration = reduceMotion
+          ? Duration.zero
+          : value
+          ? _duration
+          : _collapseDuration;
+      final motion = value
+          ? _animation.animateTo(
+              1,
+              duration: duration,
+              curve: Curves.easeInOutCubic,
+            )
+          : _animation.animateBack(
+              0,
+              duration: duration,
+              curve: Curves.easeInOutCubic,
+            );
+      await motion.orCancel;
+    } on TickerCanceled {
       return;
     }
-
-    final target = _historyKey.currentContext!.size!.height.clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    );
-    if (reduceMotion) {
-      _scroll.jumpTo(target);
-    } else {
-      await _scroll.animateTo(
-        target,
-        duration: _collapseDuration,
-        curve: Curves.easeInOutCubic,
-      );
-    }
     if (!mounted) return;
-
-    // Do not finish collapsing if a new drag interrupted the scroll.
-    if ((_scroll.offset - target).abs() < 1) {
-      setState(() {
-        _revealed = false;
-        _pull = 0;
-      });
-      _scroll.jumpTo(0);
+    // Keep the last animation value in control until its layout is painted.
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted && _revealed == value && !_animation.isAnimating) {
+      _releaseHold();
     }
   }
 
+  void _releaseHold() {
+    final hold = _hold;
+    _hold = null;
+    _following = false;
+    hold?.cancel();
+  }
+
+  double? _layoutOffset(double viewportHeight) {
+    if (!_following) return null;
+    final factor = _animation.value;
+    if (!_revealed) {
+      final remaining = _fromFactor == 0 ? 0 : factor / _fromFactor;
+      return _collapseTarget + (_fromPixels - _collapseTarget) * remaining;
+    }
+    final progress = _fromFactor == 1
+        ? 1.0
+        : (factor - _fromFactor) / (1 - _fromFactor);
+    final target = math.max(
+      0.0,
+      _historyHeight * factor - _historySpacing - viewportHeight,
+    );
+    final startTarget = math.max(
+      0.0,
+      _historyHeight * _fromFactor - _historySpacing - viewportHeight,
+    );
+    return target + (_fromPixels - startTarget) * (1 - progress);
+  }
+
   Widget _history() => Padding(
-    key: _historyKey,
-    padding: const EdgeInsets.only(bottom: 24),
+    padding: const EdgeInsets.only(bottom: _historySpacing),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ...widget.hiddenChildren,
         Center(
-          key: _collapseKey,
           child: TextButton(
             onPressed: () => _setRevealed(false),
             style: TextButton.styleFrom(
@@ -159,6 +191,7 @@ class _PullToRevealListState extends State<PullToRevealList>
     super.build(context);
     final scheme = Theme.of(context).colorScheme;
     final behavior = ScrollConfiguration.of(context);
+    final items = AnimatedSliverChildren(children: widget.children);
     final scrollbarGutter = switch (behavior.getPlatform(context)) {
       TargetPlatform.linux ||
       TargetPlatform.macOS ||
@@ -196,10 +229,24 @@ class _PullToRevealListState extends State<PullToRevealList>
                           parent: AlwaysScrollableScrollPhysics(),
                         ),
                         slivers: [
-                          if (_revealed) SliverToBoxAdapter(child: _history()),
-                          AnimatedSliverChildren(
+                          if (_revealed || !_animation.isDismissed)
+                            SliverToBoxAdapter(
+                              child: SizeTransition(
+                                sizeFactor: _animation,
+                                alignment: Alignment.bottomCenter,
+                                child: _history(),
+                              ),
+                            ),
+                          SliverLayoutBuilder(
                             key: _current,
-                            children: widget.children,
+                            builder: (context, constraints) {
+                              final factor = _animation.value;
+                              // Synchronize scrolling with the laid-out history extent.
+                              _historyHeight = factor == 0
+                                  ? 0
+                                  : constraints.precedingScrollExtent / factor;
+                              return items;
+                            },
                           ),
                           const SliverPadding(
                             padding: EdgeInsets.only(bottom: 24),
@@ -254,6 +301,54 @@ class _PullToRevealListState extends State<PullToRevealList>
       ),
     );
   }
+}
+
+class _RevealScrollController extends ScrollController {
+  _RevealScrollController(this.offsetForLayout);
+
+  final double? Function(double viewportHeight) offsetForLayout;
+
+  @override
+  ScrollPosition createScrollPosition(
+    ScrollPhysics physics,
+    ScrollContext context,
+    ScrollPosition? oldPosition,
+  ) => _RevealScrollPosition(
+    physics: physics,
+    context: context,
+    oldPosition: oldPosition,
+    offsetForLayout: offsetForLayout,
+  );
+}
+
+class _RevealScrollPosition extends ScrollPositionWithSingleContext {
+  _RevealScrollPosition({
+    required super.physics,
+    required super.context,
+    super.oldPosition,
+    required this.offsetForLayout,
+  });
+
+  final double? Function(double viewportHeight) offsetForLayout;
+
+  @override
+  bool applyContentDimensions(double minScrollExtent, double maxScrollExtent) {
+    final target = offsetForLayout(viewportDimension);
+    if (target != null && (target - pixels).abs() > 0.01) {
+      // Correct before paint so the panel height and scroll offset share a frame.
+      correctPixels(target);
+      return false;
+    }
+    return super.applyContentDimensions(minScrollExtent, maxScrollExtent);
+  }
+
+  @override
+  bool correctForNewDimensions(
+    ScrollMetrics oldPosition,
+    ScrollMetrics newPosition,
+  ) =>
+      offsetForLayout(viewportDimension) != null ||
+      super.correctForNewDimensions(oldPosition, newPosition);
 }
 
 /// Bounces at the top while keeping the bottom edge clamped.

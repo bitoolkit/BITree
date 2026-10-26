@@ -127,6 +127,99 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'The first revealed frame preserves the current content position',
+    (tester) async {
+      await _showList(tester);
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(PullToRevealList)),
+      );
+      await gesture.moveBy(const Offset(0, 260));
+      await tester.pump();
+      final current = find.byKey(const ValueKey('Upcoming 0'));
+      final before = tester.getTopLeft(current).dy;
+      await gesture.up();
+      await tester.pump();
+      expect(current, findsOneWidget);
+      expect(tester.getTopLeft(current).dy, closeTo(before, 1));
+      await tester.pumpAndSettle();
+      expect(find.text('收回').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final overdue in [2, 12]) {
+    testWidgets('Collapsing $overdue overdue rows moves content continuously', (
+      tester,
+    ) async {
+      await _showList(tester, overdue: overdue);
+      await _reveal(tester);
+      final position = _position(tester);
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      final current = find.byKey(const ValueKey('Upcoming 0'));
+      final before = tester.getTopLeft(current).dy;
+      final top = tester.getRect(find.byType(PullToRevealList)).top;
+      await tester.tap(find.widgetWithText(TextButton, '收回'));
+      await tester.pump();
+      expect(tester.getTopLeft(current).dy, closeTo(before, 1));
+      await tester.pump(const Duration(milliseconds: 130));
+      expect(tester.getTopLeft(current).dy, inExclusiveRange(top, before));
+      final middle = tester.getTopLeft(current).dy;
+      await tester.pump(const Duration(milliseconds: 114));
+      final lastFrame = tester.getTopLeft(current).dy;
+      expect(lastFrame, inInclusiveRange(top, middle));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(current).dy, closeTo(top, 1));
+      expect(lastFrame - top, lessThan((before - top) / 20));
+      expect(find.text('收回'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('Collapse can interrupt an opening animation', (tester) async {
+    await _showList(tester);
+    await tester.drag(find.byType(PullToRevealList), const Offset(0, 260));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 160));
+    final current = find.byKey(const ValueKey('Upcoming 0'));
+    final before = tester.getTopLeft(current).dy;
+    await tester.tap(find.widgetWithText(TextButton, '收回'));
+    await tester.pump();
+    expect(tester.getTopLeft(current).dy, closeTo(before, 1));
+    await tester.pumpAndSettle();
+    expect(find.text('收回'), findsNothing);
+    expect(_position(tester).pixels, 0);
+    expect(_position(tester).maxScrollExtent, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('A new drag takes control from the reveal animation', (
+    tester,
+  ) async {
+    await _showList(tester);
+    await tester.drag(find.byType(PullToRevealList), const Offset(0, 260));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 160));
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(PullToRevealList)),
+    );
+    await gesture.moveBy(const Offset(0, -120));
+    await tester.pump();
+    final dragged = _position(tester).pixels;
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(_position(tester).pixels, closeTo(dragged, 1));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    final position = _position(tester);
+    position.jumpTo(position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    final viewport = tester.getRect(find.byType(PullToRevealList));
+    final last = tester.getRect(find.byKey(const ValueKey('Upcoming 2')));
+    expect(viewport.bottom - last.bottom, closeTo(24, 1));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Reduced motion still reveals and collapses the natural list', (
     tester,
   ) async {
