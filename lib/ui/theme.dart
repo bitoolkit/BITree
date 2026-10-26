@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../schedule/building_palette.dart';
+import '../schedule/model.dart';
+
 const copper = Color(0xFFA85E3E);
 
 ThemeData bitreeTheme(Brightness brightness) {
@@ -204,30 +207,17 @@ ThemeData bitreeTheme(Brightness brightness) {
 
 ({Color fill, Color text, Color accent}) courseColors(
   BuildContext context,
-  int index,
+  Course course,
 ) {
-  const light = [
-    (0xFFD9F0E2, 0xFF254D35, 0xFF5C9772),
-    (0xFFF7E0D1, 0xFF79442C, 0xFFB57652),
-    (0xFFDDE9FF, 0xFF304F7A, 0xFF6C92C7),
-    (0xFFE9E0FA, 0xFF60447F, 0xFF9773BF),
-    (0xFFF6EAC5, 0xFF705623, 0xFFB79B4B),
-    (0xFFD7EFEF, 0xFF285E61, 0xFF589D9F),
-  ];
-  const dark = [
-    (0xFF2D3C2D, 0xFFD0DFCA, 0xFF93AE86),
-    (0xFF463329, 0xFFF0D0B9, 0xFFC69670),
-    (0xFF293B4E, 0xFFCADCF1, 0xFF8DADD1),
-    (0xFF3C3046, 0xFFE3D1F0, 0xFFB59DC8),
-    (0xFF403B28, 0xFFE8DDAE, 0xFFC1AB6A),
-    (0xFF253F39, 0xFFBFE1D7, 0xFF8BB8A8),
-  ];
-  final colors = (Theme.of(context).brightness == Brightness.dark
-      ? dark
-      : light)[index];
+  final palette =
+      matchCampusBuilding(course.room, campus: course.campus) ??
+      unknownBuildingPalette;
+  final colors = Theme.of(context).brightness == Brightness.dark
+      ? palette.dark
+      : palette.light;
   return (
-    fill: Color(colors.$1),
-    text: Color(colors.$2),
-    accent: Color(colors.$3),
+    fill: Color(colors.fill),
+    text: Color(colors.text),
+    accent: Color(colors.accent),
   );
 }

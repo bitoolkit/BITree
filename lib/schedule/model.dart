@@ -155,8 +155,6 @@ class Course {
       ? '时间待定'
       : '${sectionTimes[startSection! - 1].$1}–${sectionTimes[endSection! - 1].$2}';
 
-  int get colorIndex => name.runes.fold(0, (value, rune) => value + rune) % 6;
-
   bool occurs(int week) => isScheduled && weeks.contains(week);
 
   Map<String, dynamic> toJson() => {

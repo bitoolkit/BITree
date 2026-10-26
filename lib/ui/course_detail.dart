@@ -44,7 +44,7 @@ class _CourseDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = courseColors(context, course.colorIndex);
+    final colors = courseColors(context, course);
     final location = [
       course.campus,
       course.room,

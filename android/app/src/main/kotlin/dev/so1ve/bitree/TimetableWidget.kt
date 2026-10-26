@@ -44,23 +44,6 @@ open class TimetableWidget : AppWidgetProvider() {
 
     companion object {
         private const val REFRESH = "dev.so1ve.bitree.widget.REFRESH"
-        private val cardBackgrounds = intArrayOf(
-            R.drawable.widget_course_green,
-            R.drawable.widget_course_copper,
-            R.drawable.widget_course_blue,
-            R.drawable.widget_course_purple,
-            R.drawable.widget_course_yellow,
-            R.drawable.widget_course_teal,
-        )
-        private val cardTextColors = intArrayOf(
-            R.color.widget_course_green_text,
-            R.color.widget_course_copper_text,
-            R.color.widget_course_blue_text,
-            R.color.widget_course_purple_text,
-            R.color.widget_course_yellow_text,
-            R.color.widget_course_teal_text,
-        )
-
         fun updateAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             val providers = listOf(
@@ -176,19 +159,27 @@ open class TimetableWidget : AppWidgetProvider() {
             entry: WidgetEntry,
             details: String,
         ): RemoteViews {
-            val color = when (entry.kind) {
-                WidgetEntryKind.COURSE -> entry.title.codePoints().sum() % cardBackgrounds.size
-                WidgetEntryKind.EXAM -> 1
-                WidgetEntryKind.DEADLINE -> 4
-                WidgetEntryKind.EVENT -> 5
+            val colors = when (entry.kind) {
+                WidgetEntryKind.COURSE -> BuildingColors.forCourse(context, entry.location, entry.campus)
+                WidgetEntryKind.EXAM -> intArrayOf(
+                    context.getColor(R.color.widget_course_copper),
+                    context.getColor(R.color.widget_course_copper_text),
+                )
+                WidgetEntryKind.DEADLINE -> intArrayOf(
+                    context.getColor(R.color.widget_course_yellow),
+                    context.getColor(R.color.widget_course_yellow_text),
+                )
+                WidgetEntryKind.EVENT -> intArrayOf(
+                    context.getColor(R.color.widget_course_teal),
+                    context.getColor(R.color.widget_course_teal_text),
+                )
             }
-            val textColor = context.getColor(cardTextColors[color])
             return RemoteViews(context.packageName, R.layout.widget_course).apply {
-                setInt(R.id.widget_course, "setBackgroundResource", cardBackgrounds[color])
+                setInt(R.id.widget_course_content, "setBackgroundColor", colors[0])
                 setTextViewText(R.id.widget_course_name, entry.titleLabel)
                 setTextViewText(R.id.widget_course_details, details)
-                setTextColor(R.id.widget_course_name, textColor)
-                setTextColor(R.id.widget_course_details, textColor)
+                setTextColor(R.id.widget_course_name, colors[1])
+                setTextColor(R.id.widget_course_details, colors[1])
                 setContentDescription(
                     R.id.widget_course,
                     listOf(entry.kind.label, entry.title, entry.timeLabel, entry.location)

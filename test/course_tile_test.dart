@@ -26,9 +26,11 @@ void main() {
     required double height,
     double scale = 1,
     bool bold = false,
+    Course? shownCourse,
+    Brightness brightness = Brightness.light,
   }) => tester.pumpWidget(
     MaterialApp(
-      theme: bitreeTheme(Brightness.light),
+      theme: bitreeTheme(brightness),
       home: Builder(
         builder: (context) => MediaQuery(
           data: MediaQuery.of(context)
@@ -40,7 +42,7 @@ void main() {
                 width: width,
                 height: height,
                 child: CourseTile(
-                  course: course,
+                  course: shownCourse ?? course,
                   controller: _Controller(),
                   isToday: false,
                   isCurrent: false,
@@ -94,5 +96,57 @@ void main() {
       lessThanOrEqualTo(card.bottom - 6),
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Course cards follow the building after renaming and moving', (
+    tester,
+  ) async {
+    Course at(String name, String room) => Course(
+      id: 'moved-course',
+      name: name,
+      room: room,
+      campus: '良乡校区',
+      weekday: 1,
+      startSection: 3,
+      endSection: 4,
+      weeks: [1],
+    );
+    Color? fill() => tester
+        .widget<Material>(
+          find
+              .descendant(
+                of: find.byType(CourseTile),
+                matching: find.byType(Material),
+              )
+              .first,
+        )
+        .color;
+    for (final brightness in Brightness.values) {
+      await showCard(
+        tester,
+        width: 70,
+        height: 210,
+        brightness: brightness,
+        shownCourse: at('数据结构', '文萃F704'),
+      );
+      final original = fill();
+      await showCard(
+        tester,
+        width: 70,
+        height: 210,
+        brightness: brightness,
+        shownCourse: at('高等数学', '文萃楼F705'),
+      );
+      expect(fill(), original);
+      await showCard(
+        tester,
+        width: 70,
+        height: 210,
+        brightness: brightness,
+        shownCourse: at('高等数学', '理教105'),
+      );
+      expect(fill(), isNot(original));
+      expect(tester.takeException(), isNull);
+    }
   });
 }

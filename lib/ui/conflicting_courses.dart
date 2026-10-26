@@ -60,7 +60,7 @@ class ConflictingCourses extends StatelessWidget {
                       width: 4,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: courseColors(context, course.colorIndex).accent,
+                        color: courseColors(context, course).accent,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),

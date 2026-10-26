@@ -32,6 +32,7 @@ internal data class WidgetEntry(
     val startsAt: Long,
     val endsAt: Long,
     val allDay: Boolean = false,
+    val campus: String = "",
 ) {
     val titleLabel: String
         get() = if (kind == WidgetEntryKind.COURSE) title else "${kind.label} $title"
@@ -143,6 +144,7 @@ private fun readCourseEntries(context: Context, dates: List<Calendar>): List<Wid
                 title = course.getString("name"),
                 kind = WidgetEntryKind.COURSE,
                 location = course.getString("room"),
+                campus = course.getString("campus"),
                 startsAt = date.timeInMillis + startMinute * 60000L,
                 endsAt = date.timeInMillis + endMinute * 60000L,
             )

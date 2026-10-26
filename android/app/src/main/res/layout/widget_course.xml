@@ -1,35 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_course"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:minHeight="48dp"
-    android:orientation="vertical"
-    android:gravity="center_vertical"
-    android:paddingStart="@dimen/widget_course_padding"
-    android:paddingEnd="@dimen/widget_course_padding"
-    android:paddingTop="6dp"
-    android:paddingBottom="6dp"
-    android:background="@drawable/widget_course_green">
-    <TextView
-        android:id="@+id/widget_course_name"
+    android:background="@drawable/widget_course_background"
+    android:clipToOutline="true">
+    <LinearLayout
+        android:id="@+id/widget_course_content"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="@color/widget_course_green_text"
-        android:textSize="13sp"
-        android:textStyle="bold"
-        android:includeFontPadding="false"
-        android:maxLines="1"
-        android:ellipsize="end" />
-    <TextView
-        android:id="@+id/widget_course_details"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
-        android:textColor="@color/widget_course_green_text"
-        android:textSize="@dimen/widget_course_details_size"
-        android:includeFontPadding="false"
-        android:alpha="0.8"
-        android:maxLines="1"
-        android:ellipsize="end" />
-</LinearLayout>
+        android:minHeight="48dp"
+        android:orientation="vertical"
+        android:gravity="center_vertical"
+        android:paddingStart="@dimen/widget_course_padding"
+        android:paddingEnd="@dimen/widget_course_padding"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        android:background="@color/widget_surface">
+        <TextView
+            android:id="@+id/widget_course_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/widget_text"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:ellipsize="end" />
+        <TextView
+            android:id="@+id/widget_course_details"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:textColor="@color/widget_text"
+            android:textSize="@dimen/widget_course_details_size"
+            android:includeFontPadding="false"
+            android:alpha="0.8"
+            android:maxLines="1"
+            android:ellipsize="end" />
+    </LinearLayout>
+</FrameLayout>

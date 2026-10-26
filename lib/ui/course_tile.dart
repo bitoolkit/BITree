@@ -21,7 +21,7 @@ class CourseTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = courseColors(context, course.colorIndex);
+    final colors = courseColors(context, course);
 
     return Semantics(
       button: true,

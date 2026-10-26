@@ -4,14 +4,8 @@
     <color name="widget_text">#EEEEEE</color>
     <color name="widget_muted">#B8B1AC</color>
     <color name="widget_accent">#E5AE8F</color>
-    <color name="widget_course_green">#2D3C2D</color>
-    <color name="widget_course_green_text">#D0DFCA</color>
     <color name="widget_course_copper">#463329</color>
     <color name="widget_course_copper_text">#F0D0B9</color>
-    <color name="widget_course_blue">#293B4E</color>
-    <color name="widget_course_blue_text">#CADCF1</color>
-    <color name="widget_course_purple">#3C3046</color>
-    <color name="widget_course_purple_text">#E3D1F0</color>
     <color name="widget_course_yellow">#403B28</color>
     <color name="widget_course_yellow_text">#E8DDAE</color>
     <color name="widget_course_teal">#253F39</color>
