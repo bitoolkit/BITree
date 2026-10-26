@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- fix(timetable): keep the time indicator at the next morning ([99f89a6](https://github.com/so1ve/bitree/commit/99f89a636ba9d9faefc6ee87f7196c611365ca73))
 - feat(diagnostics): add seven-day logs and transient error notices ([73d93bb](https://github.com/so1ve/bitree/commit/73d93bb34120d43b923b52691179784f3901ec19))
 - fix(classrooms): allow buildings without a campus code ([bf889a1](https://github.com/so1ve/bitree/commit/bf889a11b9e31ef8910a7ef45952cff51de3cf5a))
 - fix(agenda): fit the entire revealed list before bottom alignment ([cc07637](https://github.com/so1ve/bitree/commit/cc076370fb062d0b2294463b168cfdbcd54a2f9f))
