@@ -7,7 +7,6 @@ import 'add_menu.dart';
 import 'agenda_list_tile.dart';
 import 'app_menu_anchor.dart';
 import 'app_page.dart';
-import 'campus_time_builder.dart';
 import 'pull_to_reveal_list.dart';
 import 'school_import_button.dart';
 
@@ -15,11 +14,11 @@ class CalendarScreen extends StatefulWidget {
   const CalendarScreen({
     super.key,
     required this.controller,
-    this.active = true,
+    required this.now,
   });
 
   final AppController controller;
-  final bool active;
+  final DateTime now;
 
   @override
   State<CalendarScreen> createState() => _CalendarScreenState();
@@ -40,11 +39,9 @@ class _CalendarScreenState extends State<CalendarScreen>
   }
 
   @override
-  Widget build(BuildContext context) =>
-      CampusTimeBuilder(active: widget.active, builder: _build);
-
-  Widget _build(BuildContext context, DateTime now) {
+  Widget build(BuildContext context) {
     final controller = widget.controller;
+    final now = widget.now;
     final scheme = Theme.of(context).colorScheme;
     final completed = _status.index == 1;
     final entries = controller.agenda.entries

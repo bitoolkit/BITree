@@ -18,6 +18,12 @@ class AgendaController extends ChangeNotifier {
   Iterable<AgendaEntry> get deletedDeadlines =>
       _entries.where((entry) => entry.deleted);
 
+  List<AgendaEntry> pendingOn(DateTime now) =>
+      entries
+          .where((entry) => !entry.isFinished(now) && entry.occursOn(now))
+          .toList()
+        ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+
   Future<void> load() async {
     if (busy) return;
     busy = true;
