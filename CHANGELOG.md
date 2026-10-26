@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- fix(agenda): fit overdue rows above the collapse footer ([e611a12](https://github.com/so1ve/bitree/commit/e611a127ec0c1f15104fa82db92c0ed8e2e9613f))
 - feat(academics): add grades, projections, credits and exam tools ([d0e20e5](https://github.com/so1ve/bitree/commit/d0e20e566c9c5a59aae337423376b751270f999e))
 - fix: use English dashes ([356a716](https://github.com/so1ve/bitree/commit/356a71659eeee9921b68ccc207f28fa5bd5f4a9b))
 
