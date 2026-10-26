@@ -94,9 +94,11 @@ class _PullToRevealListState extends State<PullToRevealList>
     }
     if (!mounted || !_scroll.hasClients) return;
 
-    // The origin separates overdue and upcoming items. One viewport of history
-    // places its final item, the collapse button, at the bottom of the screen.
-    final target = value ? -_scroll.position.viewportDimension : 0.0;
+    // Reveal the end of the history without scrolling beyond its actual extent.
+    final position = _scroll.position;
+    final target = value
+        ? math.max(position.minScrollExtent, -position.viewportDimension)
+        : 0.0;
     if (reduceMotion) {
       _scroll.jumpTo(target);
     } else {
@@ -120,11 +122,11 @@ class _PullToRevealListState extends State<PullToRevealList>
   Widget _history() => Padding(
     padding: const EdgeInsets.only(bottom: 24),
     child: Column(
-      // Short histories end at the same boundary as long, scrollable histories.
-      mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ...widget.hiddenChildren,
+        // Only spare viewport space separates the rows from the footer.
+        const Spacer(),
         Center(
           child: TextButton(
             onPressed: () => _setRevealed(false),
