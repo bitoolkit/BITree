@@ -21,9 +21,14 @@ def release_notes(section):
 
 
 def _unreleased_changes():
-    tags = git("tag", "--merged", "HEAD", "--list", "v[0-9]*")
+    tags = git("tag", "--merged", "HEAD", "--list", "v[0-9]*").splitlines()
     previous = (
-        git("describe", "--tags", "--abbrev=0", "--match", "v[0-9]*") if tags else None
+        git(
+            "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*",
+            "--exclude", "*-dev",
+        )
+        if any(not tag.endswith("-dev") for tag in tags)
+        else None
     )
     revision = f"{previous}..HEAD" if previous else "HEAD"
     # Exclude commits that only update the changelog itself.

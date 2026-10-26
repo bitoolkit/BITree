@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/so1ve/bitree/releases/latest">下载正式版</a>
   &nbsp;|&nbsp;
-  <a href="https://github.com/so1ve/bitree/releases/tag/dev">下载测试版</a>
+  <a href="https://github.com/so1ve/bitree/releases?q=prerelease%3Atrue">下载测试版</a>
 </p>
 
 ## 功能
@@ -29,7 +29,7 @@
 
 ## 下载
 
-前往 [正式版](https://github.com/so1ve/bitree/releases/latest) 或 [测试版](https://github.com/so1ve/bitree/releases/tag/dev)，按平台选择文件：
+前往 [正式版](https://github.com/so1ve/bitree/releases/latest) 或 [测试版](https://github.com/so1ve/bitree/releases?q=prerelease%3Atrue)，按平台选择文件：
 
 | 平台 | 下载文件 |
 | --- | --- |
@@ -38,6 +38,8 @@
 | macOS | 通用版 ZIP，解压后使用，未签名 |
 | Linux | x64 tar.xz，解压后运行 `bitree` |
 | iOS | arm64 IPA，需自行签名后安装 |
+
+测试版使用下一开发版本的标签，例如正式版 `v0.2.0` 对应 `v0.3.0-dev`。同一渠道持续更新，只保留最新一条测试预发布；具体构建版本带有提交号。
 
 ## 数据与日志
 

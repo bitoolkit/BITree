@@ -2,6 +2,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -33,7 +34,8 @@ def main():
 
     repository = os.environ["GITHUB_REPOSITORY"]
     sha = os.environ["GITHUB_SHA"]
-    tag = "dev" if args.channel == "dev" else args.version
+    development = args.channel == "dev"
+    tag = args.version.split("-dev.")[0] + "-dev" if development else args.version
     endpoint = f"repos/{repository}"
     assets = sorted(Path("dist").glob("BITree-*"))
     if not assets:
@@ -72,7 +74,7 @@ def main():
             "--draft",
             "--latest=false",
             "--title",
-            "Dev Build" if args.channel == "dev" else f"BITree {tag}",
+            f"BITree {tag}",
             "--notes-file",
             str(notes),
         ]
@@ -92,21 +94,23 @@ def main():
         str(checksums),
     )
 
-    if args.channel == "dev" and existing is not None:
-        # Move the fixed dev tag to the newly built commit.
-        gh(
-            "api",
-            "--method",
-            "PATCH",
-            f"{endpoint}/git/refs/tags/dev",
-            "-f",
-            f"sha={sha}",
-            "-F",
-            "force=true",
-        )
+    if development:
+        ref = github(f"{endpoint}/git/ref/tags/{tag}")
+        if ref is not None:
+            gh(
+                "api",
+                "--method",
+                "PATCH",
+                f"{endpoint}/git/refs/tags/{tag}",
+                "-f",
+                f"sha={sha}",
+                "-F",
+                "force=true",
+            )
 
         keep = {asset.name for asset in assets} | {checksums.name}
-        for asset in existing["assets"]:
+        previous_assets = existing["assets"] if existing is not None else []
+        for asset in previous_assets:
             if asset["name"] not in keep:
                 gh(
                     "api",
@@ -130,6 +134,23 @@ def main():
     if args.channel == "dev":
         command.append("--prerelease")
     gh(*command)
+
+    if development:
+        # Publish the replacement before removing older development channels.
+        for release in github(f"{endpoint}/releases?per_page=100"):
+            old_tag = release["tag_name"]
+            if (
+                release["prerelease"]
+                and old_tag != tag
+                and (
+                    old_tag == "dev"
+                    or re.fullmatch(r"v\d+\.\d+\.\d+-dev", old_tag)
+                )
+            ):
+                gh(
+                    "release", "delete", old_tag, "--repo", repository,
+                    "--cleanup-tag", "--yes",
+                )
 
 
 if __name__ == "__main__":

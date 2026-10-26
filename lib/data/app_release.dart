@@ -24,17 +24,30 @@ Future<List<AppRelease>> availableAppReleases(
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
 
   try {
-    final [stable, dev] = await Future.wait([
+    final [stable, releases] = await Future.wait([
       _readJson(
         client,
         Uri.https('api.github.com', '/repos/so1ve/bitree/releases/latest'),
       ),
       _readJson(
         client,
-        Uri.https('api.github.com', '/repos/so1ve/bitree/releases/tags/dev'),
+        Uri.https('api.github.com', '/repos/so1ve/bitree/releases'),
       ),
     ]);
-    final stableUpdate = _stableUpdate(stable, installed);
+    final dev = (releases as List?)
+        ?.cast<Map<String, dynamic>>()
+        .where(
+          (release) =>
+              release['prerelease'] == true &&
+              RegExp(r'^v\d+\.\d+\.\d+-dev$')
+                  .hasMatch(release['tag_name'] as String),
+        )
+        .firstOrNull;
+    final stableUpdate = _stableUpdate(
+      stable as Map<String, dynamic>?,
+      installed,
+      builtAt: builtAt,
+    );
     final developmentUpdate = await _developmentUpdate(
       client,
       dev,
@@ -48,7 +61,11 @@ Future<List<AppRelease>> availableAppReleases(
   }
 }
 
-AppRelease? _stableUpdate(Map<String, dynamic>? release, String installed) {
+AppRelease? _stableUpdate(
+  Map<String, dynamic>? release,
+  String installed, {
+  DateTime? builtAt,
+}) {
   final normalized = installed.replaceFirst(RegExp(r'^v'), '');
   final current = Version.parse(normalized.split('-').first);
   if (release == null ||
@@ -59,8 +76,15 @@ AppRelease? _stableUpdate(Map<String, dynamic>? release, String installed) {
 
   final tag = release['tag_name'] as String;
   final version = Version.parse(tag.replaceFirst(RegExp(r'^v'), ''));
+  final development = normalized.contains('-');
+  final releasedAfterBuild =
+      development &&
+      builtAt != null &&
+      DateTime.parse(release['published_at'] as String).isAfter(builtAt);
   final newer =
-      version > current || (version == current && normalized.contains('-'));
+      version > current ||
+      (development && version == current) ||
+      releasedAfterBuild;
   if (version.isPreRelease || !newer) return null;
 
   return AppRelease(
@@ -89,7 +113,7 @@ Future<AppRelease?> _developmentUpdate(
   final metadata = await _readJson(
     client,
     Uri.parse(asset['browser_download_url'] as String),
-  );
+  ) as Map<String, dynamic>?;
   if (metadata == null) return null;
 
   final version = metadata['version'] as String;
@@ -107,7 +131,7 @@ Future<AppRelease?> _developmentUpdate(
   );
 }
 
-Future<Map<String, dynamic>?> _readJson(HttpClient client, Uri url) async {
+Future<Object?> _readJson(HttpClient client, Uri url) async {
   final request = await client.getUrl(url).timeout(const Duration(seconds: 15));
   request.headers
     ..set(HttpHeaders.acceptHeader, 'application/vnd.github+json')
@@ -128,5 +152,5 @@ Future<Map<String, dynamic>?> _readJson(HttpClient client, Uri url) async {
       .transform(utf8.decoder)
       .join()
       .timeout(const Duration(seconds: 15));
-  return jsonDecode(text) as Map<String, dynamic>;
+  return jsonDecode(text);
 }

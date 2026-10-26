@@ -15,9 +15,13 @@ def main():
     )[1]
     native_version = pubspec_version.split("+")[0].split("-")[0]
     is_release = ref.startswith("refs/tags/v")
-    version = (
-        ref.removeprefix("refs/tags/") if is_release else f"v{native_version}-{sha[:7]}"
-    )
+    if is_release:
+        version = ref.removeprefix("refs/tags/")
+    else:
+        if "-" not in pubspec_version:
+            major, minor, _ = map(int, native_version.split("."))
+            native_version = f"{major}.{minor + 1}.0"
+        version = f"v{native_version}-dev.{sha[:7]}"
 
     commit_time = int(
         subprocess.check_output(

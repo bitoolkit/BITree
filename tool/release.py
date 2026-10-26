@@ -28,7 +28,10 @@ def main():
         raise SystemExit("请先提交当前修改。")
 
     subprocess.run(
-        ["git", "fetch", "--no-tags", "origin", "refs/tags/v*:refs/tags/v*"],
+        [
+            "git", "fetch", "--no-tags", "origin",
+            "refs/tags/v*:refs/tags/v*", "^refs/tags/v*-dev",
+        ],
         check=True,
     )
     existing_tag = subprocess.run(
