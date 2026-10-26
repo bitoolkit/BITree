@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import '../agenda/model.dart';
 import '../app_controller.dart';
 import '../schedule/model.dart';
-import 'agenda_day.dart';
 import 'agenda_time.dart';
+import 'calendar_list.dart';
 
 class AgendaReminder extends StatefulWidget {
   const AgendaReminder({

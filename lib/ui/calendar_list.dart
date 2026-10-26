@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../agenda/calendar.dart';
 import '../agenda/model.dart';
 import '../app_controller.dart';
+import '../schedule/model.dart';
 import 'agenda_detail.dart';
 import 'completion_text.dart';
 import 'course_detail.dart';
@@ -13,6 +14,21 @@ IconData agendaIcon(AgendaKind kind) => switch (kind) {
   AgendaKind.deadline => Icons.flag_outlined,
   AgendaKind.exam => Icons.edit_note_rounded,
 };
+
+Future<void> showAgendaDay(
+  BuildContext context,
+  AppController controller,
+  DateTime date,
+) => showCalendarItems(
+  context,
+  controller,
+  agendaDateLabel(date),
+  controller.agenda
+      .pendingOn(date, now: campusNow())
+      .map(CalendarItem.agenda)
+      .toList(),
+  emptyMessage: '没有未完成的日程',
+);
 
 Future<void> openCalendarItem(
   BuildContext context,
