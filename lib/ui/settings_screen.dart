@@ -273,7 +273,7 @@ class SettingsScreen extends StatelessWidget {
                 leading: const Icon(Icons.date_range_outlined),
                 title: const Text('周数管理'),
                 subtitle: Text(
-                  '${controller.schedule!.firstWeek} — ${controller.schedule!.lastWeek} 周',
+                  '${controller.schedule!.firstWeek} - ${controller.schedule!.lastWeek} 周',
                 ),
                 trailing: const Icon(Icons.chevron_right_rounded, size: 20),
                 onTap: controller.busy

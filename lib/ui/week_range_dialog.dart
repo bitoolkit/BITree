@@ -190,7 +190,7 @@ class _WeekRangeDialogState extends State<_WeekRangeDialog> {
                       Expanded(child: first),
                       const Padding(
                         padding: EdgeInsets.fromLTRB(8, 42, 8, 0),
-                        child: Text('—'),
+                        child: Text('-'),
                       ),
                       Expanded(child: last),
                     ],
