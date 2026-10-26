@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- docs: introduce BITree features and simplify release guidance ([1c42acb](https://github.com/so1ve/bitree/commit/1c42acb9300835b1ae18dc37ce7e31f80014c144))
 - perf(build): shrink release packages and separate debug symbols ([8aac505](https://github.com/so1ve/bitree/commit/8aac50507489e2ca0b5194839dd36fa3911a3ac9))
 - feat(classrooms): simplify queries with optional time filters ([f1558c6](https://github.com/so1ve/bitree/commit/f1558c67da8e0150814f669234bf532fc3dd7d4d))
 - feat(agenda): replace the home task strip with a transient reminder ([74b965d](https://github.com/so1ve/bitree/commit/74b965dc7212714bf8091db19d00d84b5798a1b5))
