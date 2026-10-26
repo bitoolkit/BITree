@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- feat(classrooms): add Wencui building group filter ([9d6e675](https://github.com/so1ve/bitree/commit/9d6e6758f350bed69dabad625f6a6c26eaf5ecd5))
 - refactor(requests): cancel superseded classroom queries ([485a939](https://github.com/so1ve/bitree/commit/485a93957854b866eb52f0c376b1b7f62fc6562f))
 - fix(agenda): simplify swipe delete confirmation styling ([467f9ec](https://github.com/so1ve/bitree/commit/467f9ec8650b6f031f90cfdb1b345bcf4f37a03f))
 - refactor(data): share school reads and cache classroom queries ([c829b45](https://github.com/so1ve/bitree/commit/c829b4587dcf9060ba3db7fac2f757e738080f4b))
