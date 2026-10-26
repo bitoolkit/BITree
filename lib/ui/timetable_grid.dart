@@ -43,6 +43,7 @@ class TimetableGrid extends StatefulWidget {
 class _TimetableGridState extends State<TimetableGrid> {
   final _grid = GlobalKey();
   final _addMenu = MenuController();
+  bool _closedMenuOnPointerDown = false;
   ({int day, int anchor, int end})? _selection;
   Offset? _dragPosition;
   EdgeDraggingAutoScroller? _autoScroller;
@@ -72,14 +73,15 @@ class _TimetableGridState extends State<TimetableGrid> {
     (block) => block.start < section && block.end > section - 1,
   );
 
-  void _beginSelection(Offset position) {
-    if (widget.controller.busy) return;
+  bool _beginSelection(Offset position) {
+    if (_closedMenuOnPointerDown || widget.controller.busy) return false;
     final cell = _cellAt(position);
-    if (_occupied(cell.day, cell.section)) return;
+    if (_occupied(cell.day, cell.section)) return false;
 
     setState(() {
       _selection = (day: cell.day, anchor: cell.section, end: cell.section);
     });
+    return true;
   }
 
   void _extendSelection(Offset position) {
@@ -102,8 +104,7 @@ class _TimetableGridState extends State<TimetableGrid> {
   }
 
   void _startDrag(Offset position) {
-    _beginSelection(position);
-    if (_selection == null) return;
+    if (!_beginSelection(position)) return;
 
     _autoScroller = EdgeDraggingAutoScroller(
       Scrollable.of(context),
@@ -146,7 +147,7 @@ class _TimetableGridState extends State<TimetableGrid> {
 
   void _finishSelection(Offset position) {
     _stopDrag();
-    if (_selection == null) return;
+    if (_closedMenuOnPointerDown || _selection == null) return;
 
     // Rebuild the menu with the selected date and sections before opening it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -251,8 +252,9 @@ class _TimetableGridState extends State<TimetableGrid> {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTapUp: (details) {
-                      _beginSelection(details.globalPosition);
-                      _finishSelection(details.globalPosition);
+                      if (_beginSelection(details.globalPosition)) {
+                        _finishSelection(details.globalPosition);
+                      }
                     },
                     onLongPressStart: (details) =>
                         _startDrag(details.globalPosition),
@@ -261,74 +263,84 @@ class _TimetableGridState extends State<TimetableGrid> {
                     onLongPressEnd: (details) =>
                         _finishSelection(details.globalPosition),
                     onLongPressCancel: _cancelSelection,
-                    child: Stack(
-                      key: _grid,
-                      children: [
-                        Positioned.fill(
-                          child: CustomPaint(
-                            painter: _TimetableBackground(
-                              rowHeight: rowHeight,
-                              surfaceColor: scheme.onSurface,
-                              todayColumn: widget.todayColumn,
-                              todayBackground: widget.todayBackground,
-                            ),
-                          ),
-                        ),
-                        for (var day = 0; day < 7; day++)
-                          for (final block in widget.layouts[day])
-                            Positioned(
-                              key: ValueKey((day, block.start)),
-                              left: day * columnWidth + 2,
-                              width: columnWidth - 4,
-                              top: block.start * rowHeight + 2,
-                              height: (block.end - block.start) * rowHeight - 4,
-                              child: CalendarBlockTile(
-                                items: block.items,
-                                controller: widget.controller,
-                                isToday: day == widget.todayColumn,
+                    child: Listener(
+                      onPointerDown: (_) {
+                        _closedMenuOnPointerDown = _addMenu.isOpen;
+                        if (_closedMenuOnPointerDown) _addMenu.close();
+                      },
+                      child: Stack(
+                        key: _grid,
+                        children: [
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: _TimetableBackground(
+                                rowHeight: rowHeight,
+                                surfaceColor: scheme.onSurface,
+                                todayColumn: widget.todayColumn,
+                                todayBackground: widget.todayBackground,
                               ),
                             ),
-                        Positioned.fill(
-                          child: RepaintBoundary(
-                            child: ValueListenableBuilder<DateTime>(
-                              valueListenable: widget.currentTime,
-                              builder: (context, now, _) =>
-                                  CurrentTimeIndicator(
-                                    now: now,
-                                    monday: widget.monday,
-                                    columnWidth: columnWidth,
-                                    rowHeight: rowHeight,
-                                  ),
+                          ),
+                          for (var day = 0; day < 7; day++)
+                            for (final block in widget.layouts[day])
+                              Positioned(
+                                key: ValueKey((day, block.start)),
+                                left: day * columnWidth + 2,
+                                width: columnWidth - 4,
+                                top: block.start * rowHeight + 2,
+                                height:
+                                    (block.end - block.start) * rowHeight - 4,
+                                child: CalendarBlockTile(
+                                  items: block.items,
+                                  controller: widget.controller,
+                                  isToday: day == widget.todayColumn,
+                                ),
+                              ),
+                          Positioned.fill(
+                            child: RepaintBoundary(
+                              child: ValueListenableBuilder<DateTime>(
+                                valueListenable: widget.currentTime,
+                                builder: (context, now, _) =>
+                                    CurrentTimeIndicator(
+                                      now: now,
+                                      monday: widget.monday,
+                                      columnWidth: columnWidth,
+                                      rowHeight: rowHeight,
+                                    ),
+                              ),
                             ),
                           ),
-                        ),
-                        if (_selection case final selection?)
-                          Positioned(
-                            left: selection.day * columnWidth + 2,
-                            width: columnWidth - 4,
-                            top:
-                                (math.min(selection.anchor, selection.end) -
-                                        1) *
-                                    rowHeight +
-                                2,
-                            height:
-                                ((selection.end - selection.anchor).abs() + 1) *
-                                    rowHeight -
-                                4,
-                            child: IgnorePointer(
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: scheme.primary.withValues(alpha: 0.18),
-                                  border: Border.all(
-                                    color: scheme.primary,
-                                    width: 1.5,
+                          if (_selection case final selection?)
+                            Positioned(
+                              left: selection.day * columnWidth + 2,
+                              width: columnWidth - 4,
+                              top:
+                                  (math.min(selection.anchor, selection.end) -
+                                          1) *
+                                      rowHeight +
+                                  2,
+                              height:
+                                  ((selection.end - selection.anchor).abs() +
+                                          1) *
+                                      rowHeight -
+                                  4,
+                              child: IgnorePointer(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: scheme.primary.withValues(
+                                      alpha: 0.18,
+                                    ),
+                                    border: Border.all(
+                                      color: scheme.primary,
+                                      width: 1.5,
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
-                                  borderRadius: BorderRadius.circular(6),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
