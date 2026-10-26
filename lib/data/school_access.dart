@@ -1,5 +1,6 @@
 import '../agenda/deadline_source.dart';
 import '../diagnostics.dart';
+import 'cancelable_request.dart';
 import 'school_errors.dart';
 import 'school_login.dart';
 import 'school_network.dart';
@@ -17,15 +18,26 @@ class SchoolAccess {
 
   Future<T> read<T>(
     VerifySchoolLogin verify,
-    Future<T> Function(SchoolSession) operation,
-  ) => _run((session) async {
+    Future<T> Function(SchoolSession) operation, {
+    CancellationToken? cancellation,
+  }) async {
+    cancellation?.check();
+    final detach = cancellation?.onCancel(cancel);
     try {
-      return await operation(session);
-    } on SessionExpired {
-      await SchoolLogin(session, verify).signIn();
-      return operation(session);
+      final result = await _run((session) async {
+        try {
+          return await operation(session);
+        } on SessionExpired {
+          await SchoolLogin(session, verify).signIn();
+          return operation(session);
+        }
+      });
+      cancellation?.check();
+      return result;
+    } finally {
+      detach?.call();
     }
-  });
+  }
 
   Future<T> readLearningPlatform<T>(
     DeadlineSource source,

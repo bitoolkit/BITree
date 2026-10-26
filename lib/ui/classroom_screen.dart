@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../app_controller.dart';
 import '../classrooms/model.dart';
+import '../data/cancelable_request.dart';
 import '../schedule/model.dart';
 import 'app_dropdown_field.dart';
 import 'app_notice.dart';
@@ -32,7 +33,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
   ClassroomPeriod? _period;
   List<BuildingOccupancy>? _occupancy;
   bool _working = false;
-  bool _requesting = false;
+  final _requests = LatestRequest();
 
   List<SchoolBuilding> get _buildings => [
     for (final building in _directory?.buildings ?? <SchoolBuilding>[])
@@ -49,11 +50,14 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
 
   @override
   void dispose() {
-    if (_requesting) widget.controller.cancelSchoolRequest();
+    _requests.cancel();
     super.dispose();
   }
 
-  Future<T?> _withLogin<T>(Future<T?> Function() read) async {
+  Future<T?> _withLogin<T>(
+    CancellationToken cancellation,
+    Future<T?> Function() read,
+  ) async {
     final controller = widget.controller;
     if (controller.busy || controller.schoolBusy) {
       showAppNotice(context, '正在处理学校请求，请稍后再试。');
@@ -70,76 +74,95 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
 
     if (controller.username == null) {
       if (!await signIn() || !mounted) return null;
+      cancellation.check();
     }
 
-    Future<T?> request() async {
-      _requesting = true;
-      try {
-        return await read();
-      } finally {
-        _requesting = false;
-      }
-    }
-
-    var result = await request();
+    var result = await read();
+    cancellation.check();
     if (!mounted) return null;
     if (result == null && controller.loginExpired) {
       if (!await signIn() || !mounted) return null;
-      result = await request();
+      cancellation.check();
+      result = await read();
     }
     return result;
   }
 
-  Future<void> _loadDirectory({bool refresh = false}) async {
-    if (_working) return;
+  Future<void> _runQuery(
+    Future<void> Function(CancellationToken cancellation) read,
+  ) async {
     setState(() => _working = true);
-    final result = await _withLogin(
-      () => widget.controller.classroomDirectory(
-        verify: (request) => verifySchoolLogin(context, request),
-        refresh: refresh,
-      ),
-    );
-    if (!mounted) return;
-    setState(() {
-      _working = false;
-      if (result == null) return;
-      _directory = result;
-      if (!result.campuses.any((campus) => campus.code == _campusCode)) {
-        _campusCode =
-            result.campuses
-                .where((campus) => campus.name.contains('良乡'))
-                .firstOrNull
-                ?.code ??
-            result.campuses.firstOrNull?.code;
-        _occupancy = null;
-      }
-      if (!_buildings.any((building) => building.code == _buildingCode)) {
-        _buildingCode = null;
+    await _requests.run((cancellation) async {
+      try {
+        await read(cancellation);
+      } finally {
+        if (mounted && !cancellation.isCancelled) {
+          setState(() => _working = false);
+        }
       }
     });
-    if (result != null) await _query(refresh: refresh);
   }
 
-  Future<void> _query({bool refresh = false}) async {
-    if (_working || _campusCode == null) return;
+  Future<void> _loadDirectory({bool refresh = false}) =>
+      _runQuery((cancellation) async {
+        final result = await _withLogin(
+          cancellation,
+          () => widget.controller.classroomDirectory(
+            verify: (request) => verifySchoolLogin(context, request),
+            refresh: refresh,
+            cancellation: cancellation,
+          ),
+        );
+        cancellation.check();
+        if (!mounted || result == null) return;
+        setState(() {
+          _directory = result;
+          if (!result.campuses.any((campus) => campus.code == _campusCode)) {
+            _campusCode =
+                result.campuses
+                    .where((campus) => campus.name.contains('良乡'))
+                    .firstOrNull
+                    ?.code ??
+                result.campuses.firstOrNull?.code;
+            _occupancy = null;
+          }
+          if (!_buildings.any((building) => building.code == _buildingCode)) {
+            _buildingCode = null;
+          }
+        });
+        await _fetchOccupancy(cancellation, refresh: refresh);
+      });
+
+  Future<void> _query({bool refresh = false}) => _runQuery(
+    (cancellation) => _fetchOccupancy(cancellation, refresh: refresh),
+  );
+
+  Future<void> _fetchOccupancy(
+    CancellationToken cancellation, {
+    required bool refresh,
+  }) async {
+    if (_campusCode == null) return;
     final buildings = _buildings;
+    final date = _date;
     if (buildings.isEmpty) {
       setState(() => _occupancy = const []);
       return;
     }
-    setState(() => _working = true);
     final result = await _withLogin(
+      cancellation,
       () => widget.controller.classroomOccupancy(
         buildings: buildings,
-        date: _date,
+        date: date,
         verify: (request) => verifySchoolLogin(context, request),
         refresh: refresh,
+        cancellation: cancellation,
       ),
     );
+    cancellation.check();
     if (!mounted) return;
     setState(() {
-      _working = false;
-      if (result != null) _occupancy = result;
+      if (result == null) return;
+      _occupancy = result;
     });
   }
 
@@ -182,7 +205,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
         actions: [
           IconButton(
             tooltip: '刷新',
-            onPressed: _working ? null : () => _loadDirectory(refresh: true),
+            onPressed: () => _loadDirectory(refresh: true),
             icon: const Icon(Icons.refresh_rounded),
           ),
         ],
@@ -253,7 +276,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
             for (final campus in directory.campuses)
               DropdownMenuEntry(value: campus.code, label: campus.name),
           ],
-          onChanged: _working ? null : _changeCampus,
+          onChanged: _changeCampus,
         ),
         AppDropdownField<_DateChoice>(
           label: '日期',
@@ -277,18 +300,16 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
               labelWidget: const Text('其他日期'),
             ),
           ],
-          onChanged: _working
-              ? null
-              : (value) {
-                  switch (value) {
-                    case _DateChoice.today:
-                      _changeDate(today);
-                    case _DateChoice.tomorrow:
-                      _changeDate(tomorrow);
-                    case _DateChoice.other:
-                      unawaited(_pickDate());
-                  }
-                },
+          onChanged: (value) {
+            switch (value) {
+              case _DateChoice.today:
+                _changeDate(today);
+              case _DateChoice.tomorrow:
+                _changeDate(tomorrow);
+              case _DateChoice.other:
+                unawaited(_pickDate());
+            }
+          },
         ),
         AppDropdownField<String?>(
           label: '教学楼',

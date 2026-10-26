@@ -1,7 +1,3 @@
-class SchoolCancelled implements Exception {
-  const SchoolCancelled();
-}
-
 class SchoolCredentialsRequired implements Exception {
   const SchoolCredentialsRequired([this.message = '请登录学校账号。']);
 

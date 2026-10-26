@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'agenda/controller.dart';
 import 'agenda/deadline_source.dart';
 import 'classrooms/model.dart';
+import 'data/cancelable_request.dart';
 import 'data/desktop_widget.dart';
 import 'data/read_cache.dart';
 import 'data/schedule_store.dart';
@@ -158,7 +159,7 @@ class AppController extends ChangeNotifier {
       accountStatus = AccountStatus.signedIn;
       if (success) AppDiagnostics.instance.info('$label完成');
       return success;
-    } on SchoolCancelled {
+    } on RequestCancelled {
       return false;
     } catch (failure, stack) {
       _handleSchoolError(label, failure, stack);
@@ -175,9 +176,10 @@ class AppController extends ChangeNotifier {
   Future<ClassroomDirectory?> classroomDirectory({
     required VerifySchoolLogin verify,
     bool refresh = false,
+    CancellationToken? cancellation,
   }) async {
     Future<ClassroomDirectory?> load() =>
-        _readSchool('加载教学楼', fetchClassroomDirectory, verify);
+        _readSchool('加载教学楼', fetchClassroomDirectory, verify, cancellation);
 
     final account = username;
     final result = account == null
@@ -192,6 +194,7 @@ class AppController extends ChangeNotifier {
     required DateTime date,
     required VerifySchoolLogin verify,
     bool refresh = false,
+    CancellationToken? cancellation,
   }) {
     final day = calendarDate(date);
     Future<List<BuildingOccupancy>?> load() => _readSchool(
@@ -199,6 +202,7 @@ class AppController extends ChangeNotifier {
       (session) =>
           fetchClassroomOccupancy(session, buildings: buildings, date: day),
       verify,
+      cancellation,
     );
 
     final account = username;
@@ -221,10 +225,15 @@ class AppController extends ChangeNotifier {
     String label,
     Future<T> Function(SchoolSession) read,
     VerifySchoolLogin verify,
+    CancellationToken? cancellation,
   ) async {
     T? result;
     final success = await _runSchool(label, () async {
-      result = await _schoolAccess.read(verify, read);
+      result = await _schoolAccess.read(
+        verify,
+        read,
+        cancellation: cancellation,
+      );
       return true;
     });
     return success ? result : null;

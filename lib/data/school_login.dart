@@ -6,6 +6,7 @@ import 'package:html/dom.dart';
 import 'package:html/parser.dart';
 
 import '../agenda/deadline_source.dart';
+import 'cancelable_request.dart';
 import 'school_crypto.dart';
 import 'school_errors.dart';
 import 'school_network.dart';
@@ -126,7 +127,7 @@ class SchoolLogin {
             ),
           )
         : '';
-    if (captchaCode == null) throw const SchoolCancelled();
+    if (captchaCode == null) throw const RequestCancelled();
     session.checkActive();
 
     final key = base64Decode(page.cryptoKey);
@@ -226,7 +227,7 @@ class SchoolLogin {
         },
       ),
     );
-    if (code == null) throw const SchoolCancelled();
+    if (code == null) throw const RequestCancelled();
     session.checkActive();
     return _callback(
       await _request(

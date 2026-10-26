@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'cancelable_request.dart';
 import 'school_errors.dart';
 import 'school_network.dart';
 import 'school_storage.dart';
@@ -40,7 +41,7 @@ class SchoolSession {
       '(KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36';
 
   void checkActive() {
-    if (_closed) throw const SchoolCancelled();
+    if (_closed) throw const RequestCancelled();
   }
 
   Future<void> checkLogin() async {
