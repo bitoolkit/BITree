@@ -13,6 +13,10 @@ class AppDiagnostics {
   AppDiagnostics._();
 
   static final instance = AppDiagnostics._();
+  static const _version = String.fromEnvironment(
+    'BITREE_VERSION',
+    defaultValue: 'local',
+  );
 
   final _messages = StreamController<String>.broadcast();
   Future<Directory>? _directory;
@@ -55,7 +59,7 @@ class AppDiagnostics {
   void _append(String level, String message) {
     final now = DateTime.now();
     final text = _redact(
-      '${now.toUtc().toIso8601String()} [$level] $message\n',
+      '${now.toUtc().toIso8601String()} [$level] [$_version] $message\n',
     );
     unawaited(
       _access(() async {
@@ -115,7 +119,8 @@ class AppDiagnostics {
   });
 
   Future<Uint8List> export() => _access(() async {
-    final text = StringBuffer('BITree 日志\n');
+    final text = StringBuffer('BITree $_version 日志\n');
+    text.writeln('运行环境：${Platform.version}');
     text.writeln('导出时间：${DateTime.now().toUtc().toIso8601String()}\n');
     for (final file in await _retainedFiles(await _getDirectory())) {
       text.writeln(await file.readAsString());

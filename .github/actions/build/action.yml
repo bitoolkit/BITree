@@ -135,6 +135,14 @@ runs:
         --version "$BITREE_VERSION"
         --native-version "$BITREE_NATIVE_VERSION"
         --build-number "$BITREE_BUILD_NUMBER"
+    - name: Upload debug symbols
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: debug-symbols-${{ inputs.target }}-${{ inputs.version }}
+        path: build/symbols/
+        if-no-files-found: warn
+        retention-days: 90
     - name: Upload Android armeabi-v7a APK
       if: ${{ !cancelled() && inputs.target == 'android' }}
       uses: actions/upload-artifact@v7

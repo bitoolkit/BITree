@@ -16,15 +16,26 @@ def run(program, *arguments):
     subprocess.run([executable, *arguments], check=True)
 
 
+def build_flutter(target, flags, *arguments):
+    run(
+        "flutter",
+        "build",
+        target,
+        f"--split-debug-info=build/symbols/{target}",
+        *arguments,
+        *flags,
+    )
+
+
 def build_android(flags, prefix):
     suffix = "" if Path("android/key.properties").exists() else "-debug-signed"
 
-    run("flutter", "build", "apk", "--split-per-abi", *flags)
+    build_flutter("apk", flags, "--split-per-abi")
     for apk in Path("build/app/outputs/flutter-apk").glob("*.apk"):
         abi = apk.stem.removeprefix("app-").removesuffix("-release")
         shutil.copy2(apk, f"dist/{prefix}-android-{abi}{suffix}.apk")
 
-    run("flutter", "build", "appbundle", *flags)
+    build_flutter("appbundle", flags)
     shutil.copy2(
         "build/app/outputs/bundle/release/app-release.aab",
         f"dist/{prefix}-android{suffix}.aab",
@@ -32,13 +43,13 @@ def build_android(flags, prefix):
 
 
 def build_linux(flags, prefix):
-    run("flutter", "build", "linux", *flags)
-    with tarfile.open(f"dist/{prefix}-linux-x64.tar.xz", "w:xz") as archive:
+    build_flutter("linux", flags)
+    with tarfile.open(f"dist/{prefix}-linux-x64.tar.xz", "w:xz", preset=9) as archive:
         archive.add("build/linux/x64/release/bundle", arcname="BITree")
 
 
 def build_windows(flags, prefix, native_version):
-    run("flutter", "build", "windows", *flags)
+    build_flutter("windows", flags)
     run(
         "iscc",
         f"/DAppVersion={native_version}",
@@ -49,12 +60,14 @@ def build_windows(flags, prefix, native_version):
 
 def build_macos(flags, prefix):
     run("flutter", "config", "--no-enable-macos-arm64-only")
-    run("flutter", "build", "macos", *flags)
+    build_flutter("macos", flags)
     app = Path("build/macos/Build/Products/Release/BITree.app")
     run(
         "ditto",
         "-c",
         "-k",
+        "--zlibCompressionLevel",
+        "9",
         "--sequesterRsrc",
         "--keepParent",
         str(app),
@@ -63,7 +76,7 @@ def build_macos(flags, prefix):
 
 
 def build_ios(flags, prefix):
-    run("flutter", "build", "ios", "--no-codesign", *flags)
+    build_flutter("ios", flags, "--no-codesign")
     payload = Path("build/unsigned-ipa/Payload")
     payload.mkdir(parents=True, exist_ok=True)
     shutil.copytree(
@@ -76,6 +89,8 @@ def build_ios(flags, prefix):
         "ditto",
         "-c",
         "-k",
+        "--zlibCompressionLevel",
+        "9",
         "--keepParent",
         str(payload),
         f"dist/{prefix}-ios-arm64-unsigned.ipa",

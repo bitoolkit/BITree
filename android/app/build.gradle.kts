@@ -57,6 +57,14 @@ android {
     }
 }
 
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        // Compress direct-download APKs; keep Play-generated APKs mmap-friendly.
+        variant.packaging.jniLibs.useLegacyPackaging.set(true)
+        variant.packaging.jniLibs.useLegacyPackagingFromBundle.set(false)
+    }
+}
+
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17

@@ -15,7 +15,7 @@ OutputDir=dist
 OutputBaseFilename={#OutputName}
 SetupIconFile=windows\runner\resources\app_icon.ico
 UninstallDisplayIcon={app}\bitree.exe
-Compression=lzma2
+Compression=lzma2/ultra64
 SolidCompression=yes
 
 [Files]
