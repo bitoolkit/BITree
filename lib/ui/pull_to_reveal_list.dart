@@ -30,6 +30,8 @@ class _PullToRevealListState extends State<PullToRevealList>
   static const _duration = Duration(milliseconds: 320);
   static const _collapseDuration = Duration(milliseconds: 260);
   final _scroll = ScrollController();
+  final _historyKey = GlobalKey();
+  final _collapseKey = GlobalKey();
   bool _revealed = false;
   bool _dragging = false;
   double _pull = 0;
@@ -83,51 +85,63 @@ class _PullToRevealListState extends State<PullToRevealList>
   }
 
   Future<void> _setRevealed(bool value) async {
+    if (value == _revealed) return;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     if (value) {
       setState(() {
         _revealed = true;
         _pull = 0;
       });
-      // Lay out the history above the existing origin without moving the list.
+      // Let the ordinary list measure the inserted history before locating its footer.
       await WidgetsBinding.instance.endOfFrame;
     }
     if (!mounted || !_scroll.hasClients) return;
 
-    // Reveal the end of the history without scrolling beyond its actual extent.
     final position = _scroll.position;
-    final target = value
-        ? math.max(position.minScrollExtent, -position.viewportDimension)
-        : 0.0;
+    if (value) {
+      await position.ensureVisible(
+        _collapseKey.currentContext!.findRenderObject()!,
+        alignment: 1,
+        duration: reduceMotion ? Duration.zero : _duration,
+        curve: Curves.easeInOutCubic,
+      );
+      return;
+    }
+
+    final target = _historyKey.currentContext!.size!.height.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
     if (reduceMotion) {
       _scroll.jumpTo(target);
     } else {
       await _scroll.animateTo(
         target,
-        duration: value ? _duration : _collapseDuration,
+        duration: _collapseDuration,
         curve: Curves.easeInOutCubic,
       );
     }
     if (!mounted) return;
 
-    // A new drag can cancel the scroll; keep history until it is offscreen.
-    if (!value && _scroll.offset.abs() < 1) {
+    // Do not finish collapsing if a new drag interrupted the scroll.
+    if ((_scroll.offset - target).abs() < 1) {
       setState(() {
         _revealed = false;
         _pull = 0;
       });
+      _scroll.jumpTo(0);
     }
   }
 
   Widget _history() => Padding(
+    key: _historyKey,
     padding: const EdgeInsets.only(bottom: 24),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ...widget.hiddenChildren,
-        // Only spare viewport space separates the rows from the footer.
-        const Spacer(),
         Center(
+          key: _collapseKey,
           child: TextButton(
             onPressed: () => _setRevealed(false),
             style: TextButton.styleFrom(
@@ -178,16 +192,11 @@ class _PullToRevealListState extends State<PullToRevealList>
                     children: [
                       CustomScrollView(
                         controller: _scroll,
-                        center: _current,
                         physics: const _TopPullPhysics(
                           parent: AlwaysScrollableScrollPhysics(),
                         ),
                         slivers: [
-                          if (_revealed)
-                            SliverFillRemaining(
-                              hasScrollBody: false,
-                              child: _history(),
-                            ),
+                          if (_revealed) SliverToBoxAdapter(child: _history()),
                           AnimatedSliverChildren(
                             key: _current,
                             children: widget.children,
