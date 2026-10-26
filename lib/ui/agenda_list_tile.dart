@@ -22,7 +22,7 @@ class AgendaListTile extends StatelessWidget {
   final AgendaEntry entry;
   final DateTime now;
 
-  Future<void> _complete({bool haptic = false}) =>
+  Future<bool> _complete({bool haptic = false}) =>
       toggleAgendaDone(controller.agenda, entry, haptic: haptic);
 
   @override
@@ -58,9 +58,8 @@ class AgendaListTile extends StatelessWidget {
           icon: Icons.delete_outline,
           background: scheme.error,
           foreground: scheme.onError,
-          onInvoke: () async {
-            await deleteAgendaEntry(context, controller, entry, confirm: false);
-          },
+          onInvoke: () =>
+              deleteAgendaEntry(context, controller, entry, confirm: false),
         ),
         rightAction: entry.isDeadline
             ? TileSwipeAction(

@@ -6,7 +6,7 @@ import '../agenda/model.dart';
 import '../app_controller.dart';
 import 'app_notice.dart';
 
-Future<void> toggleAgendaDone(
+Future<bool> toggleAgendaDone(
   AgendaController controller,
   AgendaEntry entry, {
   bool haptic = true,
@@ -15,6 +15,7 @@ Future<void> toggleAgendaDone(
   if (saved && haptic) {
     HapticFeedback.selectionClick();
   }
+  return saved;
 }
 
 Future<bool> deleteAgendaEntry(

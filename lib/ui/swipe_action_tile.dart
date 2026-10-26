@@ -18,7 +18,9 @@ class TileSwipeAction {
   final IconData icon;
   final Color background;
   final Color foreground;
-  final Future<void> Function() onInvoke;
+
+  /// Return true when the row is removed; false restores it after a failure.
+  final Future<bool> Function() onInvoke;
 }
 
 class SwipeActionTile extends StatefulWidget {
@@ -118,7 +120,18 @@ class _SwipeActionTileState extends State<SwipeActionTile>
 
   Future<void> _invoke(TileSwipeAction action) async {
     setState(() => _running = true);
+    final target =
+        _offset.value.sign * math.max(context.size!.width, _offset.value.abs());
     try {
+      await _offset
+          .animateTo(
+            target,
+            duration: _reduceMotion ? Duration.zero : _settleDuration,
+            curve: Curves.easeOutCubic,
+          )
+          .orCancel;
+      final applied = await action.onInvoke();
+      if (!mounted || applied) return;
       await _offset
           .animateTo(
             0,
@@ -129,7 +142,6 @@ class _SwipeActionTileState extends State<SwipeActionTile>
     } on TickerCanceled {
       return;
     }
-    await action.onInvoke();
     if (mounted) setState(() => _running = false);
   }
 

@@ -39,16 +39,16 @@ void showOverlayNotice(
             16,
         left: 0,
         right: 0,
-        child: IgnorePointer(
-          ignoring: action == null,
-          child: SafeArea(
-            top: false,
-            bottom: false,
-            minimum: const EdgeInsets.symmetric(horizontal: 16),
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
+        child: SafeArea(
+          top: false,
+          bottom: false,
+          minimum: const EdgeInsets.symmetric(horizontal: 16),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Listener(
+                behavior: HitTestBehavior.opaque,
                 child: Material(
                   color: theme.colorScheme.inverseSurface,
                   borderRadius: BorderRadius.circular(4),
