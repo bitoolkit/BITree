@@ -44,6 +44,8 @@ class SchoolBuilding {
   final String code;
   final String name;
   final String? campusCode;
+
+  bool get isWenCui => name.trim().startsWith('文萃楼');
 }
 
 class ClassroomDirectory {

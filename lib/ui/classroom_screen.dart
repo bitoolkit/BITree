@@ -16,6 +16,11 @@ import 'school_verification_dialog.dart';
 
 enum _DateChoice { today, tomorrow, other }
 
+const _wenCuiFilter = 'group:wencui';
+
+String _buildingFilterKey(SchoolBuilding building) =>
+    'building:${building.code}';
+
 class ClassroomScreen extends StatefulWidget {
   const ClassroomScreen({super.key, required this.controller});
 
@@ -28,7 +33,7 @@ class ClassroomScreen extends StatefulWidget {
 class _ClassroomScreenState extends State<ClassroomScreen> {
   ClassroomDirectory? _directory;
   String? _campusCode;
-  String? _buildingCode;
+  String? _buildingFilter;
   DateTime _date = calendarDate(campusNow());
   ClassroomPeriod? _period;
   List<BuildingOccupancy>? _occupancy;
@@ -39,6 +44,12 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     for (final building in _directory?.buildings ?? <SchoolBuilding>[])
       if (building.campusCode == _campusCode) building,
   ];
+
+  bool _matchesBuilding(SchoolBuilding building) {
+    if (_buildingFilter == null) return true;
+    if (_buildingFilter == _wenCuiFilter) return building.isWenCui;
+    return _buildingFilter == _buildingFilterKey(building);
+  }
 
   @override
   void initState() {
@@ -126,8 +137,8 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                 result.campuses.firstOrNull?.code;
             _occupancy = null;
           }
-          if (!_buildings.any((building) => building.code == _buildingCode)) {
-            _buildingCode = null;
+          if (!_buildings.any(_matchesBuilding)) {
+            _buildingFilter = null;
           }
         });
         await _fetchOccupancy(cancellation, refresh: refresh);
@@ -170,7 +181,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     if (_campusCode == code) return;
     setState(() {
       _campusCode = code;
-      _buildingCode = null;
+      _buildingFilter = null;
       _occupancy = null;
     });
     unawaited(_query());
@@ -313,15 +324,20 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
         ),
         AppDropdownField<String?>(
           label: '教学楼',
-          value: _buildingCode,
+          value: _buildingFilter,
           textStyle: style,
           menuWidth: menuWidth,
           entries: [
             const DropdownMenuEntry(value: null, label: '全部教学楼'),
+            if (_buildings.any((building) => building.isWenCui))
+              const DropdownMenuEntry(value: _wenCuiFilter, label: '文萃楼（全部）'),
             for (final building in _buildings)
-              DropdownMenuEntry(value: building.code, label: building.name),
+              DropdownMenuEntry(
+                value: _buildingFilterKey(building),
+                label: building.name,
+              ),
           ],
-          onChanged: (value) => setState(() => _buildingCode = value),
+          onChanged: (value) => setState(() => _buildingFilter = value),
         ),
         ClassroomTimeField(
           value: _period,
@@ -338,9 +354,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     final period = _period;
     final groups = <BuildingOccupancy>[];
     for (final group in _occupancy ?? <BuildingOccupancy>[]) {
-      if (_buildingCode != null && group.building.code != _buildingCode) {
-        continue;
-      }
+      if (!_matchesBuilding(group.building)) continue;
       final rooms = group.rooms
           .where(
             (room) => period == null
@@ -415,7 +429,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                       ? '重新加载教学楼'
                       : period != null
                       ? '不限时段查看'
-                      : _buildingCode != null
+                      : _buildingFilter != null
                       ? '查看全部教学楼'
                       : '换个日期',
                   onPressed: () {
@@ -423,8 +437,8 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                       unawaited(_loadDirectory(refresh: true));
                     } else if (period != null) {
                       setState(() => _period = null);
-                    } else if (_buildingCode != null) {
-                      setState(() => _buildingCode = null);
+                    } else if (_buildingFilter != null) {
+                      setState(() => _buildingFilter = null);
                     } else {
                       unawaited(_pickDate());
                     }
