@@ -2,18 +2,6 @@
 
 ## Unreleased
 
-- fix(schedule): dismiss add menu before handling grid taps ([dad60c9](https://github.com/so1ve/bitree/commit/dad60c9be8d6f1b3f90122b567fda434eebfb42a))
-- feat(release): migrate dev builds to versioned prereleases ([2704117](https://github.com/so1ve/bitree/commit/2704117a5570be59c87219cb72a04ef4fb84afdf))
-- fix(academics): constrain simulation dialog before layout ([7bcd7ff](https://github.com/so1ve/bitree/commit/7bcd7ff41e4a28a583e124420bdd80c59814d2a6))
-- Revert "fix(release): keep dev builds at the top of releases" ([ea3e867](https://github.com/so1ve/bitree/commit/ea3e867eb6b97d11b6a76c3043ac0771379efa1f))
-- fix(schedule): measure wrapped text before applying ellipsis ([ef29827](https://github.com/so1ve/bitree/commit/ef298277564d2eabcadae7e1dae1fa3433767864))
-- fix(release): keep dev builds at the top of releases ([4a53f75](https://github.com/so1ve/bitree/commit/4a53f756f123c64dd42794a51cae249632f5d738))
-- fix(ui): block notice tap-through and finish swipe dismissal ([b86defa](https://github.com/so1ve/bitree/commit/b86defa55e80a1afbc82ab071b31f471fd9197ce))
-- fix(schedule): fit course text to actual card space ([4d8aafa](https://github.com/so1ve/bitree/commit/4d8aafa237be22ca12117795f533a58fad4a1ae5))
-- fix(agenda): fit overdue rows above the collapse footer ([e611a12](https://github.com/so1ve/bitree/commit/e611a127ec0c1f15104fa82db92c0ed8e2e9613f))
-- feat(academics): add grades, projections, credits and exam tools ([d0e20e5](https://github.com/so1ve/bitree/commit/d0e20e566c9c5a59aae337423376b751270f999e))
-- fix: use English dashes ([356a716](https://github.com/so1ve/bitree/commit/356a71659eeee9921b68ccc207f28fa5bd5f4a9b))
-
 ## v0.2.0 - 2026-10-27
 
 - fix(agenda): delete on swipe and confirm button actions ([1272e35](https://github.com/so1ve/bitree/commit/1272e35bc407cb07d5e8ca42973b1bf76f366f83))

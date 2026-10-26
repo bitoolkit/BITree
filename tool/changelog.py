@@ -1,4 +1,3 @@
-import os
 import re
 import subprocess
 from datetime import datetime, timedelta, timezone
@@ -47,7 +46,7 @@ def unreleased_notes():
     return "\n".join(["## Unreleased", "", *lines]).rstrip() + "\n"
 
 
-def update_changelog(tag=None):
+def update_changelog(tag):
     previous, lines = _unreleased_changes()
 
     changelog = Path("CHANGELOG.md")
@@ -58,25 +57,17 @@ def update_changelog(tag=None):
         flags=re.MULTILINE | re.DOTALL,
     ).lstrip("\n")
 
-    if tag:
-        released_on = datetime.now(timezone(timedelta(hours=8))).date().isoformat()
-        lines = [f"## {tag} - {released_on}", "", *lines]
-        if previous:
-            lines.extend(
-                [
-                    "",
-                    f"[完整变更](https://github.com/so1ve/bitree/compare/{previous}...{tag})",
-                ]
-            )
+    released_on = datetime.now(timezone(timedelta(hours=8))).date().isoformat()
+    lines = [f"## {tag} - {released_on}", "", *lines]
+    if previous:
+        lines.extend(
+            [
+                "",
+                f"[完整变更](https://github.com/so1ve/bitree/compare/{previous}...{tag})",
+            ]
+        )
 
-    sections = ["# Changelog", "## Unreleased"]
-    if lines:
-        sections.append("\n".join(lines))
+    sections = ["# Changelog", "## Unreleased", "\n".join(lines)]
     if history:
         sections.append(history.rstrip())
     changelog.write_text("\n\n".join(sections) + "\n", encoding="utf-8")
-
-
-if __name__ == "__main__":
-    os.chdir(Path(__file__).resolve().parent.parent)
-    update_changelog()

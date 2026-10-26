@@ -60,6 +60,8 @@ flutter run
 
 构建和打包脚本见 [`tool/build_release.py`](tool/build_release.py)，版本记录见 [CHANGELOG.md](CHANGELOG.md)。
 
+CHANGELOG 只在正式发版时更新，和版本号一同提交。测试版说明直接从提交历史生成，不额外产生提交。
+
 学业计算和考试冲突的独立模型检查：`dart tool/check_academics.dart`。
 
 <details>
