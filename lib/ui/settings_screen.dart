@@ -290,15 +290,6 @@ class SettingsScreen extends StatelessWidget {
                 onTap: controller.busy ? null : () => _clearSchedule(context),
               ),
             ]),
-          section('日程', [
-            SwitchListTile(
-              contentPadding: tilePadding,
-              title: const Text('删除前确认'),
-              subtitle: const Text('开启后，左滑需两次，菜单删除时需确认'),
-              value: controller.confirmDelete,
-              onChanged: controller.setConfirmDelete,
-            ),
-          ]),
           section('应用', [
             ListTile(
               contentPadding: tilePadding,

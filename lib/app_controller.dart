@@ -60,7 +60,6 @@ class AppController extends ChangeNotifier {
 
   int week = 1;
   ThemeMode themeMode = ThemeMode.system;
-  bool confirmDelete = true;
   List<String> terms = [];
 
   SemesterSchedule? get schedule => _schedule;
@@ -77,7 +76,6 @@ class AppController extends ChangeNotifier {
       terms = await _store.terms();
 
       final theme = await _preferences.getString('theme');
-      confirmDelete = await _preferences.getBool('confirmDelete') ?? true;
       themeMode =
           ThemeMode.values.where((value) => value.name == theme).firstOrNull ??
           ThemeMode.system;
@@ -406,16 +404,6 @@ class AppController extends ChangeNotifier {
       themeMode = value;
     } catch (failure, stack) {
       AppDiagnostics.instance.report('保存外观设置', failure, stack);
-    }
-    notifyListeners();
-  }
-
-  Future<void> setConfirmDelete(bool value) async {
-    try {
-      await _preferences.setBool('confirmDelete', value);
-      confirmDelete = value;
-    } catch (failure, stack) {
-      AppDiagnostics.instance.report('保存删除设置', failure, stack);
     }
     notifyListeners();
   }

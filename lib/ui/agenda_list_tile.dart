@@ -10,7 +10,7 @@ import 'calendar_list.dart';
 import 'completion_text.dart';
 import 'swipe_action_tile.dart';
 
-class AgendaListTile extends StatefulWidget {
+class AgendaListTile extends StatelessWidget {
   const AgendaListTile({
     super.key,
     required this.controller,
@@ -22,46 +22,11 @@ class AgendaListTile extends StatefulWidget {
   final AgendaEntry entry;
   final DateTime now;
 
-  @override
-  State<AgendaListTile> createState() => _AgendaListTileState();
-}
-
-class _AgendaListTileState extends State<AgendaListTile> {
-  bool _deleteArmed = false;
-
-  @override
-  void didUpdateWidget(covariant AgendaListTile oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!widget.controller.confirmDelete) _deleteArmed = false;
-  }
-
-  void _cancelDelete() {
-    if (_deleteArmed) setState(() => _deleteArmed = false);
-  }
-
-  Future<void> _complete({bool haptic = false}) {
-    _cancelDelete();
-    return toggleAgendaDone(
-      widget.controller.agenda,
-      widget.entry,
-      haptic: haptic,
-    );
-  }
-
-  Future<void> _delete() async {
-    final controller = widget.controller;
-    if (controller.confirmDelete && !_deleteArmed) {
-      setState(() => _deleteArmed = true);
-      return;
-    }
-    await deleteAgendaEntry(context, controller, widget.entry, confirm: false);
-  }
+  Future<void> _complete({bool haptic = false}) =>
+      toggleAgendaDone(controller.agenda, entry, haptic: haptic);
 
   @override
   Widget build(BuildContext context) {
-    final controller = widget.controller;
-    final entry = widget.entry;
-    final now = widget.now;
     final scheme = Theme.of(context).colorScheme;
     final subtitle = [
       if (entry.course.isNotEmpty)
@@ -80,62 +45,6 @@ class _AgendaListTileState extends State<AgendaListTile> {
         ? scheme.primary
         : scheme.onSurface;
     final caption = agendaTimeCaption(entry, now);
-    final needsConfirmation = controller.confirmDelete && !_deleteArmed;
-
-    Widget summary({bool confirming = false}) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CompletionText(
-          entry.title,
-          completed: entry.done,
-          style: const TextStyle(
-            fontSize: 15,
-            height: 1.45,
-            fontWeight: FontWeight.w500,
-          ),
-          maxLines: confirming ? 1 : 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        if (confirming || subtitle.isNotEmpty) ...[
-          const SizedBox(height: 5),
-          if (confirming)
-            Row(
-              children: [
-                Icon(
-                  Icons.delete_outline_rounded,
-                  size: 16,
-                  color: scheme.error,
-                ),
-                const SizedBox(width: 5),
-                Flexible(
-                  child: Text(
-                    '再左滑删除',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      height: 1.45,
-                      fontWeight: FontWeight.w500,
-                      color: scheme.error,
-                    ),
-                  ),
-                ),
-              ],
-            )
-          else
-            Text(
-              subtitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.45,
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-        ],
-      ],
-    );
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -144,12 +53,14 @@ class _AgendaListTileState extends State<AgendaListTile> {
       child: SwipeActionTile(
         enabled: !controller.agenda.busy,
         leftAction: TileSwipeAction(
-          label: needsConfirmation ? '确认删除' : '删除',
-          releaseLabel: needsConfirmation ? '松手确认' : '松手删除',
+          label: '删除',
+          releaseLabel: '松手删除',
           icon: Icons.delete_outline,
           background: scheme.error,
           foreground: scheme.onError,
-          onInvoke: _delete,
+          onInvoke: () async {
+            await deleteAgendaEntry(context, controller, entry, confirm: false);
+          },
         ),
         rightAction: entry.isDeadline
             ? TileSwipeAction(
@@ -165,13 +76,7 @@ class _AgendaListTileState extends State<AgendaListTile> {
           color: scheme.surface,
           child: InkWell(
             hoverColor: Colors.transparent,
-            onTap: () {
-              if (_deleteArmed) {
-                _cancelDelete();
-              } else {
-                showAgendaEntry(context, controller, entry);
-              }
-            },
+            onTap: () => showAgendaEntry(context, controller, entry),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Row(
@@ -179,13 +84,7 @@ class _AgendaListTileState extends State<AgendaListTile> {
                 children: [
                   SizedBox.square(
                     dimension: 44,
-                    child: _deleteArmed
-                        ? IconButton(
-                            tooltip: '取消删除',
-                            onPressed: _cancelDelete,
-                            icon: const Icon(Icons.close_rounded, size: 20),
-                          )
-                        : entry.isDeadline
+                    child: entry.isDeadline
                         ? Tooltip(
                             message: entry.done ? '标为未完成' : '标记完成',
                             child: Checkbox(
@@ -204,10 +103,34 @@ class _AgendaListTileState extends State<AgendaListTile> {
                   ),
                   const SizedBox(width: 4),
                   Expanded(
-                    child: IndexedStack(
-                      index: _deleteArmed ? 1 : 0,
-                      alignment: Alignment.topLeft,
-                      children: [summary(), summary(confirming: true)],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CompletionText(
+                          entry.title,
+                          completed: entry.done,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            height: 1.45,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (subtitle.isNotEmpty) ...[
+                          const SizedBox(height: 5),
+                          Text(
+                            subtitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.45,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   const SizedBox(width: 12),

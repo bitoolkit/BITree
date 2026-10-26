@@ -25,7 +25,7 @@ Future<bool> deleteAgendaEntry(
 }) async {
   // The originating sheet can close while the undo action remains visible.
   final overlay = Overlay.of(context, rootOverlay: true);
-  if (confirm && controller.confirmDelete) {
+  if (confirm) {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
