@@ -1,5 +1,6 @@
 import 'package:bitree/ui/app_menu_anchor.dart';
 import 'package:bitree/ui/app_dropdown_field.dart';
+import 'package:bitree/ui/app_page.dart';
 import 'package:bitree/ui/week_selector.dart';
 import 'package:bitree/app_controller.dart';
 import 'package:bitree/schedule/model.dart';
@@ -18,7 +19,7 @@ class _Controller extends ChangeNotifier with Fake implements AppController {
   @override
   int week = 6;
   @override
-  List<int> get weeks => List.generate(25, (i) => i + 1);
+  List<int> get weeks => [-3, -2, -1, ...List.generate(25, (i) => i + 1)];
   @override
   void selectWeek(int week) {
     this.week = week;
@@ -62,6 +63,47 @@ Future<void> _showMenu(
     ),
   ),
 );
+
+Future<_Controller> _showWeekHeader(
+  WidgetTester tester, {
+  required Size size,
+  double textScale = 1,
+}) async {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = size;
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPhysicalSize);
+  final controller = _Controller();
+  addTearDown(controller.dispose);
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: bitreeTheme(Brightness.light),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
+      home: Scaffold(
+        body: ListenableBuilder(
+          listenable: controller,
+          builder: (context, _) => AppPage(
+            title: WeekSelector(controller: controller),
+            actions: [
+              for (final (label, icon) in [
+                ('添加', Icons.add_rounded),
+                ('导入', Icons.input_rounded),
+                ('更多', Icons.more_horiz_rounded),
+              ])
+                IconButton(tooltip: label, onPressed: () {}, icon: Icon(icon)),
+            ],
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ),
+    ),
+  );
+  return controller;
+}
 
 void main() {
   for (final alignment in [Alignment.topLeft, Alignment.bottomRight]) {
@@ -143,21 +185,9 @@ void main() {
   testWidgets('Week selection uses the shared closing transition', (
     tester,
   ) async {
-    final controller = _Controller();
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: bitreeTheme(Brightness.light),
-        home: Scaffold(
-          body: ListenableBuilder(
-            listenable: controller,
-            builder: (context, _) => Align(
-              alignment: Alignment.topLeft,
-              child: WeekSelector(controller: controller),
-            ),
-          ),
-        ),
-      ),
+    final controller = await _showWeekHeader(
+      tester,
+      size: const Size(390, 844),
     );
     await tester.tap(find.text('第6周'));
     await tester.pumpAndSettle();
@@ -174,6 +204,64 @@ void main() {
     await tester.pumpAndSettle();
     expect(_panel, findsNothing);
     expect(find.text('第8周'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final (size, textScale) in [
+    (const Size(390, 844), 1.0),
+    (const Size(1440, 1000), 1.0),
+    (const Size(390, 844), 1.5),
+  ]) {
+    testWidgets(
+      'Week trigger stays compact in the real header at $size / $textScale',
+      (tester) async {
+        await _showWeekHeader(tester, size: size, textScale: textScale);
+        final trigger = tester.getRect(find.widgetWithText(TextButton, '第6周'));
+        final label = tester.getRect(find.text('第6周'));
+        expect(trigger.width, lessThanOrEqualTo(label.width + 48));
+        expect(label.left - trigger.left, greaterThanOrEqualTo(8));
+        final arrow = tester.getRect(
+          find.descendant(
+            of: find.byType(WeekSelector),
+            matching: find.byIcon(Icons.keyboard_arrow_down_rounded),
+          ),
+        );
+        expect(trigger.right - arrow.right, greaterThanOrEqualTo(8));
+        for (final tooltip in ['添加', '导入', '更多']) {
+          final action = tester.getRect(find.byTooltip(tooltip));
+          expect(action.center.dy, closeTo(trigger.center.dy, 0.1));
+          expect(action.left, greaterThanOrEqualTo(trigger.right));
+        }
+        final firstAction = tester.getRect(find.byTooltip('添加'));
+        await tester.tapAt(Offset(firstAction.left - 8, trigger.center.dy));
+        await tester.pumpAndSettle();
+        expect(_panel, findsNothing);
+        await tester.tap(find.text('第6周'));
+        await tester.pumpAndSettle();
+        final panel = tester.getRect(_panel);
+        expect(panel.left, closeTo(trigger.left, 0.1));
+        expect(panel.top, closeTo(trigger.bottom, 0.1));
+        expect(panel.right, lessThanOrEqualTo(size.width - 8));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('Week numbers are centered inside their menu cells', (
+    tester,
+  ) async {
+    await _showWeekHeader(tester, size: const Size(1440, 1000));
+    await tester.tap(find.text('第6周'));
+    await tester.pumpAndSettle();
+    for (final week in [-3, 1, 6, 25]) {
+      final item = find.widgetWithText(MenuItemButton, '$week');
+      await tester.ensureVisible(item);
+      await tester.pumpAndSettle();
+      final cell = tester.getRect(item);
+      final number = tester.getRect(find.text('$week'));
+      expect(number.center.dx, closeTo(cell.center.dx, 0.1));
+      expect(number.center.dy, closeTo(cell.center.dy, 0.1));
+    }
     expect(tester.takeException(), isNull);
   });
 

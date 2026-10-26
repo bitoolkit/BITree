@@ -92,19 +92,24 @@ class _AppMenuAnchorState extends State<AppMenuAnchor>
   Widget build(BuildContext context) {
     // MenuAnchor's built-in motion cannot be styled. Keep the native anchor
     // lifecycle, but hide its overlay only after the panel reaches zero height.
-    return RawMenuAnchor(
-      controller: _menu,
-      childFocusNode: widget.childFocusNode,
-      onOpen: widget.onOpen,
-      onClose: widget.onClose,
-      onOpenRequested: _open,
-      onCloseRequested: _close,
-      overlayBuilder: _buildOverlay,
-      builder: (context, menu, child) =>
-          widget.builder?.call(context, menu, _isOpen) ??
-          child ??
-          const SizedBox.shrink(),
-      child: widget.child,
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      widthFactor: 1,
+      heightFactor: 1,
+      child: RawMenuAnchor(
+        controller: _menu,
+        childFocusNode: widget.childFocusNode,
+        onOpen: widget.onOpen,
+        onClose: widget.onClose,
+        onOpenRequested: _open,
+        onCloseRequested: _close,
+        overlayBuilder: _buildOverlay,
+        builder: (context, menu, child) =>
+            widget.builder?.call(context, menu, _isOpen) ??
+            child ??
+            const SizedBox.shrink(),
+        child: widget.child,
+      ),
     );
   }
 
@@ -285,7 +290,7 @@ class AppMenuItemButton extends StatelessWidget {
     this.trailingIcon,
     this.style,
     this.autofocus = false,
-    this.overflowAxis = Axis.horizontal,
+    this.overflowAxis = Axis.vertical,
   });
 
   final VoidCallback? onPressed;
