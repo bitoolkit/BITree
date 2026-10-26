@@ -266,6 +266,62 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final (size, scale) in [
+    (const Size(360, 640), 1.0),
+    (const Size(390, 844), 1.0),
+    (const Size(390, 844), 1.5),
+    (const Size(1440, 900), 1.0),
+  ]) {
+    testWidgets('All weeks fit without scrolling at $size / $scale', (
+      tester,
+    ) async {
+      final controller = await _showWeekHeader(
+        tester,
+        size: size,
+        textScale: scale,
+      );
+      controller.selectWeek(-3);
+      await tester.pump();
+      await tester.tap(find.text('第-3周'));
+      await tester.pumpAndSettle();
+      final scrollable = tester.state<ScrollableState>(
+        find.descendant(of: _panel, matching: find.byType(Scrollable)),
+      );
+      expect(scrollable.position.maxScrollExtent, 0);
+      expect(find.text('-3').hitTestable(), findsOneWidget);
+      expect(find.text('25').hitTestable(), findsOneWidget);
+      await tester.drag(_panel, const Offset(0, -40));
+      await tester.pumpAndSettle();
+      expect(scrollable.position.pixels, 0);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'A short viewport scrolls weeks within the space below the trigger',
+    (tester) async {
+      const size = Size(900, 320);
+      final controller = await _showWeekHeader(tester, size: size);
+      await tester.tap(find.text('第6周'));
+      await tester.pumpAndSettle();
+      final trigger = tester.getRect(find.widgetWithText(TextButton, '第6周'));
+      final panel = tester.getRect(_panel);
+      final scrollable = tester.state<ScrollableState>(
+        find.descendant(of: _panel, matching: find.byType(Scrollable)),
+      );
+      expect(scrollable.position.maxScrollExtent, greaterThan(0));
+      expect(panel.top, closeTo(trigger.bottom, 0.1));
+      expect(panel.bottom, lessThanOrEqualTo(size.height - 8));
+      await tester.ensureVisible(find.text('25'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('25'));
+      await tester.pumpAndSettle();
+      expect(controller.week, 25);
+      expect(_panel, findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('Dropdown keeps its width, selection and keyboard controls', (
     tester,
   ) async {

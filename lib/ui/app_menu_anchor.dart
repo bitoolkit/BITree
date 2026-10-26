@@ -144,10 +144,6 @@ class _AppMenuAnchorState extends State<AppMenuAnchor>
                         menuStyle.minimumSize?.resolve({})?.width ??
                         0,
                     maxWidth: widget.menuWidth ?? double.infinity,
-                    maxHeight: math.min(
-                      320,
-                      MediaQuery.sizeOf(context).height * 0.4,
-                    ),
                   ),
                   child: IntrinsicWidth(
                     child: Material(
@@ -228,9 +224,22 @@ class _MenuLayout extends SingleChildLayoutDelegate {
   final double heightFactor;
 
   @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
-      BoxConstraints.loose(insets.deflateSize(constraints.biggest))
-          .deflate(const EdgeInsets.all(8));
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    final available = BoxConstraints.loose(
+      insets.deflateSize(constraints.biggest),
+    ).deflate(const EdgeInsets.all(8));
+    final bounds = insets
+        .deflateRect(Offset.zero & constraints.biggest)
+        .deflate(8);
+    final target = position == null
+        ? alignment.withinRect(anchor)
+        : anchor.topLeft + position!;
+    final above = (position == null ? anchor.top : target.dy) - bounds.top;
+    final below = bounds.bottom - target.dy;
+    return available.copyWith(
+      maxHeight: math.max(above, below).clamp(0.0, available.maxHeight),
+    );
+  }
 
   @override
   Offset getPositionForChild(Size size, Size childSize) {
