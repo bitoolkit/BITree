@@ -247,7 +247,7 @@ class _AgendaDateHeading extends StatelessWidget {
     final year = date.year == now.year ? '' : '${date.year}年';
 
     return Padding(
-      padding: const EdgeInsets.only(top: 22, bottom: 4),
+      padding: const EdgeInsets.fromLTRB(16, 22, 16, 4),
       child: Text.rich(
         TextSpan(
           children: [

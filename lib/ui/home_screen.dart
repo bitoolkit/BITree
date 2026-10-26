@@ -104,7 +104,7 @@ class HomeScreen extends StatelessWidget {
           Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
                 child: AgendaReminder(

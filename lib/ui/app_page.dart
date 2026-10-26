@@ -26,35 +26,32 @@ class AppPage extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final inset = constraints.maxWidth < 680 ? 16.0 : 24.0;
-            return Padding(
-              padding: EdgeInsets.symmetric(horizontal: inset),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 48),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: DefaultTextStyle(
-                              style: Theme.of(context)
-                                  .appBarTheme
-                                  .titleTextStyle!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              child: title,
-                            ),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: inset, vertical: 4),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: DefaultTextStyle(
+                            style: Theme.of(context)
+                                .appBarTheme
+                                .titleTextStyle!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            child: title,
                           ),
-                          ...actions,
-                        ],
-                      ),
+                        ),
+                        ...actions,
+                      ],
                     ),
                   ),
-                  Expanded(child: child),
-                ],
-              ),
+                ),
+                Expanded(child: child),
+              ],
             );
           },
         ),

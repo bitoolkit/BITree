@@ -193,7 +193,7 @@ class SettingsScreen extends StatelessWidget {
     return AppPage(
       title: const Text('设置'),
       child: ListView(
-        padding: const EdgeInsets.only(top: 8, bottom: 24),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           SchoolAccount(controller: controller),
           section('外观', [

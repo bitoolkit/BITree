@@ -77,7 +77,7 @@ class AgendaListTile extends StatelessWidget {
             hoverColor: Colors.transparent,
             onTap: () => showAgendaEntry(context, controller, entry),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
