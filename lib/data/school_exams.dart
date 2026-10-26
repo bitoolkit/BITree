@@ -3,13 +3,8 @@ import 'school_session.dart';
 
 Future<({String term, List<AgendaEntry> exams})> fetchSchoolExams(
   SchoolSession session, {
-  String? term,
+  required String term,
 }) async {
-  if (term == null) {
-    await session.request(session.network.app, stopAtLogin: true);
-    final current = await session.json('modules/jshkcb/dqxnxq.do');
-    term = (current['datas']['dqxnxq']['rows'] as List).first['DM'] as String;
-  }
   await session.request(session.network.examApp, stopAtLogin: true);
   final response = await session.json(
     'modules/ksap/cxxsksap.do',

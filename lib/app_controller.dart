@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,13 +8,13 @@ import 'agenda/controller.dart';
 import 'agenda/deadline_source.dart';
 import 'classrooms/model.dart';
 import 'data/desktop_widget.dart';
+import 'data/read_cache.dart';
 import 'data/schedule_store.dart';
 import 'data/school_access.dart';
 import 'data/school_errors.dart';
 import 'data/school_classrooms.dart';
 import 'data/lexue_deadlines.dart';
 import 'data/eclass_deadlines.dart';
-import 'data/school_exams.dart';
 import 'data/school_service.dart';
 import 'data/school_session.dart';
 import 'data/school_storage.dart';
@@ -40,6 +41,14 @@ class AppController extends ChangeNotifier {
   late final _schoolAccess = SchoolAccess(_schoolStorage);
   final SharedPreferencesAsync _preferences;
   final AgendaController agenda;
+  final _classroomDirectory = ReadCache<String, ClassroomDirectory?>(
+    maxAge: const Duration(days: 1),
+  );
+  final _classroomOccupancy =
+      ReadCache<
+        ({String account, DateTime date, String buildings}),
+        List<BuildingOccupancy>?
+      >(maxAge: const Duration(minutes: 5));
 
   SemesterSchedule? _schedule;
   bool ready = false;
@@ -165,18 +174,48 @@ class AppController extends ChangeNotifier {
 
   Future<ClassroomDirectory?> classroomDirectory({
     required VerifySchoolLogin verify,
-  }) => _readSchool('加载教学楼', fetchClassroomDirectory, verify);
+    bool refresh = false,
+  }) async {
+    Future<ClassroomDirectory?> load() =>
+        _readSchool('加载教学楼', fetchClassroomDirectory, verify);
+
+    final account = username;
+    final result = account == null
+        ? await load()
+        : await _classroomDirectory.read(account, load, refresh: refresh);
+    if (refresh && result != null) _classroomOccupancy.clear();
+    return result;
+  }
 
   Future<List<BuildingOccupancy>?> classroomOccupancy({
     required List<SchoolBuilding> buildings,
     required DateTime date,
     required VerifySchoolLogin verify,
-  }) => _readSchool(
-    '查询空教室',
-    (session) =>
-        fetchClassroomOccupancy(session, buildings: buildings, date: date),
-    verify,
-  );
+    bool refresh = false,
+  }) {
+    final day = calendarDate(date);
+    Future<List<BuildingOccupancy>?> load() => _readSchool(
+      '查询空教室',
+      (session) =>
+          fetchClassroomOccupancy(session, buildings: buildings, date: day),
+      verify,
+    );
+
+    final account = username;
+    if (account == null) return load();
+    final codes = buildings.map((building) => building.code).toList()..sort();
+    return _classroomOccupancy.read(
+      (account: account, date: day, buildings: jsonEncode(codes)),
+      load,
+      refresh: refresh,
+    );
+  }
+
+  void _clearSchoolCache() {
+    _classroomDirectory.clear();
+    _classroomOccupancy.clear();
+    _school.clearCache();
+  }
 
   Future<T?> _readSchool<T>(
     String label,
@@ -197,6 +236,7 @@ class AppController extends ChangeNotifier {
     DeadlineSource? source,
   }) => _runSchool('登录学校账号', () async {
     await _schoolAccess.signIn(credentials, verify, source: source);
+    if (username != credentials.username) _clearSchoolCache();
     username = credentials.username;
     return true;
   });
@@ -213,7 +253,11 @@ class AppController extends ChangeNotifier {
       _runSchool(
         '导入课表',
         () => _schoolAccess.read(verify, (session) async {
-          final result = await _school.synchronize(session, term: term);
+          final result = await _school.synchronize(
+            session,
+            account: username!,
+            term: term,
+          );
 
           if (busy) throw const SchoolRequestError('课程正在保存，请稍后重新导入。');
           busy = true;
@@ -238,7 +282,11 @@ class AppController extends ChangeNotifier {
   Future<bool> importExams({required VerifySchoolLogin verify}) => _runSchool(
     '获取考试安排',
     () => _schoolAccess.read(verify, (session) async {
-      final result = await fetchSchoolExams(session, term: schedule?.term);
+      final result = await _school.exams(
+        session,
+        account: username!,
+        term: schedule?.term,
+      );
       session.checkActive();
       return agenda.replaceExams(result.term, result.exams);
     }),
@@ -374,6 +422,7 @@ class AppController extends ChangeNotifier {
 
     try {
       await _schoolStorage.clear();
+      _clearSchoolCache();
       username = null;
       accountStatus = AccountStatus.signedOut;
       return true;

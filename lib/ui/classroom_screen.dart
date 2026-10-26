@@ -90,12 +90,13 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     return result;
   }
 
-  Future<void> _loadDirectory() async {
+  Future<void> _loadDirectory({bool refresh = false}) async {
     if (_working) return;
     setState(() => _working = true);
     final result = await _withLogin(
       () => widget.controller.classroomDirectory(
         verify: (request) => verifySchoolLogin(context, request),
+        refresh: refresh,
       ),
     );
     if (!mounted) return;
@@ -103,40 +104,42 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
       _working = false;
       if (result == null) return;
       _directory = result;
-      _campusCode =
-          result.campuses
-              .where((campus) => campus.name.contains('良乡'))
-              .firstOrNull
-              ?.code ??
-          result.campuses.firstOrNull?.code;
-      _buildingCode = null;
-      _occupancy = null;
+      if (!result.campuses.any((campus) => campus.code == _campusCode)) {
+        _campusCode =
+            result.campuses
+                .where((campus) => campus.name.contains('良乡'))
+                .firstOrNull
+                ?.code ??
+            result.campuses.firstOrNull?.code;
+        _occupancy = null;
+      }
+      if (!_buildings.any((building) => building.code == _buildingCode)) {
+        _buildingCode = null;
+      }
     });
-    if (result != null) await _query();
+    if (result != null) await _query(refresh: refresh);
   }
 
-  Future<void> _query() async {
+  Future<void> _query({bool refresh = false}) async {
     if (_working || _campusCode == null) return;
     final buildings = _buildings;
     if (buildings.isEmpty) {
       setState(() => _occupancy = const []);
       return;
     }
-    setState(() {
-      _working = true;
-      _occupancy = null;
-    });
+    setState(() => _working = true);
     final result = await _withLogin(
       () => widget.controller.classroomOccupancy(
         buildings: buildings,
         date: _date,
         verify: (request) => verifySchoolLogin(context, request),
+        refresh: refresh,
       ),
     );
     if (!mounted) return;
     setState(() {
       _working = false;
-      _occupancy = result;
+      if (result != null) _occupancy = result;
     });
   }
 
@@ -145,6 +148,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     setState(() {
       _campusCode = code;
       _buildingCode = null;
+      _occupancy = null;
     });
     unawaited(_query());
   }
@@ -152,7 +156,10 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
   void _changeDate(DateTime date) {
     date = calendarDate(date);
     if (_date == date) return;
-    setState(() => _date = date);
+    setState(() {
+      _date = date;
+      _occupancy = null;
+    });
     unawaited(_query());
   }
 
@@ -170,7 +177,16 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
   Widget build(BuildContext context) => CampusTimeBuilder(
     active: true,
     builder: (context, now) => Scaffold(
-      appBar: AppBar(title: const Text('空教室查询')),
+      appBar: AppBar(
+        title: const Text('空教室查询'),
+        actions: [
+          IconButton(
+            tooltip: '刷新',
+            onPressed: _working ? null : () => _loadDirectory(refresh: true),
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
@@ -202,7 +218,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
               child: Center(child: CircularProgressIndicator()),
             )
           : OutlinedButton.icon(
-              onPressed: _loadDirectory,
+              onPressed: () => _loadDirectory(refresh: true),
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('加载教学楼'),
             );
@@ -211,7 +227,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
       return _QueryState(
         message: '暂无可查询的校区',
         action: '重新加载',
-        onPressed: _loadDirectory,
+        onPressed: () => _loadDirectory(refresh: true),
       );
     }
 
@@ -383,7 +399,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                       : '换个日期',
                   onPressed: () {
                     if (_buildings.isEmpty) {
-                      unawaited(_loadDirectory());
+                      unawaited(_loadDirectory(refresh: true));
                     } else if (period != null) {
                       setState(() => _period = null);
                     } else if (_buildingCode != null) {
