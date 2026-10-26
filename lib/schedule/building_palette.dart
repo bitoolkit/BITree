@@ -1,3 +1,5 @@
+import 'location.dart';
+
 part 'building_palette.g.dart';
 
 typedef BuildingColorValues = ({int fill, int text, int accent});
@@ -18,16 +20,11 @@ final _rules = [
   for (final (pattern, palette) in _buildingData) (RegExp(pattern), palette),
 ];
 final _otherCampuses = RegExp(r'中关村|西山|珠海|雄安|怀来');
-final _spacing = RegExp(r'[\s\u00A0\u3000·._\-—–（）()\[\]【】]');
 
 BuildingPalette? matchCampusBuilding(String room, {String campus = ''}) {
   if (_otherCampuses.hasMatch('$campus $room')) return null;
 
-  final normalized = String.fromCharCodes(
-    room.runes.map(
-      (rune) => rune >= 0xFF01 && rune <= 0xFF5E ? rune - 0xFEE0 : rune,
-    ),
-  ).toUpperCase().replaceAll(_spacing, '');
+  final normalized = normalizeCampusLocation(room);
   final matches = [
     for (final (pattern, palette) in _rules)
       for (final match in pattern.allMatches(normalized))

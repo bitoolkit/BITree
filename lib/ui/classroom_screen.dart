@@ -7,6 +7,8 @@ import '../app_controller.dart';
 import '../classrooms/model.dart';
 import '../data/cancelable_request.dart';
 import '../schedule/model.dart';
+import '../wencui/place.dart';
+import 'wencui_map_screen.dart';
 import 'app_dropdown_field.dart';
 import 'app_notice.dart';
 import 'campus_time_builder.dart';
@@ -495,7 +497,13 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                     ),
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded, size: 18),
-                  onTap: () => _showRoom(context, group.building, room, _date),
+                  onTap: () => _showRoom(
+                    context,
+                    widget.controller,
+                    group.building,
+                    room,
+                    _date,
+                  ),
                 ),
               );
             },
@@ -567,12 +575,13 @@ class _QueryState extends StatelessWidget {
 
 Future<void> _showRoom(
   BuildContext context,
+  AppController controller,
   SchoolBuilding building,
   ClassroomOccupancy room,
   DateTime date,
 ) => showDialog<void>(
   context: context,
-  builder: (context) => AlertDialog(
+  builder: (dialogContext) => AlertDialog(
     title: Text('${building.name} ${room.name}'),
     scrollable: true,
     content: SizedBox(
@@ -604,8 +613,24 @@ Future<void> _showRoom(
       ),
     ),
     actions: [
+      if (WencuiPlace.parse('${building.name} ${room.name}') != null)
+        TextButton.icon(
+          onPressed: () {
+            Navigator.pop(dialogContext);
+            Navigator.of(context).push<void>(
+              MaterialPageRoute(
+                builder: (_) => WencuiMapScreen(
+                  controller: controller,
+                  initialRoom: '${building.name} ${room.name}',
+                ),
+              ),
+            );
+          },
+          icon: const Icon(Icons.map_outlined, size: 18),
+          label: const Text('文萃地图'),
+        ),
       TextButton(
-        onPressed: () => Navigator.pop(context),
+        onPressed: () => Navigator.pop(dialogContext),
         child: const Text('关闭'),
       ),
     ],

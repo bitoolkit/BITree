@@ -7,6 +7,7 @@ import 'grades_screen.dart';
 import 'grade_simulation_screen.dart';
 import 'credit_progress_screen.dart';
 import 'exams_screen.dart';
+import 'wencui_map_screen.dart';
 
 class ToolsScreen extends StatelessWidget {
   const ToolsScreen({super.key, required this.controller});
@@ -55,6 +56,16 @@ class ToolsScreen extends StatelessWidget {
           onTap: () => Navigator.of(context).push<void>(
             MaterialPageRoute(
               builder: (_) => ClassroomScreen(controller: controller),
+            ),
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.map_outlined),
+          title: const Text('文萃导航'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => Navigator.of(context).push<void>(
+            MaterialPageRoute(
+              builder: (_) => WencuiMapScreen(controller: controller),
             ),
           ),
         ),

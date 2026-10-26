@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 
 import '../app_controller.dart';
 import '../schedule/model.dart';
+import '../wencui/place.dart';
 import 'app_notice.dart';
 import 'course_editor.dart';
 import 'sheet_layout.dart';
 import 'theme.dart';
+import 'wencui_map_screen.dart';
 
 Future<void> showCourse(
   BuildContext context,
@@ -22,6 +24,19 @@ Future<void> showCourse(
     builder: (_, _) => _CourseDetails(
       controller: controller,
       course: course,
+      onMap: WencuiPlace.parse(course.room, campus: course.campus) == null
+          ? null
+          : () {
+              Navigator.pop(sheetContext);
+              Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) => WencuiMapScreen(
+                    controller: controller,
+                    initialRoom: course.room,
+                  ),
+                ),
+              );
+            },
       onEdit: () {
         Navigator.pop(sheetContext);
         editCourse(context, controller, course: course);
@@ -35,11 +50,13 @@ class _CourseDetails extends StatelessWidget {
     required this.controller,
     required this.course,
     required this.onEdit,
+    required this.onMap,
   });
 
   final AppController controller;
   final Course course;
   final VoidCallback onEdit;
+  final VoidCallback? onMap;
 
   @override
   Widget build(BuildContext context) {
@@ -122,6 +139,12 @@ class _CourseDetails extends StatelessWidget {
                 Icons.place_outlined,
                 location.isEmpty ? '教室待定' : location,
               ),
+              if (onMap != null)
+                TextButton.icon(
+                  onPressed: onMap,
+                  icon: const Icon(Icons.map_outlined, size: 18),
+                  label: const Text('在文萃地图中查看'),
+                ),
               if (course.teacher.isNotEmpty)
                 detail(Icons.person_outline, course.teacher),
               if (course.number.isNotEmpty) detail(Icons.tag, course.number),
