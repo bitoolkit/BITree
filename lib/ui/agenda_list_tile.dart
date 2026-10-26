@@ -82,6 +82,61 @@ class _AgendaListTileState extends State<AgendaListTile> {
     final caption = agendaTimeCaption(entry, now);
     final needsConfirmation = controller.confirmDelete && !_deleteArmed;
 
+    Widget summary({bool confirming = false}) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CompletionText(
+          entry.title,
+          completed: entry.done,
+          style: const TextStyle(
+            fontSize: 15,
+            height: 1.45,
+            fontWeight: FontWeight.w500,
+          ),
+          maxLines: confirming ? 1 : 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (confirming || subtitle.isNotEmpty) ...[
+          const SizedBox(height: 5),
+          if (confirming)
+            Row(
+              children: [
+                Icon(
+                  Icons.delete_outline_rounded,
+                  size: 16,
+                  color: scheme.error,
+                ),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    '再左滑删除',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.45,
+                      fontWeight: FontWeight.w500,
+                      color: scheme.error,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            Text(
+              subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.45,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+        ],
+      ],
+    );
+
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
@@ -92,10 +147,8 @@ class _AgendaListTileState extends State<AgendaListTile> {
           label: needsConfirmation ? '确认删除' : '删除',
           releaseLabel: needsConfirmation ? '松手确认' : '松手删除',
           icon: Icons.delete_outline,
-          background: needsConfirmation ? scheme.errorContainer : scheme.error,
-          foreground: needsConfirmation
-              ? scheme.onErrorContainer
-              : scheme.onError,
+          background: scheme.error,
+          foreground: scheme.onError,
           onInvoke: _delete,
         ),
         rightAction: entry.isDeadline
@@ -109,7 +162,7 @@ class _AgendaListTileState extends State<AgendaListTile> {
               )
             : null,
         child: Material(
-          color: _deleteArmed ? scheme.errorContainer : scheme.surface,
+          color: scheme.surface,
           child: InkWell(
             hoverColor: Colors.transparent,
             onTap: () {
@@ -151,86 +204,45 @@ class _AgendaListTileState extends State<AgendaListTile> {
                   ),
                   const SizedBox(width: 4),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CompletionText(
-                          entry.title,
-                          completed: entry.done,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            height: 1.45,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 5),
-                          Text(
-                            subtitle,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1.45,
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ],
+                    child: IndexedStack(
+                      index: _deleteArmed ? 1 : 0,
+                      alignment: Alignment.topLeft,
+                      children: [summary(), summary(confirming: true)],
                     ),
                   ),
                   const SizedBox(width: 12),
                   SizedBox(
                     width: MediaQuery.textScalerOf(context).scale(72),
-                    child: IndexedStack(
-                      index: _deleteArmed ? 1 : 0,
-                      alignment: Alignment.topRight,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              agendaClockLabel(entry),
-                              style: TextStyle(
-                                fontSize: 16,
-                                height: 1.3,
-                                fontWeight: FontWeight.w500,
-                                color: timeColor,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures(),
-                                ],
-                              ),
-                            ),
-                            if (caption.isNotEmpty) ...[
-                              const SizedBox(height: 5),
-                              Text(
-                                caption,
-                                maxLines: 2,
-                                textAlign: TextAlign.right,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  height: 1.4,
-                                  color: entry.overdue(now)
-                                      ? scheme.error
-                                      : dueToday
-                                      ? scheme.primary
-                                      : scheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
                         Text(
-                          '再次左滑',
-                          semanticsLabel: '再次左滑删除',
+                          agendaClockLabel(entry),
                           style: TextStyle(
-                            fontSize: 12,
-                            height: 1.45,
-                            color: scheme.onErrorContainer,
+                            fontSize: 16,
+                            height: 1.3,
+                            fontWeight: FontWeight.w500,
+                            color: timeColor,
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
+                        if (caption.isNotEmpty) ...[
+                          const SizedBox(height: 5),
+                          Text(
+                            caption,
+                            maxLines: 2,
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 11,
+                              height: 1.4,
+                              color: entry.overdue(now)
+                                  ? scheme.error
+                                  : dueToday
+                                  ? scheme.primary
+                                  : scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

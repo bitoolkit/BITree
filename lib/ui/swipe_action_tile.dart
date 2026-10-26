@@ -160,11 +160,7 @@ class _SwipeActionTileState extends State<SwipeActionTile>
                 Positioned.fill(
                   child: ExcludeSemantics(
                     child: ColoredBox(
-                      color: Color.lerp(
-                        Theme.of(context).colorScheme.surfaceContainer,
-                        action.background,
-                        (offset.abs() / _threshold).clamp(0.0, 1.0),
-                      )!,
+                      color: action.background,
                       child: Align(
                         alignment: offset > 0
                             ? Alignment.centerLeft
