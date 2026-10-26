@@ -239,7 +239,7 @@ class SettingsScreen extends StatelessWidget {
                     for (final term in controller.terms)
                       Semantics(
                         selected: controller.schedule!.term == term,
-                        child: MenuItemButton(
+                        child: AppMenuItemButton(
                           onPressed: controller.busy
                               ? null
                               : () => _selectTerm(context, term),
@@ -251,20 +251,20 @@ class SettingsScreen extends StatelessWidget {
                         ),
                       ),
                   ],
-                  builder: (context, menu, _) => ListTile(
+                  builder: (context, menu, isOpen) => ListTile(
                     contentPadding: tilePadding,
                     leading: const Icon(Icons.calendar_month_outlined),
                     title: const Text('学期'),
                     subtitle: Text(controller.schedule!.termLabel),
                     trailing: Icon(
-                      menu.isOpen
+                      isOpen
                           ? Icons.expand_less_rounded
                           : Icons.expand_more_rounded,
                       size: 18,
                     ),
                     onTap: controller.busy
                         ? null
-                        : () => menu.isOpen ? menu.close() : menu.open(),
+                        : () => isOpen ? menu.close() : menu.open(),
                   ),
                 ),
               ),

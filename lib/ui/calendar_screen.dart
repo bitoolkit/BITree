@@ -206,7 +206,7 @@ class _AgendaKindFilter extends StatelessWidget {
         ])
           Semantics(
             selected: value == kind,
-            child: MenuItemButton(
+            child: AppMenuItemButton(
               onPressed: () => onChanged(kind),
               trailingIcon: value == kind
                   ? const Icon(Icons.check_rounded, size: 18)
@@ -215,11 +215,11 @@ class _AgendaKindFilter extends StatelessWidget {
             ),
           ),
       ],
-      builder: (context, menu, _) => Semantics(
+      builder: (context, menu, isOpen) => Semantics(
         label: '日程类型',
-        expanded: menu.isOpen,
+        expanded: isOpen,
         child: TextButton(
-          onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+          onPressed: () => isOpen ? menu.close() : menu.open(),
           style: TextButton.styleFrom(
             foregroundColor: value == null
                 ? scheme.onSurfaceVariant
@@ -240,9 +240,7 @@ class _AgendaKindFilter extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               Icon(
-                menu.isOpen
-                    ? Icons.expand_less_rounded
-                    : Icons.expand_more_rounded,
+                isOpen ? Icons.expand_less_rounded : Icons.expand_more_rounded,
                 size: 18,
               ),
             ],

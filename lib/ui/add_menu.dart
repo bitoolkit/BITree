@@ -26,7 +26,7 @@ class AddMenu extends StatelessWidget {
   final DateTime? date;
   final bool includeCourse;
   final VoidCallback? onClose;
-  final MenuAnchorChildBuilder? builder;
+  final AppMenuAnchorBuilder? builder;
   final Widget? child;
 
   Future<void> _addAgenda(BuildContext context, AgendaKind kind) => editAgenda(
@@ -46,14 +46,14 @@ class AddMenu extends StatelessWidget {
       onClose: onClose,
       menuChildren: [
         if (includeCourse)
-          MenuItemButton(
+          AppMenuItemButton(
             onPressed: controller.busy
                 ? null
                 : () => editCourse(context, controller, selection: selection),
             leadingIcon: const Icon(Icons.school_outlined),
             child: const Text('添加课程'),
           ),
-        MenuItemButton(
+        AppMenuItemButton(
           onPressed: agendaEnabled
               ? () => _addAgenda(context, AgendaKind.event)
               : null,
@@ -61,7 +61,7 @@ class AddMenu extends StatelessWidget {
           child: const Text('添加活动'),
         ),
         if (selection == null)
-          MenuItemButton(
+          AppMenuItemButton(
             onPressed: agendaEnabled
                 ? () => _addAgenda(context, AgendaKind.deadline)
                 : null,
@@ -69,7 +69,7 @@ class AddMenu extends StatelessWidget {
             child: const Text('添加 DDL'),
           ),
         if (!includeCourse)
-          MenuItemButton(
+          AppMenuItemButton(
             onPressed: agendaEnabled
                 ? () => _addAgenda(context, AgendaKind.exam)
                 : null,
@@ -100,11 +100,11 @@ class AddButton extends StatelessWidget {
     controller: controller,
     date: date,
     includeCourse: includeCourse,
-    builder: (context, menu, _) => IconButton(
+    builder: (context, menu, isOpen) => IconButton(
       tooltip: '添加',
       onPressed: controller.busy || controller.agenda.busy
           ? null
-          : () => menu.isOpen ? menu.close() : menu.open(),
+          : () => isOpen ? menu.close() : menu.open(),
       icon: const Icon(Icons.add_rounded),
     ),
   );

@@ -20,7 +20,7 @@ class SchoolImportButton extends StatelessWidget {
     return AppMenuAnchor(
       menuChildren: [
         if (includeSchedule)
-          MenuItemButton(
+          AppMenuItemButton(
             leadingIcon: const Icon(Icons.input_rounded),
             onPressed: busy
                 ? null
@@ -31,7 +31,7 @@ class SchoolImportButton extends StatelessWidget {
                   ),
             child: const Text('导入课表'),
           ),
-        MenuItemButton(
+        AppMenuItemButton(
           leadingIcon: const Icon(Icons.edit_note_rounded),
           onPressed: busy || !controller.agenda.ready
               ? null
@@ -47,7 +47,7 @@ class SchoolImportButton extends StatelessWidget {
           SchoolAction.importLexueDeadlines,
           SchoolAction.importEclassDeadlines,
         ])
-          MenuItemButton(
+          AppMenuItemButton(
             leadingIcon: const Icon(Icons.flag_outlined),
             onPressed: busy || !controller.agenda.ready
                 ? null
@@ -55,7 +55,7 @@ class SchoolImportButton extends StatelessWidget {
             child: Text(action.label),
           ),
         const Divider(),
-        MenuItemButton(
+        AppMenuItemButton(
           leadingIcon: const Icon(Icons.restore_from_trash_outlined),
           onPressed:
               !controller.agenda.ready ||
@@ -66,9 +66,9 @@ class SchoolImportButton extends StatelessWidget {
           child: const Text('已删除的 DDL'),
         ),
       ],
-      builder: (context, menu, _) => IconButton(
+      builder: (context, menu, isOpen) => IconButton(
         tooltip: '导入',
-        onPressed: busy ? null : () => menu.isOpen ? menu.close() : menu.open(),
+        onPressed: busy ? null : () => isOpen ? menu.close() : menu.open(),
         icon: controller.schoolBusy
             ? const SizedBox.square(
                 dimension: 20,

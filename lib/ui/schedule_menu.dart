@@ -68,7 +68,7 @@ class _ScheduleMenuState extends State<ScheduleMenu> {
     final enabled = !widget.controller.busy;
     return AppMenuAnchor(
       menuChildren: [
-        MenuItemButton(
+        AppMenuItemButton(
           leadingIcon: const Icon(Icons.date_range_outlined),
           onPressed: schedule == null || !enabled
               ? null
@@ -76,12 +76,12 @@ class _ScheduleMenuState extends State<ScheduleMenu> {
           child: const Text('周数管理'),
         ),
         if (Platform.isAndroid)
-          MenuItemButton(
+          AppMenuItemButton(
             onPressed: () => showWidgetGuide(context),
             leadingIcon: const Icon(Icons.widgets_outlined),
             child: const Text('桌面日程表'),
           ),
-        MenuItemButton(
+        AppMenuItemButton(
           onPressed: schedule == null || !enabled || _exporting
               ? null
               : () => _export(schedule),
@@ -89,11 +89,11 @@ class _ScheduleMenuState extends State<ScheduleMenu> {
           child: const Text('导出 ICS'),
         ),
       ],
-      builder: (context, menu, child) => IconButton(
+      builder: (context, menu, isOpen) => IconButton(
         tooltip: '更多',
         onPressed: _exporting
             ? null
-            : () => menu.isOpen ? menu.close() : menu.open(),
+            : () => isOpen ? menu.close() : menu.open(),
         icon: const Icon(Icons.more_horiz_rounded),
       ),
     );

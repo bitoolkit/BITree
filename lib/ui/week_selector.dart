@@ -39,7 +39,7 @@ class WeekSelector extends StatelessWidget {
                     dimension: cellSize,
                     child: Semantics(
                       selected: controller.week == week,
-                      child: MenuItemButton(
+                      child: AppMenuItemButton(
                         onPressed: () => controller.selectWeek(week),
                         style: MenuItemButton.styleFrom(
                           padding: EdgeInsets.zero,
@@ -78,10 +78,10 @@ class WeekSelector extends StatelessWidget {
             ],
           ),
       ],
-      builder: (context, menu, _) => TextButton(
+      builder: (context, menu, isOpen) => TextButton(
         onPressed: schedule == null
             ? null
-            : () => menu.isOpen ? menu.close() : menu.open(),
+            : () => isOpen ? menu.close() : menu.open(),
         style: TextButton.styleFrom(
           foregroundColor: scheme.onSurface,
           disabledForegroundColor: scheme.onSurface,

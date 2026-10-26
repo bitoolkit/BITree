@@ -63,7 +63,7 @@ class _AppDropdownFieldState<T> extends State<AppDropdownField<T>> {
           for (final entry in widget.entries)
             Semantics(
               selected: entry.value == widget.value,
-              child: MenuItemButton(
+              child: AppMenuItemButton(
                 overflowAxis: Axis.vertical,
                 key: entry.value == widget.value ? _selectedItem : null,
                 autofocus: entry.value == widget.value,
@@ -81,8 +81,8 @@ class _AppDropdownFieldState<T> extends State<AppDropdownField<T>> {
               ),
             ),
         ],
-        builder: (context, menu, _) {
-          void toggle() => menu.isOpen ? menu.close() : menu.open();
+        builder: (context, menu, isOpen) {
+          void toggle() => isOpen ? menu.close() : menu.open();
 
           return CallbackShortcuts(
             bindings: {
@@ -96,7 +96,7 @@ class _AppDropdownFieldState<T> extends State<AppDropdownField<T>> {
               value: selected.label.replaceAll('\n', ' '),
               button: true,
               enabled: enabled,
-              expanded: menu.isOpen,
+              expanded: isOpen,
               onTap: enabled ? toggle : null,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(minHeight: 48),
@@ -110,7 +110,7 @@ class _AppDropdownFieldState<T> extends State<AppDropdownField<T>> {
                   borderRadius: BorderRadius.circular(10),
                   child: ExcludeSemantics(
                     child: InputDecorator(
-                      isFocused: _focused || menu.isOpen,
+                      isFocused: _focused || isOpen,
                       baseStyle: textStyle,
                       decoration: InputDecoration(
                         labelText: widget.label,
@@ -120,7 +120,7 @@ class _AppDropdownFieldState<T> extends State<AppDropdownField<T>> {
                           height: 44,
                         ),
                         suffixIcon: Icon(
-                          menu.isOpen
+                          isOpen
                               ? Icons.expand_less_rounded
                               : Icons.expand_more_rounded,
                           size: 18,
