@@ -132,19 +132,10 @@ class _ClassroomTimeDialogState extends State<_ClassroomTimeDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final contentWidth =
-        math.min(480.0, MediaQuery.sizeOf(context).width - 32) - 48;
-    final columns =
-        (contentWidth / (MediaQuery.textScalerOf(context).scale(11) * 7 + 20))
-            .floor()
-            .clamp(1, 4);
-    final width = (contentWidth - (columns - 1) * 6) / columns;
 
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
       child: AlertDialog(
-        constraints: const BoxConstraints(maxWidth: 480),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         titlePadding: const EdgeInsets.fromLTRB(24, 12, 12, 0),
         contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
         scrollable: true,
@@ -158,97 +149,104 @@ class _ClassroomTimeDialogState extends State<_ClassroomTimeDialog> {
             ),
           ],
         ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '先选起始课次，再选结束课次。只用一节可直接应用。',
-                style: theme.textTheme.bodySmall,
-              ),
-              const SizedBox(height: 12),
-              Semantics(
-                liveRegion: true,
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _period.timeLabel,
-                        style: theme.textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${_period.sectionLabel}内全程空闲',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ],
+        content: LayoutBuilder(
+          builder: (context, constraints) {
+            final columns =
+                (constraints.maxWidth /
+                        (MediaQuery.textScalerOf(context).scale(11) * 7 + 20))
+                    .floor()
+                    .clamp(1, 4);
+            final width = (constraints.maxWidth - (columns - 1) * 6) / columns;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '先选起始课次，再选结束课次。只用一节可直接应用。',
+                  style: theme.textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
+                Semantics(
+                  liveRegion: true,
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: scheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _period.timeLabel,
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${_period.sectionLabel}内全程空闲',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (
-                    var section = 1;
-                    section <= sectionTimes.length;
-                    section++
-                  )
-                    SizedBox(
-                      width: width,
-                      child: Semantics(
-                        selected: _period.contains(section),
-                        child: OutlinedButton(
-                          onPressed: () => _select(section),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 54),
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 7,
-                              horizontal: 3,
-                            ),
-                            backgroundColor: _period.contains(section)
-                                ? scheme.primaryContainer
-                                : null,
-                            foregroundColor: _period.contains(section)
-                                ? scheme.onPrimaryContainer
-                                : scheme.onSurface,
-                            side: BorderSide(
-                              color: _period.contains(section)
-                                  ? scheme.primary
-                                  : scheme.outlineVariant,
-                            ),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '第$section节',
-                                style: const TextStyle(fontSize: 13),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (
+                      var section = 1;
+                      section <= sectionTimes.length;
+                      section++
+                    )
+                      SizedBox(
+                        width: width,
+                        child: Semantics(
+                          selected: _period.contains(section),
+                          child: OutlinedButton(
+                            onPressed: () => _select(section),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 54),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 7,
+                                horizontal: 3,
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                (start: section, end: section).timeLabel,
-                                style: const TextStyle(fontSize: 11),
+                              backgroundColor: _period.contains(section)
+                                  ? scheme.primaryContainer
+                                  : null,
+                              foregroundColor: _period.contains(section)
+                                  ? scheme.onPrimaryContainer
+                                  : scheme.onSurface,
+                              side: BorderSide(
+                                color: _period.contains(section)
+                                    ? scheme.primary
+                                    : scheme.outlineVariant,
                               ),
-                            ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '第$section节',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  (start: section, end: section).timeLabel,
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-            ],
-          ),
+                  ],
+                ),
+              ],
+            );
+          },
         ),
         actions: [
           TextButton(

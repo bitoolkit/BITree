@@ -82,8 +82,6 @@ class SettingsScreen extends StatelessWidget {
           versionLabel += '\n构建于 $date $time';
         }
         return AlertDialog(
-          constraints: const BoxConstraints(maxWidth: 360),
-          insetPadding: const EdgeInsets.all(24),
           titlePadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
           contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
           scrollable: true,

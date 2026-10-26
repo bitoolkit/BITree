@@ -1,13 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_version.dart';
 import '../data/app_release.dart';
 import '../diagnostics.dart';
-import 'external_link.dart';
+import 'update_dialog.dart';
 
 const _lastCheckKey = 'updates.lastCheck';
 
@@ -59,69 +58,9 @@ Future<void> checkForUpdates(
 
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        constraints: const BoxConstraints(maxWidth: 480),
-        title: const Text('发现可用更新'),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 320),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final (index, release) in releases.indexed) ...[
-                  if (index > 0) const Divider(height: 24),
-                  Text(
-                    '${release.isDevelopment ? '测试版' : '正式版'} ${release.version}',
-                    style: Theme.of(dialogContext).textTheme.titleMedium,
-                  ),
-                  if (release.notes.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    MarkdownBody(
-                      data: release.notes,
-                      selectable: true,
-                      styleSheet:
-                          MarkdownStyleSheet.fromTheme(Theme.of(dialogContext))
-                              .copyWith(
-                                h2: Theme.of(dialogContext)
-                                    .textTheme
-                                    .titleSmall,
-                              ),
-                      onTapLink: (_, href, _) async {
-                        if (href == null) return;
-                        await openExternalLink(
-                          dialogContext,
-                          Uri.parse(href),
-                          failureTitle: '无法打开链接',
-                        );
-                      },
-                    ),
-                  ],
-                ],
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('稍后'),
-          ),
-          for (final release in releases)
-            FilledButton(
-              onPressed: () async {
-                final opened = await openExternalLink(
-                  dialogContext,
-                  release.url,
-                  failureTitle: '无法打开下载页面',
-                );
-                if (opened && dialogContext.mounted) {
-                  Navigator.pop(dialogContext);
-                }
-              },
-              child: Text(release.isDevelopment ? '下载测试版' : '下载正式版'),
-            ),
-        ],
+      builder: (_) => UpdateDialog(
+        releases: releases,
+        preferDevelopment: installed.contains('-'),
       ),
     );
 

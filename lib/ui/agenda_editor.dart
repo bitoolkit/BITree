@@ -5,6 +5,7 @@ import '../app_controller.dart';
 import '../schedule/model.dart';
 import '../schedule/selection.dart';
 import 'editor_sheet.dart';
+import 'dialog_layout.dart';
 import 'external_link.dart';
 import 'agenda_operations.dart';
 
@@ -81,6 +82,7 @@ class _AgendaEditorState extends State<_AgendaEditor> {
     final current = start ? _start : _end;
     final date = await showDatePicker(
       context: context,
+      builder: appPickerDialogBuilder,
       initialDate: current,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
@@ -107,6 +109,7 @@ class _AgendaEditorState extends State<_AgendaEditor> {
     final current = start ? _start : _end;
     final time = await showTimePicker(
       context: context,
+      builder: appPickerDialogBuilder,
       initialTime: TimeOfDay.fromDateTime(current),
     );
     if (time == null || !mounted) return;

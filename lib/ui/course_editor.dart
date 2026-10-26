@@ -8,6 +8,7 @@ import 'course_period_fields.dart';
 import 'course_week_picker.dart';
 import 'week_range_dialog.dart';
 import 'editor_sheet.dart';
+import 'dialog_layout.dart';
 
 Future<void> editCourse(
   BuildContext context,
@@ -177,6 +178,7 @@ class _CourseEditorState extends State<_CourseEditor> {
                   : () async {
                       final date = await showDatePicker(
                         context: context,
+                        builder: appPickerDialogBuilder,
                         initialDate: _monday,
                         firstDate: DateTime(2000),
                         lastDate: DateTime(2100),

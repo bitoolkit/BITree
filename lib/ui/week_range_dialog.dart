@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../app_controller.dart';
@@ -161,8 +159,6 @@ class _WeekRangeDialogState extends State<_WeekRangeDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final contentWidth =
-        math.min(560.0, MediaQuery.sizeOf(context).width - 48) - 48;
     final minimumFieldWidth =
         96 + MediaQuery.textScalerOf(context).scale(15) * 4 + 16;
     final first = _input('开始周', _first);
@@ -172,18 +168,15 @@ class _WeekRangeDialogState extends State<_WeekRangeDialog> {
       canPop: !_saving,
       child: AlertDialog(
         title: const Text('周数管理'),
-        constraints: const BoxConstraints(maxWidth: 560),
-        insetPadding: const EdgeInsets.all(24),
         scrollable: true,
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Form(
+        content: LayoutBuilder(
+          builder: (context, constraints) => Form(
             key: _form,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (contentWidth >= minimumFieldWidth * 2 + 24)
+                if (constraints.maxWidth >= minimumFieldWidth * 2 + 24)
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

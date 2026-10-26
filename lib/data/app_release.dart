@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:pub_semver/pub_semver.dart';
@@ -7,12 +8,52 @@ class AppRelease {
   const AppRelease({
     required this.version,
     required this.url,
+    required this.downloadUrl,
     required this.notes,
     required this.isDevelopment,
   });
 
+  factory AppRelease.fromGitHub(
+    Map<String, dynamic> release, {
+    required Abi abi,
+    String? version,
+  }) {
+    final url = Uri.parse(release['html_url'] as String);
+    var downloadUrl = url;
+    final architecture = switch (abi) {
+      Abi.androidArm => 'armeabi-v7a',
+      Abi.androidArm64 => 'arm64-v8a',
+      Abi.androidX64 => 'x86_64',
+      _ => null,
+    };
+    if (architecture != null) {
+      final assets = (release['assets'] as List).cast<Map<String, dynamic>>();
+      for (final suffix in ['', '-debug-signed']) {
+        final asset = assets
+            .where(
+              (asset) => (asset['name'] as String).endsWith(
+                '-android-$architecture$suffix.apk',
+              ),
+            )
+            .firstOrNull;
+        if (asset != null) {
+          downloadUrl = Uri.parse(asset['browser_download_url'] as String);
+          break;
+        }
+      }
+    }
+    return AppRelease(
+      version: version ?? release['tag_name'] as String,
+      url: url,
+      downloadUrl: downloadUrl,
+      notes: release['body'] as String? ?? '',
+      isDevelopment: release['prerelease'] == true,
+    );
+  }
+
   final String version;
   final Uri url;
+  final Uri downloadUrl;
   final String notes;
   final bool isDevelopment;
 }
@@ -87,12 +128,7 @@ AppRelease? _stableUpdate(
       releasedAfterBuild;
   if (version.isPreRelease || !newer) return null;
 
-  return AppRelease(
-    version: tag,
-    url: Uri.parse(release['html_url'] as String),
-    notes: release['body'] as String? ?? '',
-    isDevelopment: false,
-  );
+  return AppRelease.fromGitHub(release, abi: Abi.current());
 }
 
 Future<AppRelease?> _developmentUpdate(
@@ -123,12 +159,7 @@ Future<AppRelease?> _developmentUpdate(
       : publishedBuildTime.isAfter(builtAt);
   if (!newer) return null;
 
-  return AppRelease(
-    version: version,
-    url: Uri.parse(release['html_url'] as String),
-    notes: release['body'] as String? ?? '',
-    isDevelopment: true,
-  );
+  return AppRelease.fromGitHub(release, abi: Abi.current(), version: version);
 }
 
 Future<Object?> _readJson(HttpClient client, Uri url) async {

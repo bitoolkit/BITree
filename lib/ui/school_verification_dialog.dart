@@ -100,7 +100,6 @@ class _VerificationDialogState extends State<_VerificationDialog> {
   Widget build(BuildContext context) {
     final sms = widget.request is SchoolSmsVerification;
     return AlertDialog(
-      constraints: const BoxConstraints(maxWidth: 380),
       scrollable: true,
       title: Text(sms ? '短信验证' : '图形验证'),
       content: Form(

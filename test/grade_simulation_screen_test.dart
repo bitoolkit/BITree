@@ -64,6 +64,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('添加试算课程'), findsOneWidget);
+    final surface = find.byWidgetPredicate(
+      (widget) => widget is Material && widget.type == MaterialType.card,
+    );
+    expect(tester.getSize(surface).width, (size.width - 48).clamp(0, 360));
   }
 
   for (final size in [const Size(390, 844), const Size(1200, 800)]) {

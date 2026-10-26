@@ -187,9 +187,14 @@ ThemeData bitreeTheme(Brightness brightness) {
       ),
     ),
     dialogTheme: DialogThemeData(
+      constraints: const BoxConstraints.tightFor(width: 360),
+      insetPadding: const EdgeInsets.all(24),
       backgroundColor: scheme.surfaceContainerLow,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    ),
+    timePickerTheme: const TimePickerThemeData(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
     ),
     tooltipTheme: const TooltipThemeData(
       waitDuration: Duration(milliseconds: 500),

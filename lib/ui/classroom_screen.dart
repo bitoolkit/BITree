@@ -11,6 +11,7 @@ import 'app_dropdown_field.dart';
 import 'app_notice.dart';
 import 'campus_time_builder.dart';
 import 'classroom_time_field.dart';
+import 'dialog_layout.dart';
 import 'school_screen.dart';
 import 'school_verification_dialog.dart';
 
@@ -200,6 +201,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
   Future<void> _pickDate() async {
     final date = await showDatePicker(
       context: context,
+      builder: appPickerDialogBuilder,
       initialDate: _date,
       firstDate: DateTime(_date.year - 1),
       lastDate: DateTime(_date.year + 1, 12, 31),
@@ -572,8 +574,6 @@ Future<void> _showRoom(
   context: context,
   builder: (context) => AlertDialog(
     title: Text('${building.name} ${room.name}'),
-    constraints: const BoxConstraints(maxWidth: 560),
-    insetPadding: const EdgeInsets.all(24),
     scrollable: true,
     content: SizedBox(
       width: double.maxFinite,

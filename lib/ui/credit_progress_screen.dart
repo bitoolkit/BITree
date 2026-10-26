@@ -329,7 +329,6 @@ class _CreditTargetsDialogState extends State<_CreditTargetsDialog> {
   Widget build(BuildContext context) => PopScope(
     canPop: !_saving,
     child: AlertDialog(
-      constraints: const BoxConstraints(maxWidth: 560),
       scrollable: true,
       title: const Text('核对学分目标'),
       content: Form(
