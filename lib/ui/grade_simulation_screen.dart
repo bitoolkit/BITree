@@ -289,7 +289,7 @@ class _ProjectedCourseDialogState extends State<_ProjectedCourseDialog> {
       );
     }
     return AlertDialog(
-      constraints: const BoxConstraints(maxWidth: 520),
+      constraints: const BoxConstraints.tightFor(width: 520),
       scrollable: true,
       title: Text(widget.course == null ? '添加试算课程' : '修改试算课程'),
       content: Form(
