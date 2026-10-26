@@ -28,24 +28,74 @@ Future<void> showAgendaEntry(
               .firstOrNull ??
           entry;
       final theme = Theme.of(context);
-      final pastDeadline =
-          current.isDeadline && current.dueAt.isBefore(campusNow());
+      final scheme = theme.colorScheme;
+      final now = campusNow();
+      final overdue = current.overdue(now);
+      final status = current.done
+          ? '已完成'
+          : overdue
+          ? '已逾期'
+          : current.isFinished(now)
+          ? '已结束'
+          : null;
+      final statusColor = overdue ? scheme.error : scheme.onSurfaceVariant;
       void edit() {
         Navigator.pop(sheetContext);
         editAgenda(pageContext, controller, entry: current);
       }
 
+      Widget metadata(IconData icon, Widget content) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 12),
+            Expanded(child: content),
+          ],
+        ),
+      );
+
       return SafeArea(
         top: false,
         child: SheetLayout(
           header: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 4, 4),
+            padding: const EdgeInsets.fromLTRB(24, 0, 8, 0),
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    current.kind.label,
-                    style: theme.textTheme.titleLarge,
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        current.kind.label,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      if (status != null)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              current.done
+                                  ? Icons.check_circle_outline_rounded
+                                  : Icons.schedule_rounded,
+                              size: 15,
+                              color: statusColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              status,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: statusColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
                 ),
                 IconButton(
@@ -73,56 +123,83 @@ Future<void> showAgendaEntry(
             ),
           ),
           content: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
             child: SelectionArea(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   CompletionText(
                     current.title,
                     completed: current.done,
-                    style: theme.textTheme.titleLarge,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontSize: 26,
+                      height: 1.3,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  CompletionText(
-                    '${agendaDateLabel(current.startsAt)}\n'
-                    '${current.timeLabel}${pastDeadline ? '  已截止' : ''}',
-                    completed: current.done,
-                    style: theme.textTheme.bodyLarge,
-                  ),
-                  if (current.location.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    CompletionText(current.location, completed: current.done),
-                  ],
-                  if (current.source != null || current.course.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    CompletionText(
-                      [
-                        if (current.source != null) current.source!.label,
-                        if (current.course.isNotEmpty) current.course,
-                      ].join('  '),
-                      completed: current.done,
-                      style: theme.textTheme.bodyMedium,
+                  if (current.course.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      current.course,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
-                  if (current.url case final url?)
-                    TextButton.icon(
-                      onPressed: () => openExternalLink(
-                        context,
-                        url,
-                        failureTitle: '无法打开作业',
+                  const SizedBox(height: 24),
+                  _EntryTime(entry: current, now: now),
+                  if (current.location.isNotEmpty ||
+                      current.source != null ||
+                      current.notes.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    const Divider(height: 1),
+                    const SizedBox(height: 12),
+                  ],
+                  if (current.location.isNotEmpty)
+                    metadata(
+                      Icons.location_on_outlined,
+                      Text(current.location, style: theme.textTheme.bodyMedium),
+                    ),
+                  if (current.source case final source?)
+                    metadata(
+                      Icons.link_rounded,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              source.label,
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          ),
+                          if (current.url case final url?)
+                            TextButton.icon(
+                              onPressed: () => openExternalLink(
+                                context,
+                                url,
+                                failureTitle: '无法打开作业',
+                              ),
+                              iconAlignment: IconAlignment.end,
+                              icon: const Icon(
+                                Icons.open_in_new_rounded,
+                                size: 16,
+                              ),
+                              label: const Text('打开作业'),
+                            ),
+                        ],
                       ),
-                      icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                      label: const Text('打开作业'),
                     ),
                   if (current.notes.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    CompletionText(
-                      current.notes,
-                      completed: current.done,
-                      style: theme.textTheme.bodyLarge,
+                    if (current.location.isNotEmpty || current.source != null)
+                      const SizedBox(height: 16),
+                    Text(
+                      '备注',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
+                    const SizedBox(height: 8),
+                    Text(current.notes, style: theme.textTheme.bodyLarge),
                   ],
                 ],
               ),
@@ -131,40 +208,50 @@ Future<void> showAgendaEntry(
           actions: SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  if (current.isDeadline) ...[
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: controller.agenda.busy
-                            ? null
-                            : () =>
-                                  toggleAgendaDone(controller.agenda, current),
-                        child: Text(
-                          current.done ? '标为未完成' : '标记完成',
-                          textAlign: TextAlign.center,
+              padding: const EdgeInsets.fromLTRB(16, 12, 24, 16),
+              child: current.isDeadline
+                  ? OverflowBar(
+                      alignment: MainAxisAlignment.spaceBetween,
+                      overflowAlignment: OverflowBarAlignment.end,
+                      spacing: 12,
+                      overflowSpacing: 8,
+                      children: [
+                        TextButton.icon(
+                          onPressed: controller.agenda.busy ? null : edit,
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          label: const Text('编辑'),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: controller.agenda.busy ? null : edit,
-                        icon: const Icon(Icons.edit_outlined, size: 18),
-                        label: const Text('编辑'),
-                      ),
-                    ),
-                  ] else
-                    Expanded(
+                        FilledButton.icon(
+                          style: current.done
+                              ? FilledButton.styleFrom(
+                                  backgroundColor: scheme.secondaryContainer,
+                                  foregroundColor: scheme.onSecondaryContainer,
+                                )
+                              : null,
+                          onPressed: controller.agenda.busy
+                              ? null
+                              : () => toggleAgendaDone(
+                                  controller.agenda,
+                                  current,
+                                ),
+                          icon: Icon(
+                            current.done
+                                ? Icons.undo_rounded
+                                : Icons.check_rounded,
+                            size: 20,
+                          ),
+                          label: Text(current.done ? '标为未完成' : '标记完成'),
+                        ),
+                      ],
+                    )
+                  : Align(
+                      alignment: Alignment.centerRight,
                       child: FilledButton.icon(
                         onPressed: controller.agenda.busy ? null : edit,
                         icon: const Icon(Icons.edit_outlined, size: 18),
                         label: const Text('编辑'),
                       ),
                     ),
-                ],
-              ),
             ),
           ),
         ),
@@ -172,3 +259,73 @@ Future<void> showAgendaEntry(
     },
   ),
 );
+
+class _EntryTime extends StatelessWidget {
+  const _EntryTime({required this.entry, required this.now});
+
+  final AgendaEntry entry;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final color = entry.overdue(now) ? scheme.error : scheme.onSurface;
+    final time = entry.isDeadline
+        ? entry.allDay
+              ? '当天结束前'
+              : clockText(entry.startsAt)
+        : entry.timeLabel;
+    final lastDay = entry.allDay && !entry.isDeadline
+        ? entry.endsAt!.subtract(const Duration(days: 1))
+        : entry.startsAt;
+    final date = calendarDate(lastDay) == calendarDate(entry.startsAt)
+        ? agendaDateLabel(entry.startsAt)
+        : '${agendaDateLabel(entry.startsAt)} – ${agendaDateLabel(lastDay)}';
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(
+            color: entry.overdue(now) ? scheme.error : scheme.primary,
+            width: 3,
+          ),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              date,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(text: time),
+                  if (entry.isDeadline && !entry.allDay)
+                    TextSpan(
+                      text: '  截止',
+                      style: theme.textTheme.bodyMedium?.copyWith(color: color),
+                    ),
+                ],
+              ),
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontSize: entry.isDeadline && !entry.allDay ? 30 : 22,
+                height: 1.25,
+                fontWeight: FontWeight.w500,
+                color: color,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
