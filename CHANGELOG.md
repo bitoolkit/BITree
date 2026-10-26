@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Revert "fix(release): keep dev builds at the top of releases" ([ea3e867](https://github.com/so1ve/bitree/commit/ea3e867eb6b97d11b6a76c3043ac0771379efa1f))
 - fix(schedule): measure wrapped text before applying ellipsis ([ef29827](https://github.com/so1ve/bitree/commit/ef298277564d2eabcadae7e1dae1fa3433767864))
 - fix(release): keep dev builds at the top of releases ([4a53f75](https://github.com/so1ve/bitree/commit/4a53f756f123c64dd42794a51cae249632f5d738))
 - fix(ui): block notice tap-through and finish swipe dismissal ([b86defa](https://github.com/so1ve/bitree/commit/b86defa55e80a1afbc82ab071b31f471fd9197ce))
