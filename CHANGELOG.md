@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- feat(academics): add grades, projections, credits and exam tools ([d0e20e5](https://github.com/so1ve/bitree/commit/d0e20e566c9c5a59aae337423376b751270f999e))
+- fix: use English dashes ([356a716](https://github.com/so1ve/bitree/commit/356a71659eeee9921b68ccc207f28fa5bd5f4a9b))
+
 ## v0.2.0 - 2026-10-27
 
 - fix(agenda): delete on swipe and confirm button actions ([1272e35](https://github.com/so1ve/bitree/commit/1272e35bc407cb07d5e8ca42973b1bf76f366f83))
