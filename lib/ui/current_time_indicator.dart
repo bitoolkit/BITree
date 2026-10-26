@@ -23,18 +23,19 @@ class CurrentTimeIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final day = calendarDate(now).difference(calendarDate(monday)).inDays;
+    final position = timeIndicatorPositionAt(now);
+    final day = calendarDate(position.time)
+        .difference(calendarDate(monday))
+        .inDays;
     final gridHeight = rowHeight * sectionTimes.length;
-    final section = sectionOffsetAt(now);
-    if (section == null ||
-        day < 0 ||
+    if (day < 0 ||
         day >= 7 ||
         columnWidth <= _horizontalInset * 2 ||
         gridHeight < _lineHeight) {
       return const SizedBox.shrink();
     }
 
-    final top = (section * rowHeight - _lineHeight / 2)
+    final top = (position.section * rowHeight - _lineHeight / 2)
         .clamp(0.0, gridHeight - _lineHeight)
         .toDouble();
     return IgnorePointer(

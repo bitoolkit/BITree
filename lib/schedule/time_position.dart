@@ -22,3 +22,20 @@ double? sectionOffsetAt(DateTime now) {
   }
   return null;
 }
+
+/// Outside class hours, wait at the next morning's first section.
+({DateTime time, double section}) timeIndicatorPositionAt(DateTime now) {
+  final section = sectionOffsetAt(now);
+  if (section != null) return (time: now, section: section);
+
+  var date = calendarDate(now);
+  final minute = now.hour * 60 + now.minute;
+  if (minute >= _minutes(sectionTimes.last.$2)) {
+    date = date.add(const Duration(days: 1));
+  }
+
+  return (
+    time: date.add(Duration(minutes: _minutes(sectionTimes.first.$1))),
+    section: 0,
+  );
+}

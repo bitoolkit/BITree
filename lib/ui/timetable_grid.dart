@@ -203,40 +203,42 @@ class _TimetableGridState extends State<TimetableGrid> {
                           ),
                       ],
                     ),
-                    if (widget.todayColumn != null)
-                      ValueListenableBuilder<DateTime>(
-                        valueListenable: widget.currentTime,
-                        builder: (context, now, _) {
-                          final section = sectionOffsetAt(now);
-                          if (section == null) return const SizedBox.shrink();
+                    ValueListenableBuilder<DateTime>(
+                      valueListenable: widget.currentTime,
+                      builder: (context, now, _) {
+                        final position = timeIndicatorPositionAt(now);
+                        final day = calendarDate(position.time)
+                            .difference(calendarDate(widget.monday))
+                            .inDays;
+                        if (day < 0 || day >= 7) {
+                          return const SizedBox.shrink();
+                        }
 
-                          final height =
-                              MediaQuery.textScalerOf(context).scale(10) * 1.2 +
-                              2;
-                          return Positioned(
-                            left: 0,
-                            right: 0,
-                            top: (section * rowHeight - height / 2).clamp(
-                              0.0,
-                              gridHeight - height,
-                            ),
-                            child: IgnorePointer(
-                              child: ColoredBox(
-                                color: scheme.surface,
-                                child: Text(
-                                  clockText(now),
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    height: 1.2,
-                                    color: scheme.primary,
-                                  ),
+                        final height =
+                            MediaQuery.textScalerOf(context).scale(10) * 1.2 +
+                            2;
+                        return Positioned(
+                          left: 0,
+                          right: 0,
+                          top: (position.section * rowHeight - height / 2)
+                              .clamp(0.0, gridHeight - height),
+                          child: IgnorePointer(
+                            child: ColoredBox(
+                              color: scheme.surface,
+                              child: Text(
+                                clockText(position.time),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  height: 1.2,
+                                  color: scheme.primary,
                                 ),
                               ),
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
