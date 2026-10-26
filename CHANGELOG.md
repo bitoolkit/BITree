@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- perf(build): shrink release packages and separate debug symbols ([8aac505](https://github.com/so1ve/bitree/commit/8aac50507489e2ca0b5194839dd36fa3911a3ac9))
 - feat(classrooms): simplify queries with optional time filters ([f1558c6](https://github.com/so1ve/bitree/commit/f1558c67da8e0150814f669234bf532fc3dd7d4d))
 - feat(agenda): replace the home task strip with a transient reminder ([74b965d](https://github.com/so1ve/bitree/commit/74b965dc7212714bf8091db19d00d84b5798a1b5))
 - fix(agenda): keep swipe confirmation rows the same size ([cec475a](https://github.com/so1ve/bitree/commit/cec475a023c8a701ab9d286a763ff1995450131c))
