@@ -32,7 +32,10 @@ class LectureStreams {
         .map((b) => b.toRadixString(16).padLeft(2, '0'))
         .join();
     return url.replace(
-      queryParameters: {'t': '${identity.user}-$seconds-$digest'},
+      queryParameters: {
+        ...url.queryParameters,
+        't': '${identity.user}-$seconds-$digest',
+      },
     );
   }
 }

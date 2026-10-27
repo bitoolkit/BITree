@@ -5,13 +5,13 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/async/cancelable_request.dart';
+import '../../core/diagnostics.dart';
 import '../../school/errors.dart';
-import '../../ui/app_menu_anchor.dart';
-import '../../ui/app_notice.dart';
 import '../media.dart';
 import '../model.dart';
 import '../playback.dart';
 import 'study_common.dart';
+import 'study_video.dart';
 
 class StudyLivePlayer extends StatefulWidget {
   const StudyLivePlayer({
@@ -46,8 +46,8 @@ class _StudyLivePlayerState extends State<StudyLivePlayer>
   late StudyLectureStatus _status = widget.initialStatus;
   String _source = 'classroom';
   bool _opening = false;
-  bool _playing = false;
-  bool get _dual => _source == 'dual';
+  bool _dual = false;
+  bool _failed = false;
 
   @override
   void initState() {
@@ -66,7 +66,11 @@ class _StudyLivePlayerState extends State<StudyLivePlayer>
 
   Future<void> _open() async {
     if (_opening) return;
-    setState(() => _opening = true);
+    setState(() {
+      _opening = true;
+      _failed = false;
+      _dual = false;
+    });
     await studyOperation(context, '播放直播', () async {
       await _player?.pause();
       await _secondary?.pause();
@@ -92,15 +96,20 @@ class _StudyLivePlayerState extends State<StudyLivePlayer>
         _video = VideoController(_player!);
         _subscriptions.add(
           _player!.stream.playing.listen((playing) {
-            if (_dual) {
+            if (_dual && !_opening) {
               unawaited(playing ? _secondary?.play() : _secondary?.pause());
             }
-            if (mounted) setState(() => _playing = playing);
           }),
         );
         _subscriptions.add(
           _player!.stream.error.listen((error) {
-            if (mounted) showAppNotice(context, '直播连接中断，可尝试重新连接。');
+            if (!mounted || _failed) return;
+            AppDiagnostics.instance.error(
+              '播放直播',
+              StateError(error.replaceAll(RegExp(r'https?://\S+'), '[媒体地址]')),
+              StackTrace.current,
+            );
+            setState(() => _failed = true);
           }),
         );
       }
@@ -122,23 +131,28 @@ class _StudyLivePlayerState extends State<StudyLivePlayer>
     }
   }
 
-  Future<void> _switchSource(String source) async {
+  Future<void> _switchSource(String source, bool dual) async {
     if (_opening || _player == null) return;
-    setState(() => _opening = true);
-    final playing = _playing;
+    setState(() {
+      _opening = true;
+      _failed = false;
+    });
+    final playing = _player!.state.playing;
     await studyOperation(context, '切换直播画面', () async {
       await _secondary?.pause();
-      if (source == 'dual') {
+      if (source != _source) await _openMedia(source);
+      if (dual) {
         _secondary ??= Player();
         _secondaryVideo ??= VideoController(_secondary!);
         await _secondary!.setVolume(0);
-        await _openMedia('screen');
-        await _secondary!.open(Media(_sources['classroom']!), play: false);
-      } else {
-        await _openMedia(source);
+        await _secondary!.open(
+          Media(_sources[source == 'screen' ? 'classroom' : 'screen']!),
+          play: false,
+        );
       }
       _cancellation.check();
-      if (mounted) setState(() => _source = source);
+      _source = source;
+      _dual = dual;
       if (playing) {
         await _player!.play();
         if (_dual) await _secondary!.play();
@@ -199,95 +213,18 @@ class _StudyLivePlayerState extends State<StudyLivePlayer>
             ),
           )
         else
-          LayoutBuilder(
-            builder: (context, size) {
-              Widget video(VideoController controller) => AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Video(controller: controller, controls: NoVideoControls),
-              );
-              if (_dual && size.maxWidth >= 600) {
-                return Row(
-                  children: [
-                    Expanded(flex: 2, child: video(_video!)),
-                    const SizedBox(width: 8),
-                    Expanded(child: video(_secondaryVideo!)),
-                  ],
-                );
-              }
-              return Column(
-                children: [
-                  video(_video!),
-                  if (_dual)
-                    SizedBox(height: 110, child: video(_secondaryVideo!)),
-                ],
-              );
-            },
+          StudyVideo(
+            controller: _video!,
+            secondary: _dual ? _secondaryVideo : null,
+            live: true,
+            failed: _failed,
+            onRetry: _opening ? null : _open,
+            sources: _sources.keys.toSet(),
+            source: _source,
+            busy: _opening,
+            onView: _switchSource,
+            onCollapse: widget.onCollapse,
           ),
-        if (_status == StudyLectureStatus.live)
-          Row(
-            children: [
-              IconButton(
-                tooltip: _playing ? '暂停' : '播放',
-                onPressed: _opening || _player == null
-                    ? null
-                    : () => _player!.playOrPause(),
-                icon: Icon(
-                  _playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  '直播中',
-                  style: Theme.of(context).textTheme.labelLarge
-                      ?.copyWith(color: Theme.of(context).colorScheme.error),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: _opening ? null : _open,
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('重新连接'),
-              ),
-            ],
-          ),
-        Row(
-          children: [
-            if (_status == StudyLectureStatus.live && _sources.isNotEmpty)
-              AppMenuAnchor(
-                menuChildren: [
-                  for (final key in _sources.keys)
-                    AppMenuItemButton(
-                      onPressed: _opening ? null : () => _switchSource(key),
-                      child: Text(key == 'screen' ? '课件画面' : '教室画面'),
-                    ),
-                  if (_sources.containsKey('screen') &&
-                      _sources.containsKey('classroom'))
-                    AppMenuItemButton(
-                      onPressed: _opening ? null : () => _switchSource('dual'),
-                      child: const Text('双画面'),
-                    ),
-                ],
-                builder: (context, menu, open) => TextButton(
-                  onPressed: _opening
-                      ? null
-                      : () => open ? menu.close() : menu.open(),
-                  child: Text(
-                    _dual
-                        ? '双画面'
-                        : _source == 'screen'
-                        ? '课件画面'
-                        : '教室画面',
-                  ),
-                ),
-              ),
-            const Spacer(),
-            if (widget.onCollapse != null)
-              IconButton(
-                tooltip: '收起直播',
-                onPressed: widget.onCollapse,
-                icon: const Icon(Icons.keyboard_arrow_up_rounded),
-              ),
-          ],
-        ),
       ],
     ),
   );

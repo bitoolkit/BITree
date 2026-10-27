@@ -37,7 +37,9 @@ class StudyMediaProxy {
   }
 
   Uri _register(Uri target, LectureStreams streams) {
-    final key = '${_targets.length}';
+    // HLS demuxers validate segment extensions, including local proxy URLs.
+    final suffix = RegExp(r'\.[a-zA-Z0-9]+$').stringMatch(target.path) ?? '';
+    final key = '${_targets.length}$suffix';
     _targets[key] = (target, streams);
     return Uri.http('127.0.0.1:${_server!.port}', '/$_secret/$key');
   }
@@ -61,11 +63,18 @@ class StudyMediaProxy {
       outgoing.headers.set('User-Agent', SchoolSession.userAgent);
       outgoing.headers.set('Accept-Encoding', 'identity');
       final range = incoming.headers.value('Range');
-      if (range != null) outgoing.headers.set('Range', range);
+      final playlist = url.path.endsWith('.m3u8');
+      if (!playlist && range != null) outgoing.headers.set('Range', range);
       final response = await outgoing.close();
       incoming.response.statusCode = response.statusCode;
       final contentType = response.headers.contentType?.mimeType ?? '';
-      if (url.path.endsWith('.m3u8') || contentType.contains('mpegurl')) {
+      if ((playlist || contentType.contains('mpegurl')) &&
+          [
+            HttpStatus.ok,
+            HttpStatus.partialContent,
+          ].contains(response.statusCode)) {
+        // Rewriting changes the bytes, so an upstream byte range no longer applies.
+        incoming.response.statusCode = HttpStatus.ok;
         final text = await utf8.decoder.bind(response).join();
         incoming.response.headers.contentType = ContentType(
           'application',

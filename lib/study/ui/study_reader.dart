@@ -21,6 +21,7 @@ import 'study_common.dart';
 import 'study_live_player.dart';
 import 'study_organize.dart';
 import 'study_services.dart';
+import 'study_video.dart';
 
 class StudyReader extends StatefulWidget {
   const StudyReader({
@@ -66,14 +67,11 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
         };
   bool _showPlayer = false;
   bool _opening = false;
-  bool _playing = false;
-  bool _scrubbing = false;
+  bool _playbackFailed = false;
   bool _loadFailed = false;
   bool _asking = false;
   bool _dual = false;
-  double _speed = 1;
   String _source = 'screen';
-  Duration _duration = Duration.zero;
   int _slide = 0;
   DateTime _lastSync = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -169,24 +167,27 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
     setState(() {
       _opening = true;
       _showPlayer = true;
+      _playbackFailed = false;
     });
     await studyOperation(context, '播放录播', () async {
       await _resolveSources();
       _cancellation.check();
       if (_livePlayback) return;
       if (_sources.isEmpty) throw StateError('这节课没有可播放的录播');
+      if (!_sources.containsKey(_source)) _source = _sources.keys.first;
       if (_player == null) {
         MediaKit.ensureInitialized();
         _player = Player();
         _video = VideoController(_player!);
         _subscriptions.add(
           _player!.stream.position.listen((value) {
-            if (!_scrubbing) _position.value = value;
+            _position.value = value;
             _material!.position = value;
             final now = DateTime.now();
             if (_dual &&
+                !_opening &&
                 _secondary != null &&
-                now.difference(_lastSync).inSeconds >= 2) {
+                now.difference(_lastSync).inMilliseconds >= 500) {
               _lastSync = now;
               if ((_secondary!.state.position - value).inMilliseconds.abs() >
                   600) {
@@ -196,70 +197,95 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
           }),
         );
         _subscriptions.add(
-          _player!.stream.duration.listen((value) {
-            if (mounted) setState(() => _duration = value);
-          }),
-        );
-        _subscriptions.add(
           _player!.stream.playing.listen((value) {
-            if (_dual) {
+            if (_dual && !_opening) {
               unawaited(value ? _secondary?.play() : _secondary?.pause());
             }
-            if (mounted) setState(() => _playing = value);
           }),
         );
         _subscriptions.add(
           _player!.stream.error.listen((error) {
-            if (mounted) showAppNotice(context, '录播播放失败，请重新打开。');
+            if (!mounted || _playbackFailed) return;
+            AppDiagnostics.instance.error(
+              '播放录播',
+              StateError(error.replaceAll(RegExp(r'https?://\S+'), '[媒体地址]')),
+              StackTrace.current,
+            );
+            setState(() => _playbackFailed = true);
           }),
         );
-        if (!_sources.containsKey(_source)) _source = _sources.keys.first;
-        await _player!.open(Media(_sources[_source]!), play: false);
+        _subscriptions.add(
+          _player!.stream.rate.listen((rate) {
+            if (_dual) unawaited(_secondary?.setRate(rate));
+          }),
+        );
+        await _openRecordedMedia(_source, requestedPosition);
         _cancellation.check();
-        await _player!.setRate(_speed);
-        await _player!.seek(requestedPosition);
       } else if (seek != null) {
         await _player!.seek(seek);
         if (_dual) await _secondary?.seek(seek);
+      } else {
+        await _openRecordedMedia(_source, requestedPosition);
       }
       await widget.app.study.remember(widget.course, widget.lecture);
       await _player!.play();
+      if (_dual) await _secondary?.play();
     });
     if (mounted) setState(() => _opening = false);
   }
 
-  Future<void> _switchSource(String source) async {
-    if (_player == null) return;
+  Future<void> _openRecordedMedia(String source, Duration position) async {
+    await _player!.open(Media(_sources[source]!, start: position), play: false);
+    if (source == 'screen' && _sources.containsKey('classroom')) {
+      await _player!.setAudioTrack(AudioTrack.uri(_sources['classroom']!));
+    }
+  }
+
+  Future<void> _switchSource(String source, bool dual) async {
+    if (_opening || _player == null) return;
     final position = _position.value;
-    final playing = _playing;
+    final playing = _player!.state.playing;
+    final rate = _player!.state.rate;
+    setState(() {
+      _opening = true;
+      _playbackFailed = false;
+    });
     await studyOperation(context, '切换画面', () async {
-      if (source == 'dual') {
-        if (!_sources.containsKey('screen') ||
-            !_sources.containsKey('classroom')) {
-          return;
-        }
+      await _secondary?.pause();
+      if (source != _source) await _openRecordedMedia(source, position);
+      if (dual) {
         _secondary ??= Player();
         _secondaryVideo ??= VideoController(_secondary!);
         await _secondary!.setVolume(0);
-        await _player!.open(Media(_sources['screen']!), play: false);
-        await _secondary!.open(Media(_sources['classroom']!), play: false);
-        await _player!.seek(position);
-        await _secondary!.seek(position);
-        await _secondary!.setRate(_speed);
-        _dual = true;
-      } else {
-        _dual = false;
-        await _secondary?.pause();
-        await _player!.open(Media(_sources[source]!), play: false);
-        await _player!.seek(position);
+        await _secondary!.open(
+          Media(
+            _sources[source == 'screen' ? 'classroom' : 'screen']!,
+            start: position,
+          ),
+          play: false,
+        );
+        await _secondary!.setRate(rate);
       }
-      await _player!.setRate(_speed);
+      _cancellation.check();
+      await _player!.setRate(rate);
+      _source = source;
+      _dual = dual;
       if (playing) {
         await _player!.play();
         if (_dual) await _secondary!.play();
       }
-      if (mounted) setState(() => _source = source);
     });
+    if (mounted) setState(() => _opening = false);
+  }
+
+  Future<void> _reconnect() async {
+    if (_opening) return;
+    await _player?.pause();
+    await _secondary?.pause();
+    if (!mounted) return;
+    _sources.clear();
+    setState(() => _dual = false);
+    await _openPlayer();
   }
 
   Future<void> _seek(Duration value) async {
@@ -455,10 +481,14 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
             child: Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1200),
+                constraints: const BoxConstraints(maxWidth: 1600),
                 child: LayoutBuilder(
                   builder: (context, size) {
-                    final wide = size.maxWidth >= 880 && _showPlayer;
+                    final wide =
+                        _showPlayer &&
+                        (size.maxWidth >= 1000 ||
+                            size.maxWidth >= 720 &&
+                                size.maxWidth > size.maxHeight * 1.35);
                     final materials = Column(
                       children: [
                         if (!wide && !_showPlayer)
@@ -483,12 +513,12 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            flex: 6,
-                            child: SingleChildScrollView(child: _playerPanel()),
-                          ),
+                          Expanded(child: _playerPanel()),
                           const SizedBox(width: 16),
-                          Expanded(flex: 5, child: materials),
+                          SizedBox(
+                            width: (size.maxWidth * .32).clamp(280, 400),
+                            child: materials,
+                          ),
                         ],
                       );
                     }
@@ -499,7 +529,7 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
                             constraints: BoxConstraints(
                               maxHeight: size.maxHeight * .46,
                             ),
-                            child: SingleChildScrollView(child: _playerPanel()),
+                            child: _playerPanel(),
                           ),
                         Expanded(child: materials),
                       ],
@@ -534,10 +564,8 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
 
   Widget _recordedPlayerPanel() => Padding(
     padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-    child: Column(
-      children: [
-        if (_video == null)
-          AspectRatio(
+    child: _video == null
+        ? AspectRatio(
             aspectRatio: 16 / 9,
             child: Center(
               child: _opening
@@ -549,160 +577,21 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
                     ),
             ),
           )
-        else
-          LayoutBuilder(
-            builder: (context, size) {
-              final videos = [
-                Expanded(
-                  flex: 2,
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: Video(
-                      controller: _video!,
-                      controls: NoVideoControls,
-                    ),
-                  ),
-                ),
-                if (_dual && _secondaryVideo != null)
-                  Expanded(
-                    child: AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: Video(
-                        controller: _secondaryVideo!,
-                        controls: NoVideoControls,
-                      ),
-                    ),
-                  ),
-              ];
-              return _dual && size.maxWidth >= 600
-                  ? Row(children: videos)
-                  : Column(
-                      children: [
-                        AspectRatio(
-                          aspectRatio: 16 / 9,
-                          child: Video(
-                            controller: _video!,
-                            controls: NoVideoControls,
-                          ),
-                        ),
-                        if (_dual && _secondaryVideo != null)
-                          SizedBox(
-                            height: 110,
-                            child: Video(
-                              controller: _secondaryVideo!,
-                              controls: NoVideoControls,
-                            ),
-                          ),
-                      ],
-                    );
+        : StudyVideo(
+            controller: _video!,
+            secondary: _dual ? _secondaryVideo : null,
+            failed: _playbackFailed,
+            onRetry: _opening ? null : _reconnect,
+            sources: _sources.keys.toSet(),
+            source: _source,
+            busy: _opening,
+            onView: _switchSource,
+            onCollapse: () {
+              unawaited(_player?.pause());
+              unawaited(_secondary?.pause());
+              setState(() => _showPlayer = false);
             },
           ),
-        ValueListenableBuilder(
-          valueListenable: _position,
-          builder: (context, position, _) => Row(
-            children: [
-              IconButton(
-                tooltip: _playing ? '暂停' : '播放',
-                onPressed: _opening ? null : () => _player?.playOrPause(),
-                icon: Icon(
-                  _playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                ),
-              ),
-              Text(
-                studyTimestamp(position),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              Expanded(
-                child: Slider(
-                  value: position.inMilliseconds.toDouble().clamp(
-                    0,
-                    _duration.inMilliseconds.toDouble(),
-                  ),
-                  max: _duration.inMilliseconds.toDouble().clamp(
-                    1,
-                    double.infinity,
-                  ),
-                  onChanged: _player == null
-                      ? null
-                      : (value) => _position.value = Duration(
-                          milliseconds: value.round(),
-                        ),
-                  onChangeStart: _player == null
-                      ? null
-                      : (_) => _scrubbing = true,
-                  onChangeEnd: _player == null
-                      ? null
-                      : (value) {
-                          _scrubbing = false;
-                          _seek(Duration(milliseconds: value.round()));
-                        },
-                ),
-              ),
-              Text(
-                studyTimestamp(_duration),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-        ),
-        Row(
-          children: [
-            AppMenuAnchor(
-              menuChildren: [
-                for (final speed in [1.0, 1.25, 1.5, 2.0, 3.0, 4.0])
-                  AppMenuItemButton(
-                    onPressed: () async {
-                      await _player?.setRate(speed);
-                      await _secondary?.setRate(speed);
-                      if (mounted) setState(() => _speed = speed);
-                    },
-                    child: Text('$speed×'),
-                  ),
-              ],
-              builder: (context, menu, open) => TextButton(
-                onPressed: () => open ? menu.close() : menu.open(),
-                child: Text('$_speed×'),
-              ),
-            ),
-            AppMenuAnchor(
-              menuChildren: [
-                for (final entry in _sources.entries)
-                  AppMenuItemButton(
-                    onPressed: () => _switchSource(entry.key),
-                    child: Text(entry.key == 'screen' ? '课件画面' : '教室画面'),
-                  ),
-                if (_sources.length > 1)
-                  AppMenuItemButton(
-                    onPressed: () => _switchSource('dual'),
-                    child: const Text('双画面'),
-                  ),
-              ],
-              builder: (context, menu, open) => TextButton(
-                onPressed: _sources.isEmpty
-                    ? null
-                    : () => open ? menu.close() : menu.open(),
-                child: Text(
-                  _source == 'dual'
-                      ? '双画面'
-                      : _source == 'screen'
-                      ? '课件画面'
-                      : '教室画面',
-                ),
-              ),
-            ),
-            const Spacer(),
-            IconButton(
-              tooltip: '收起录播',
-              onPressed: () {
-                _player?.pause();
-                setState(() => _showPlayer = false);
-              },
-              icon: const Icon(Icons.keyboard_arrow_up_rounded),
-            ),
-          ],
-        ),
-      ],
-    ),
   );
 
   Widget _materialTabs() => Row(
