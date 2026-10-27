@@ -54,7 +54,10 @@ void showOverlayNotice(
             child: Align(
               alignment: Alignment.bottomCenter,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
+                constraints: BoxConstraints(
+                  minHeight: appControlSize.height,
+                  maxWidth: 560,
+                ),
                 child: Listener(
                   behavior: HitTestBehavior.opaque,
                   child: Material(
@@ -64,20 +67,22 @@ void showOverlayNotice(
                     child: Semantics(
                       liveRegion: true,
                       child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: action == null ? 12 : 4,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Flexible(
-                              child: Text(
-                                message,
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onInverseSurface,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                child: Text(
+                                  message,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onInverseSurface,
+                                  ),
                                 ),
                               ),
                             ),
