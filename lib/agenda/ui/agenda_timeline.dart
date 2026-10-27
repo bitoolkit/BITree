@@ -10,6 +10,7 @@ import '../../schedule/model.dart';
 import '../model.dart';
 import '../timeline_layout.dart';
 import 'agenda_detail.dart';
+import 'timeline_colors.dart';
 
 const _microsecondsPerHour = Duration.microsecondsPerSecond * 3600;
 
@@ -503,10 +504,9 @@ class _AgendaTimelineState extends State<AgendaTimeline>
                                   header: false,
                                 ),
                               ),
-                              Scrollbar(
-                                controller: _lanes,
-                                thumbVisibility: contentHeight > height,
-                                interactive: true,
+                              ScrollConfiguration(
+                                behavior: ScrollConfiguration.of(context)
+                                    .copyWith(scrollbars: false),
                                 child: SingleChildScrollView(
                                   controller: _lanes,
                                   physics: const NeverScrollableScrollPhysics(),
@@ -570,7 +570,7 @@ class _AgendaTimelineState extends State<AgendaTimeline>
     double deadlineWidth,
   ) {
     final entry = placement.entry;
-    final scheme = Theme.of(context).colorScheme;
+    final colors = agendaTimelineColors(context, entry, widget.now);
     double x(DateTime time) => width / 2 +
         time.difference(_center).inMicroseconds /
             _microsecondsPerHour * pixelsPerHour;
@@ -589,24 +589,6 @@ class _AgendaTimelineState extends State<AgendaTimeline>
     final tapWidth = math.min(math.max(24.0, barWidth), availableWidth);
     final overdue = entry.overdue(widget.now);
     final finished = entry.isFinished(widget.now);
-    final color = finished
-        ? scheme.surfaceContainerHighest
-        : overdue
-            ? scheme.errorContainer
-            : switch (entry.kind) {
-                AgendaKind.event => scheme.primaryContainer,
-                AgendaKind.exam => scheme.tertiaryContainer,
-                AgendaKind.deadline => scheme.secondaryContainer,
-              };
-    final foreground = finished
-        ? scheme.onSurfaceVariant
-        : overdue
-            ? scheme.onErrorContainer
-            : switch (entry.kind) {
-                AgendaKind.event => scheme.onPrimaryContainer,
-                AgendaKind.exam => scheme.onTertiaryContainer,
-                AgendaKind.deadline => scheme.onSecondaryContainer,
-              };
     final icon = finished
         ? Icons.check_circle_outline
         : overdue
@@ -651,10 +633,14 @@ class _AgendaTimelineState extends State<AgendaTimeline>
                 height: laneHeight - 12,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: entry.isDeadline ? null : color,
+                    color: entry.isDeadline ? null : colors.fill,
                     gradient: entry.isDeadline
                         ? LinearGradient(
-                            colors: [color.withValues(alpha: 0), color, color],
+                            colors: [
+                              colors.fill.withValues(alpha: 0),
+                              colors.fill,
+                              colors.fill,
+                            ],
                             stops: const [0, 0.35, 1],
                           )
                         : null,
@@ -662,10 +648,10 @@ class _AgendaTimelineState extends State<AgendaTimeline>
                         ? null
                         : BorderRadius.circular(8),
                     border: entry.isDeadline
-                        ? Border(right: BorderSide(color: foreground, width: 3))
-                        : Border.all(
-                            color: foreground.withValues(alpha: 0.35),
-                          ),
+                        ? Border(
+                            right: BorderSide(color: colors.accent, width: 3),
+                          )
+                        : Border.all(color: colors.accent),
                   ),
                   child: Material(
                     color: Colors.transparent,
@@ -703,7 +689,7 @@ class _AgendaTimelineState extends State<AgendaTimeline>
                                         fontSize: 14,
                                         height: 1.2,
                                         fontWeight: FontWeight.w600,
-                                        color: foreground,
+                                        color: colors.text,
                                         decoration: entry.done
                                             ? TextDecoration.lineThrough
                                             : null,
@@ -719,7 +705,7 @@ class _AgendaTimelineState extends State<AgendaTimeline>
                                           1.0,
                                           MediaQuery.textScalerOf(context).scale(14) / 14,
                                         ),
-                                        color: foreground,
+                                        color: colors.text,
                                       ),
                                       const SizedBox(width: 3),
                                       Flexible(
@@ -731,7 +717,7 @@ class _AgendaTimelineState extends State<AgendaTimeline>
                                           style: TextStyle(
                                             fontSize: 11,
                                             height: 1.1,
-                                            color: foreground,
+                                            color: colors.text,
                                           ),
                                         ),
                                       ),

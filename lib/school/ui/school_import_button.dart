@@ -65,7 +65,7 @@ class SchoolImportButton extends StatelessWidget {
             child: Text(action.label),
           ),
         AppMenuItemButton(
-          leadingIcon: const Icon(Icons.science_outlined),
+          leadingIcon: const Icon(Icons.flag_outlined),
           onPressed: physicsEnabled
               ? () => updatePhysicsLabDeadlines(context, controller)
               : null,

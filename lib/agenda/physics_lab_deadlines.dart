@@ -45,8 +45,8 @@ List<AgendaEntry> physicsLabDeadlines(SemesterSchedule schedule) {
         59,
       );
       for (final deadline in [
-        (key: 'preview', title: '$name 预习报告', due: selection.startsAt),
-        (key: 'report', title: '$name 实验报告', due: reportDue),
+        (key: 'preview', title: '预习报告 $name', due: selection.startsAt),
+        (key: 'report', title: '实验报告 $name', due: reportDue),
       ]) {
         // No clock in the ID: editing a local course's section updates the same
         // occurrence. The semester and course ID isolate separate lab sessions.

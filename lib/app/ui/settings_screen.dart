@@ -358,7 +358,7 @@ class SettingsScreen extends StatelessWidget {
           section('本地日程', [
             ListTile(
               contentPadding: tilePadding,
-              leading: const Icon(Icons.science_outlined),
+              leading: const Icon(Icons.flag_outlined),
               title: const Text('更新大物实验 DDL'),
               subtitle: Text(
                 schedule == null

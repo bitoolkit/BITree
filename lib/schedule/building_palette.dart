@@ -16,6 +16,14 @@ class BuildingPalette {
   final BuildingColorValues dark;
 }
 
+/// Looks up a palette by its canonical building name, without room matching.
+BuildingPalette? buildingPaletteNamed(String name) {
+  for (final (_, palette) in _buildingData) {
+    if (palette.name == name) return palette;
+  }
+  return null;
+}
+
 final _rules = [
   for (final (pattern, palette) in _buildingData) (RegExp(pattern), palette),
 ];
