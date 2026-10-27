@@ -98,6 +98,55 @@ Future<TestAppController> _open(
 }
 
 void main() {
+  for (final (size, scale) in [
+    (const Size(390, 844), 1.0),
+    (const Size(320, 640), 1.0),
+    (const Size(320, 640), 1.8),
+  ]) {
+    testWidgets(
+      'A title without secondary content aligns with its completion control at $size, $scale',
+      (tester) async {
+        final entry = AgendaEntry(
+          id: 'plain',
+          title: '1',
+          kind: AgendaKind.deadline,
+          startsAt: _date.add(const Duration(hours: 1, minutes: 11)),
+        );
+        await _open(tester, [entry], size: size, scale: scale);
+        final title = tester.getRect(find.byType(CompletionText));
+        final control = tester.getRect(find.byType(Checkbox));
+        expect(title.center.dy, closeTo(control.center.dy, 0.5));
+        expect(find.text('01:11'), findsOneWidget);
+        await tester.tap(find.byType(Checkbox));
+        await tester.pumpAndSettle();
+        expect(find.text('已完成 1'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'The entry description appears below its title, with course context retained',
+    (tester) async {
+      final entry = AgendaEntry(
+        id: 'with-notes',
+        title: '第二章作业',
+        kind: AgendaKind.deadline,
+        startsAt: _date.add(const Duration(hours: 18)),
+        notes: '完成第二章习题，提交 PDF。',
+        course: '离散数学',
+      );
+      await _open(tester, [entry]);
+      final title = tester.getRect(find.byType(CompletionText));
+      final description = tester.getRect(find.text(entry.notes));
+      final course = tester.getRect(find.text(entry.course));
+      expect(description.top, greaterThan(title.bottom));
+      expect(description.left, title.left);
+      expect(course.top, greaterThan(description.bottom));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'Tapping the timetable date shows compact pending entries with prominent times',
     (tester) async {

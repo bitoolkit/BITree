@@ -37,6 +37,8 @@ class AgendaListTile extends StatelessWidget {
         entry.source!.label,
       if (entry.location.isNotEmpty) entry.location,
     ].join('  ');
+    final description = entry.notes.trim();
+    final hasDetails = description.isNotEmpty || subtitle.isNotEmpty;
     final dueToday =
         entry.isDeadline &&
         !entry.done &&
@@ -81,7 +83,9 @@ class AgendaListTile extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: hasDetails
+                    ? CrossAxisAlignment.start
+                    : CrossAxisAlignment.center,
                 children: [
                   SizedBox.square(
                     dimension: 44,
@@ -118,19 +122,20 @@ class AgendaListTile extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 5),
-                          Text(
-                            subtitle,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1.45,
-                              color: scheme.onSurfaceVariant,
+                        for (final detail in [description, subtitle])
+                          if (detail.isNotEmpty) ...[
+                            const SizedBox(height: 5),
+                            Text(
+                              detail,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.45,
+                                color: scheme.onSurfaceVariant,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
                       ],
                     ),
                   ),
