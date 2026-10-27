@@ -1,44 +1,16 @@
 import 'package:bitree/agenda/calendar.dart';
-import 'package:bitree/agenda/controller.dart';
 import 'package:bitree/agenda/model.dart';
-import 'package:bitree/app_controller.dart';
+import 'package:bitree/app/ui/add_menu.dart';
 import 'package:bitree/schedule/layout.dart';
 import 'package:bitree/schedule/model.dart';
-import 'package:bitree/ui/add_menu.dart';
+import 'package:bitree/schedule/ui/timetable_grid.dart';
 import 'package:bitree/ui/app_dropdown_field.dart';
 import 'package:bitree/ui/theme.dart';
-import 'package:bitree/ui/timetable_grid.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class _Agenda extends ChangeNotifier with Fake implements AgendaController {
-  _Agenda(this.entries);
-
-  @override
-  final List<AgendaEntry> entries;
-  @override
-  bool get ready => true;
-  @override
-  bool get busy => false;
-}
-
-class _Controller extends ChangeNotifier with Fake implements AppController {
-  _Controller(this.schedule, this.agenda);
-
-  @override
-  final SemesterSchedule schedule;
-  @override
-  final _Agenda agenda;
-  @override
-  bool get busy => false;
-
-  @override
-  void dispose() {
-    agenda.dispose();
-    super.dispose();
-  }
-}
+import 'support/test_app.dart';
 
 void main() {
   const rowHeight = 64.0;
@@ -75,9 +47,9 @@ void main() {
     tester.view.physicalSize = size;
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
-    final controller = _Controller(schedule, _Agenda([event]));
+    final controller = TestAppController(schedule: schedule, entries: [event]);
+    await controller.initialize();
     final time = ValueNotifier(DateTime.utc(2026, 10, 27, 8));
-    addTearDown(controller.dispose);
     addTearDown(time.dispose);
     await tester.pumpWidget(
       MaterialApp(

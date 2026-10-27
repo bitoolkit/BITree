@@ -2,33 +2,16 @@ import 'package:bitree/agenda/calendar.dart';
 import 'package:bitree/agenda/controller.dart';
 import 'package:bitree/agenda/deadline_source.dart';
 import 'package:bitree/agenda/model.dart';
-import 'package:bitree/app_controller.dart';
-import 'package:bitree/data/agenda_store.dart';
+import 'package:bitree/agenda/ui/calendar_list.dart';
+import 'package:bitree/agenda/ui/completion_text.dart';
 import 'package:bitree/schedule/model.dart';
-import 'package:bitree/ui/calendar_list.dart';
-import 'package:bitree/ui/completion_text.dart';
+import 'package:bitree/schedule/ui/timetable_header.dart';
 import 'package:bitree/ui/sheet_layout.dart';
 import 'package:bitree/ui/theme.dart';
-import 'package:bitree/ui/timetable_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class _Store extends AgendaStore {
-  _Store(this.entries);
-  List<AgendaEntry> entries;
-  @override
-  Future<List<AgendaEntry>> read() async => entries;
-  @override
-  Future<void> write(List<AgendaEntry> entries) async => this.entries = entries;
-}
-
-class _Controller extends ChangeNotifier with Fake implements AppController {
-  _Controller(this.agenda);
-  @override
-  final AgendaController agenda;
-  @override
-  bool get busy => false;
-}
+import 'support/test_app.dart';
 
 final _date = calendarDate(campusNow()).add(const Duration(days: 5));
 
@@ -49,7 +32,7 @@ AgendaEntry _deadline({
   done: done,
 );
 
-Future<_Controller> _open(
+Future<TestAppController> _open(
   WidgetTester tester,
   List<AgendaEntry> entries, {
   Size size = const Size(390, 844),
@@ -61,11 +44,10 @@ Future<_Controller> _open(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  final agenda = AgendaController(_Store(entries));
-  await agenda.load();
-  final controller = _Controller(agenda);
-  addTearDown(agenda.dispose);
-  addTearDown(controller.dispose);
+  final agenda = AgendaController(MemoryAgendaStore(entries));
+  final controller = TestAppController(agenda: agenda);
+  await controller.initialize();
+
   await tester.pumpWidget(
     MaterialApp(
       theme: bitreeTheme(brightness),

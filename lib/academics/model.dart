@@ -223,6 +223,19 @@ class AcademicRecord {
     categoryOverrides: categoryOverrides ?? this.categoryOverrides,
   );
 
+  AcademicRecord withCreditTargets({
+    required double? total,
+    required Map<String, double> categories,
+  }) => AcademicRecord(
+    grades: grades,
+    plan: plan,
+    gradesUpdatedAt: gradesUpdatedAt,
+    planUpdatedAt: planUpdatedAt,
+    targetCredits: total,
+    categoryTargets: categories,
+    categoryOverrides: categoryOverrides,
+  );
+
   Map<String, Object?> toJson() => {
     'grades': grades.map((grade) => grade.toJson()).toList(),
     'plan': plan?.toJson(),

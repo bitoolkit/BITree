@@ -1,28 +1,10 @@
-import 'package:bitree/academics/controller.dart';
-import 'package:bitree/app_controller.dart';
-import 'package:bitree/data/academic_store.dart';
+import 'package:bitree/academics/ui/grade_simulation_screen.dart';
 import 'package:bitree/schedule/model.dart';
-import 'package:bitree/ui/grade_simulation_screen.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class _Controller extends ChangeNotifier with Fake implements AppController {
-  _Controller({this.schedule});
-
-  @override
-  final SemesterSchedule? schedule;
-  @override
-  final academics = AcademicController(AcademicStore());
-  @override
-  bool get schoolBusy => false;
-
-  @override
-  void dispose() {
-    academics.dispose();
-    super.dispose();
-  }
-}
+import 'support/test_app.dart';
 
 Finder input(String label) => find.byWidgetPredicate(
   (widget) => widget is TextField && widget.decoration?.labelText == label,
@@ -45,7 +27,7 @@ void main() {
 
   Future<void> showSimulation(
     WidgetTester tester,
-    _Controller controller,
+    TestAppController controller,
     Size size,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -53,7 +35,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetViewInsets);
-    addTearDown(controller.dispose);
+    await controller.initialize();
     await tester.pumpWidget(
       MaterialApp(
         theme: bitreeTheme(Brightness.light),
@@ -74,7 +56,7 @@ void main() {
     testWidgets('Select, save and edit a course at width ${size.width}', (
       tester,
     ) async {
-      await showSimulation(tester, _Controller(schedule: schedule), size);
+      await showSimulation(tester, TestAppController(schedule: schedule), size);
       await tester.tap(find.text('手动填写'));
       await tester.pumpAndSettle();
       await tester.tap(find.text(course.name));
@@ -122,7 +104,7 @@ void main() {
   testWidgets('Manual simulation works without imported courses', (
     tester,
   ) async {
-    await showSimulation(tester, _Controller(), const Size(390, 844));
+    await showSimulation(tester, TestAppController(), const Size(390, 844));
     expect(find.text('手动填写'), findsNothing);
     await tester.enterText(input('课程名称'), '高等数学');
     await tester.enterText(input('课程学分'), '5');

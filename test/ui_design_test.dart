@@ -1,15 +1,15 @@
 import 'package:bitree/agenda/controller.dart';
 import 'package:bitree/agenda/model.dart';
-import 'package:bitree/app_controller.dart';
-import 'package:bitree/data/agenda_store.dart';
+import 'package:bitree/agenda/ui/calendar_screen.dart';
 import 'package:bitree/schedule/model.dart';
 import 'package:bitree/ui/app_menu_trigger.dart';
-import 'package:bitree/ui/calendar_screen.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class _Store extends AgendaStore {
+import 'support/test_app.dart';
+
+class _Store extends MemoryAgendaStore {
   @override
   Future<List<AgendaEntry>> read() async => [
     AgendaEntry(
@@ -26,16 +26,6 @@ class _Store extends AgendaStore {
       endsAt: DateTime.utc(2099, 1, 2, 18),
     ),
   ];
-}
-
-class _Controller extends Fake implements AppController {
-  _Controller(this.agenda);
-  @override
-  final AgendaController agenda;
-  @override
-  bool get busy => false;
-  @override
-  bool get schoolBusy => false;
 }
 
 RoundedRectangleBorder _shape(WidgetTester tester, Finder control) => tester
@@ -105,7 +95,7 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
         final agenda = AgendaController(_Store());
         await agenda.load();
-        addTearDown(agenda.dispose);
+
         await tester.pumpWidget(
           MaterialApp(
             theme: bitreeTheme(Brightness.light),
@@ -116,7 +106,7 @@ void main() {
             ),
             home: Scaffold(
               body: CalendarScreen(
-                controller: _Controller(agenda),
+                controller: TestAppController(agenda: agenda),
                 now: campusNow(),
               ),
             ),

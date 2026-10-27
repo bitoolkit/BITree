@@ -1,9 +1,9 @@
 import 'dart:ffi' show Abi;
 import 'dart:math' as math;
 
-import 'package:bitree/data/app_release.dart';
 import 'package:bitree/ui/theme.dart';
-import 'package:bitree/ui/update_dialog.dart';
+import 'package:bitree/updates/release.dart';
+import 'package:bitree/updates/ui/update_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

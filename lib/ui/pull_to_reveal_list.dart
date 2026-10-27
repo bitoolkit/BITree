@@ -6,6 +6,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import 'animated_sliver_list.dart';
+import 'reveal_scroll_controller.dart';
 
 class PullToRevealList extends StatefulWidget {
   const PullToRevealList({
@@ -30,15 +31,12 @@ class _PullToRevealListState extends State<PullToRevealList>
   static const _duration = Duration(milliseconds: 320);
   static const _collapseDuration = Duration(milliseconds: 260);
   static const _historySpacing = 24.0;
-  late final _scroll = _RevealScrollController(_layoutOffset);
+  late final _scroll = RevealScrollController(
+    _animation,
+    historySpacing: _historySpacing,
+  );
   late final _animation = AnimationController(vsync: this)
     ..addStatusListener((_) => setState(() {}));
-  double _historyHeight = 0;
-  ScrollHoldController? _hold;
-  bool _following = false;
-  double _fromPixels = 0;
-  double _fromFactor = 0;
-  double _collapseTarget = 0;
   bool _revealed = false;
   bool _dragging = false;
   double _pull = 0;
@@ -60,7 +58,7 @@ class _PullToRevealListState extends State<PullToRevealList>
 
   @override
   void dispose() {
-    _releaseHold();
+    _scroll.endTransition();
     _animation.dispose();
     _scroll.dispose();
     super.dispose();
@@ -96,16 +94,7 @@ class _PullToRevealListState extends State<PullToRevealList>
   Future<void> _setRevealed(bool value) async {
     if (value == _revealed || !_scroll.hasClients) return;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    _releaseHold();
-    _fromPixels = _scroll.offset;
-    _fromFactor = _animation.value;
-    _collapseTarget = math.max(0, _fromPixels - _historyHeight * _fromFactor);
-    _following = true;
-    _hold = _scroll.position.hold(() {
-      // A new drag takes over scrolling without fighting the reveal animation.
-      _following = false;
-      _hold = null;
-    });
+    _scroll.beginTransition(revealing: value);
     setState(() {
       _revealed = value;
       _pull = 0;
@@ -135,36 +124,8 @@ class _PullToRevealListState extends State<PullToRevealList>
     // Keep the last animation value in control until its layout is painted.
     await WidgetsBinding.instance.endOfFrame;
     if (mounted && _revealed == value && !_animation.isAnimating) {
-      _releaseHold();
+      _scroll.endTransition();
     }
-  }
-
-  void _releaseHold() {
-    final hold = _hold;
-    _hold = null;
-    _following = false;
-    hold?.cancel();
-  }
-
-  double? _layoutOffset(double viewportHeight) {
-    if (!_following) return null;
-    final factor = _animation.value;
-    if (!_revealed) {
-      final remaining = _fromFactor == 0 ? 0 : factor / _fromFactor;
-      return _collapseTarget + (_fromPixels - _collapseTarget) * remaining;
-    }
-    final progress = _fromFactor == 1
-        ? 1.0
-        : (factor - _fromFactor) / (1 - _fromFactor);
-    final target = math.max(
-      0.0,
-      _historyHeight * factor - _historySpacing - viewportHeight,
-    );
-    final startTarget = math.max(
-      0.0,
-      _historyHeight * _fromFactor - _historySpacing - viewportHeight,
-    );
-    return target + (_fromPixels - startTarget) * (1 - progress);
   }
 
   Widget _history() => Padding(
@@ -225,7 +186,7 @@ class _PullToRevealListState extends State<PullToRevealList>
                     children: [
                       CustomScrollView(
                         controller: _scroll,
-                        physics: const _TopPullPhysics(
+                        physics: const TopPullScrollPhysics(
                           parent: AlwaysScrollableScrollPhysics(),
                         ),
                         slivers: [
@@ -240,11 +201,9 @@ class _PullToRevealListState extends State<PullToRevealList>
                           SliverLayoutBuilder(
                             key: _current,
                             builder: (context, constraints) {
-                              final factor = _animation.value;
-                              // Synchronize scrolling with the laid-out history extent.
-                              _historyHeight = factor == 0
-                                  ? 0
-                                  : constraints.precedingScrollExtent / factor;
+                              _scroll.historyLaidOut(
+                                constraints.precedingScrollExtent,
+                              );
                               return items;
                             },
                           ),
@@ -300,75 +259,5 @@ class _PullToRevealListState extends State<PullToRevealList>
         ),
       ),
     );
-  }
-}
-
-class _RevealScrollController extends ScrollController {
-  _RevealScrollController(this.offsetForLayout);
-
-  final double? Function(double viewportHeight) offsetForLayout;
-
-  @override
-  ScrollPosition createScrollPosition(
-    ScrollPhysics physics,
-    ScrollContext context,
-    ScrollPosition? oldPosition,
-  ) => _RevealScrollPosition(
-    physics: physics,
-    context: context,
-    oldPosition: oldPosition,
-    offsetForLayout: offsetForLayout,
-  );
-}
-
-class _RevealScrollPosition extends ScrollPositionWithSingleContext {
-  _RevealScrollPosition({
-    required super.physics,
-    required super.context,
-    super.oldPosition,
-    required this.offsetForLayout,
-  });
-
-  final double? Function(double viewportHeight) offsetForLayout;
-
-  @override
-  bool applyContentDimensions(double minScrollExtent, double maxScrollExtent) {
-    final target = offsetForLayout(viewportDimension);
-    if (target != null && (target - pixels).abs() > 0.01) {
-      // Correct before paint so the panel height and scroll offset share a frame.
-      correctPixels(target);
-      return false;
-    }
-    return super.applyContentDimensions(minScrollExtent, maxScrollExtent);
-  }
-
-  @override
-  bool correctForNewDimensions(
-    ScrollMetrics oldPosition,
-    ScrollMetrics newPosition,
-  ) =>
-      offsetForLayout(viewportDimension) != null ||
-      super.correctForNewDimensions(oldPosition, newPosition);
-}
-
-/// Bounces at the top while keeping the bottom edge clamped.
-class _TopPullPhysics extends BouncingScrollPhysics {
-  const _TopPullPhysics({super.parent});
-
-  @override
-  _TopPullPhysics applyTo(ScrollPhysics? ancestor) =>
-      _TopPullPhysics(parent: buildParent(ancestor));
-
-  @override
-  double applyBoundaryConditions(ScrollMetrics position, double value) {
-    if (value > position.pixels &&
-        position.pixels >= position.maxScrollExtent) {
-      return value - position.pixels;
-    }
-    if (value > position.maxScrollExtent &&
-        position.pixels < position.maxScrollExtent) {
-      return value - position.maxScrollExtent;
-    }
-    return 0;
   }
 }

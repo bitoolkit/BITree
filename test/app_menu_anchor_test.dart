@@ -1,32 +1,15 @@
-import 'package:bitree/ui/app_menu_anchor.dart';
-import 'package:bitree/ui/app_dropdown_field.dart';
-import 'package:bitree/ui/classroom_time_field.dart';
-import 'package:bitree/ui/app_page.dart';
-import 'package:bitree/ui/week_selector.dart';
-import 'package:bitree/app_controller.dart';
+import 'package:bitree/classrooms/ui/classroom_time_field.dart';
 import 'package:bitree/schedule/model.dart';
+import 'package:bitree/schedule/ui/week_selector.dart';
+import 'package:bitree/ui/app_dropdown_field.dart';
+import 'package:bitree/ui/app_menu_anchor.dart';
+import 'package:bitree/ui/app_page.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class _Controller extends ChangeNotifier with Fake implements AppController {
-  @override
-  final schedule = SemesterSchedule(
-    term: '2026-2027-1',
-    firstMonday: DateTime.utc(2026, 10, 26),
-    courses: const [],
-  );
-  @override
-  int week = 6;
-  @override
-  List<int> get weeks => [-3, -2, -1, ...List.generate(25, (i) => i + 1)];
-  @override
-  void selectWeek(int week) {
-    this.week = week;
-    notifyListeners();
-  }
-}
+import 'support/test_app.dart';
 
 final _panel = find.byWidgetPredicate(
   (widget) => widget is Material && widget.elevation == 6,
@@ -65,7 +48,7 @@ Future<void> _showMenu(
   ),
 );
 
-Future<_Controller> _showWeekHeader(
+Future<TestAppController> _showWeekHeader(
   WidgetTester tester, {
   required Size size,
   double textScale = 1,
@@ -74,8 +57,16 @@ Future<_Controller> _showWeekHeader(
   tester.view.physicalSize = size;
   addTearDown(tester.view.resetDevicePixelRatio);
   addTearDown(tester.view.resetPhysicalSize);
-  final controller = _Controller();
-  addTearDown(controller.dispose);
+  final controller = TestAppController(
+    schedule: SemesterSchedule(
+      term: '2026-2027-1',
+      firstMonday: DateTime.utc(2026, 10, 26),
+      firstWeek: -3,
+      courses: const [],
+    ),
+    initialWeek: 6,
+  );
+  await controller.initialize();
   await tester.pumpWidget(
     MaterialApp(
       theme: bitreeTheme(Brightness.light),
@@ -86,7 +77,7 @@ Future<_Controller> _showWeekHeader(
       ),
       home: Scaffold(
         body: ListenableBuilder(
-          listenable: controller,
+          listenable: controller.timetable,
           builder: (context, _) => AppPage(
             title: WeekSelector(controller: controller),
             actions: [
@@ -195,7 +186,7 @@ void main() {
     final height = tester.getSize(_panel).height;
     await tester.tap(find.text('8'));
     await tester.pump();
-    expect(controller.week, 8);
+    expect(controller.timetable.week, 8);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(
@@ -280,7 +271,7 @@ void main() {
         size: size,
         textScale: scale,
       );
-      controller.selectWeek(-3);
+      controller.timetable.selectWeek(-3);
       await tester.pump();
       await tester.tap(find.text('第-3周'));
       await tester.pumpAndSettle();
@@ -316,7 +307,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('25'));
       await tester.pumpAndSettle();
-      expect(controller.week, 25);
+      expect(controller.timetable.week, 25);
       expect(_panel, findsNothing);
       expect(tester.takeException(), isNull);
     },

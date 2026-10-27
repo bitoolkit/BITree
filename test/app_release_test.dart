@@ -1,6 +1,6 @@
 import 'dart:ffi';
 
-import 'package:bitree/data/app_release.dart';
+import 'package:bitree/updates/release.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> _release(

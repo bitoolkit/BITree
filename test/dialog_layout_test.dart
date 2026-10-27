@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 
-import 'package:bitree/ui/classroom_time_field.dart';
+import 'package:bitree/classrooms/ui/classroom_time_field.dart';
+import 'package:bitree/schedule/ui/week_range_dialog.dart';
 import 'package:bitree/ui/dialog_layout.dart';
 import 'package:bitree/ui/theme.dart';
-import 'package:bitree/ui/week_range_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -1,26 +1,16 @@
-import 'package:bitree/agenda/controller.dart';
-import 'package:bitree/app_controller.dart';
-import 'package:bitree/data/agenda_store.dart';
-import 'package:bitree/ui/school_import_button.dart';
+import 'package:bitree/school/ui/school_import_button.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class _Controller extends Fake implements AppController {
-  @override
-  final agenda = AgendaController(AgendaStore());
-  @override
-  bool get busy => false;
-  @override
-  bool get schoolBusy => false;
-}
+import 'support/test_app.dart';
 
 void main() {
   testWidgets('The shared import menu contains schedule and agenda imports', (
     tester,
   ) async {
-    final controller = _Controller();
-    addTearDown(controller.agenda.dispose);
+    final controller = TestAppController();
+    await controller.initialize();
     await tester.pumpWidget(
       MaterialApp(
         theme: bitreeTheme(Brightness.light),

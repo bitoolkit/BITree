@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app_menu_anchor.dart';
-import 'design.dart';
 import 'app_menu_trigger.dart';
+import 'design.dart';
 
 class AppDropdownField<T> extends StatefulWidget {
   const AppDropdownField({

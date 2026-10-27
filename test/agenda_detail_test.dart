@@ -1,30 +1,15 @@
 import 'package:bitree/agenda/controller.dart';
 import 'package:bitree/agenda/deadline_source.dart';
 import 'package:bitree/agenda/model.dart';
-import 'package:bitree/app_controller.dart';
-import 'package:bitree/data/agenda_store.dart';
-import 'package:bitree/ui/agenda_detail.dart';
-import 'package:bitree/ui/completion_text.dart';
+import 'package:bitree/agenda/ui/agenda_detail.dart';
+import 'package:bitree/agenda/ui/completion_text.dart';
 import 'package:bitree/ui/sheet_layout.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class _Store extends AgendaStore {
-  _Store(this.entries);
-  List<AgendaEntry> entries;
-  @override
-  Future<List<AgendaEntry>> read() async => entries;
-  @override
-  Future<void> write(List<AgendaEntry> entries) async => this.entries = entries;
-}
-
-class _Controller extends Fake implements AppController {
-  _Controller(this.agenda);
-  @override
-  final AgendaController agenda;
-}
+import 'support/test_app.dart';
 
 void main() {
   final url = Uri.https('lexue.bit.edu.cn', '/mod/assign/view.php', {
@@ -46,7 +31,7 @@ void main() {
             : '',
       );
 
-  Future<_Controller> open(
+  Future<TestAppController> open(
     WidgetTester tester,
     AgendaEntry entry, {
     Size size = const Size(390, 844),
@@ -57,10 +42,11 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final agenda = AgendaController(_Store([entry]));
-    await agenda.load();
-    addTearDown(agenda.dispose);
-    final controller = _Controller(agenda);
+    final agenda = AgendaController(MemoryAgendaStore([entry]));
+
+    final controller = TestAppController(agenda: agenda);
+
+    await controller.initialize();
     await tester.pumpWidget(
       MaterialApp(
         theme: bitreeTheme(brightness),

@@ -1,16 +1,19 @@
 import 'package:flutter/foundation.dart';
 
-import '../data/agenda_store.dart';
-import '../diagnostics.dart';
+import '../core/diagnostics.dart';
 import 'model.dart';
+import 'store.dart';
 
 class AgendaController extends ChangeNotifier {
   AgendaController(this._store);
 
   final AgendaStore _store;
   List<AgendaEntry> _entries = const [];
-  bool ready = false;
-  bool busy = false;
+  bool _ready = false;
+  bool _busy = false;
+
+  bool get ready => _ready;
+  bool get busy => _busy;
 
   Iterable<AgendaEntry> get entries =>
       _entries.where((entry) => !entry.deleted);
@@ -25,17 +28,17 @@ class AgendaController extends ChangeNotifier {
         ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
 
   Future<void> load() async {
-    if (busy) return;
-    busy = true;
-    ready = false;
+    if (_busy) return;
+    _busy = true;
+    _ready = false;
     notifyListeners();
     try {
       _entries = List.unmodifiable(await _store.read());
-      ready = true;
+      _ready = true;
     } catch (failure, stack) {
       AppDiagnostics.instance.report('读取日程', failure, stack);
     } finally {
-      busy = false;
+      _busy = false;
       notifyListeners();
     }
   }
@@ -89,13 +92,13 @@ class AgendaController extends ChangeNotifier {
   }
 
   Future<bool> _write(List<AgendaEntry> next) async {
-    if (!ready || busy) {
+    if (!_ready || _busy) {
       AppDiagnostics.instance.notice(
-        busy ? '日程正在保存，请稍后重试。' : '日程尚未加载，请先重新加载日程。',
+        _busy ? '日程正在保存，请稍后重试。' : '日程尚未加载，请先重新加载日程。',
       );
       return false;
     }
-    busy = true;
+    _busy = true;
     notifyListeners();
     try {
       await _store.write(next);
@@ -105,7 +108,7 @@ class AgendaController extends ChangeNotifier {
       AppDiagnostics.instance.report('保存日程', failure, stack);
       return false;
     } finally {
-      busy = false;
+      _busy = false;
       notifyListeners();
     }
   }

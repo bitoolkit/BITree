@@ -1,52 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:bitree/agenda/controller.dart';
-import 'package:bitree/agenda/model.dart';
-import 'package:bitree/app_controller.dart';
-import 'package:bitree/data/agenda_store.dart';
 import 'package:bitree/schedule/model.dart';
-import 'package:bitree/ui/home_screen.dart';
+import 'package:bitree/schedule/ui/home_screen.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class _Store extends AgendaStore {
-  @override
-  Future<List<AgendaEntry>> read() async => [];
-}
-
-class _Controller extends ChangeNotifier with Fake implements AppController {
-  _Controller(this.schedule, this.schedules, this.week);
-  @override
-  final SemesterSchedule schedule;
-  @override
-  final List<SemesterSchedule> schedules;
-  @override
-  int week;
-  @override
-  final agenda = AgendaController(_Store());
-  @override
-  bool get ready => true;
-  @override
-  bool get busy => false;
-  @override
-  bool get schoolBusy => false;
-  @override
-  List<int> get weeks => schedule.weeks;
-  @override
-  void selectWeek(int value) {
-    week = value;
-    notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    agenda.dispose();
-    super.dispose();
-  }
-}
+import 'support/test_app.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -101,7 +63,7 @@ void main() {
 
   Future<void> showHome(
     WidgetTester tester,
-    _Controller controller, {
+    TestAppController controller, {
     Size size = const Size(390, 844),
     double scale = 1,
   }) async {
@@ -109,8 +71,7 @@ void main() {
     tester.view.physicalSize = size;
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(controller.dispose);
-    await controller.agenda.load();
+    await controller.initialize();
     final theme = bitreeTheme(Brightness.light);
     await tester.pumpWidget(
       MaterialApp(
@@ -144,7 +105,14 @@ void main() {
     testWidgets('Return is hidden for ${selected.term}, week $week', (
       tester,
     ) async {
-      await showHome(tester, _Controller(selected, library, week));
+      await showHome(
+        tester,
+        TestAppController(
+          schedule: selected,
+          schedules: library,
+          initialWeek: week,
+        ),
+      );
       expect(returnAction, findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -159,13 +127,17 @@ void main() {
     testWidgets('Return selects this week and disappears at $size / $scale', (
       tester,
     ) async {
-      final controller = _Controller(current, [history, current], -3);
+      final controller = TestAppController(
+        schedule: current,
+        schedules: [history, current],
+        initialWeek: -3,
+      );
       await showHome(tester, controller, size: size, scale: scale);
       expect(returnAction, findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.tap(returnAction);
       await tester.pumpAndSettle();
-      expect(controller.week, 6);
+      expect(controller.timetable.week, 6);
       expect(find.text('第6周'), findsOneWidget);
       expect(find.text('27').hitTestable(), findsOneWidget);
       expect(returnAction, findsNothing);
@@ -176,22 +148,26 @@ void main() {
   testWidgets('The home week heading follows the drag before pointer release', (
     tester,
   ) async {
-    final controller = _Controller(current, [history, current], 6);
+    final controller = TestAppController(
+      schedule: current,
+      schedules: [history, current],
+      initialWeek: 6,
+    );
     await showHome(tester, controller);
     final gesture = await tester.startGesture(const Offset(350, 400));
     await gesture.moveBy(const Offset(-20, 0));
     await tester.pump();
     await gesture.moveBy(const Offset(-120, 0));
     await tester.pump();
-    expect(controller.week, 6);
+    expect(controller.timetable.week, 6);
     await gesture.moveBy(const Offset(-120, 0));
     await tester.pump();
-    expect(controller.week, 7);
+    expect(controller.timetable.week, 7);
     expect(find.text('第7周'), findsOneWidget);
     expect(returnAction, findsOneWidget);
     await gesture.moveBy(const Offset(150, 0));
     await tester.pump();
-    expect(controller.week, 6);
+    expect(controller.timetable.week, 6);
     expect(returnAction, findsNothing);
     await gesture.up();
     await tester.pumpAndSettle();
@@ -201,7 +177,11 @@ void main() {
   testWidgets('Showing return preserves the week menu closing animation', (
     tester,
   ) async {
-    final controller = _Controller(current, [history, current], 6);
+    final controller = TestAppController(
+      schedule: current,
+      schedules: [history, current],
+      initialWeek: 6,
+    );
     await showHome(tester, controller);
     await tester.tap(find.text('第6周'));
     await tester.pumpAndSettle();
@@ -211,7 +191,7 @@ void main() {
     final height = tester.getSize(panel).height;
     await tester.tap(find.widgetWithText(MenuItemButton, '7'));
     await tester.pump();
-    expect(controller.week, 7);
+    expect(controller.timetable.week, 7);
     await tester.pump();
     expect(returnAction, findsOneWidget);
     expect(panel, findsOneWidget);

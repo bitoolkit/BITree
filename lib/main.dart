@@ -4,16 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'app_controller.dart';
-import 'agenda/controller.dart';
 import 'academics/controller.dart';
-import 'data/academic_store.dart';
-import 'data/agenda_store.dart';
-import 'data/schedule_store.dart';
-import 'data/school_service.dart';
-import 'data/school_storage.dart';
-import 'diagnostics.dart';
-import 'ui/app_screen.dart';
+import 'academics/store.dart';
+import 'agenda/controller.dart';
+import 'agenda/store.dart';
+import 'app/controller.dart';
+import 'app/ui/app_screen.dart';
+import 'core/diagnostics.dart';
+import 'schedule/store.dart';
+import 'school/service.dart';
+import 'school/storage.dart';
 import 'ui/theme.dart';
 
 void main() {

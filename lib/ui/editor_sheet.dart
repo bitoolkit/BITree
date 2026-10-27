@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'sheet_layout.dart';
 import 'design.dart';
+import 'sheet_layout.dart';
 
 class EditorSheet extends StatelessWidget {
   const EditorSheet({

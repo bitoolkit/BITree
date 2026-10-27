@@ -1,26 +1,14 @@
-import 'package:bitree/app_controller.dart';
 import 'package:bitree/schedule/model.dart';
+import 'package:bitree/schedule/ui/course_detail.dart';
 import 'package:bitree/ui/app_dropdown_field.dart';
-import 'package:bitree/ui/course_detail.dart';
 import 'package:bitree/ui/theme.dart';
-import 'package:bitree/ui/wencui_map_screen.dart';
 import 'package:bitree/wencui/atlas.dart';
 import 'package:bitree/wencui/place.dart';
+import 'package:bitree/wencui/ui/wencui_map_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class _Controller extends ChangeNotifier with Fake implements AppController {
-  _Controller({List<Course> courses = const []})
-    : schedule = SemesterSchedule(
-        term: '2026-2027-1',
-        firstMonday: DateTime.utc(2026, 10, 26),
-        courses: courses,
-      );
-  @override
-  final SemesterSchedule schedule;
-  @override
-  bool get busy => false;
-}
+import 'support/test_app.dart';
 
 Course _course(String name, String room) => Course(
   id: name,
@@ -50,8 +38,14 @@ Future<void> _open(
   tester.view.physicalSize = size;
   addTearDown(tester.view.resetDevicePixelRatio);
   addTearDown(tester.view.resetPhysicalSize);
-  final controller = _Controller(courses: courses);
-  addTearDown(controller.dispose);
+  final controller = TestAppController(
+    schedule: SemesterSchedule(
+      term: '2026-2027-1',
+      firstMonday: DateTime.utc(2026, 10, 26),
+      courses: courses,
+    ),
+  );
+  await controller.initialize();
   await tester.runAsync(WencuiAtlas.load);
   await tester.pumpWidget(
     MaterialApp(
@@ -224,8 +218,14 @@ void main() {
     tester,
   ) async {
     final course = _course('概率论与数理统计', '文萃楼F704');
-    final controller = _Controller(courses: [course]);
-    addTearDown(controller.dispose);
+    final controller = TestAppController(
+      schedule: SemesterSchedule(
+        term: '2026-2027-1',
+        firstMonday: DateTime.utc(2026, 10, 26),
+        courses: [course],
+      ),
+    );
+    await controller.initialize();
     await tester.runAsync(WencuiAtlas.load);
     await tester.pumpWidget(
       MaterialApp(

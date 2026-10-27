@@ -1,16 +1,15 @@
-import 'package:bitree/app_controller.dart';
 import 'package:bitree/agenda/calendar.dart';
+import 'package:bitree/agenda/ui/calendar_block.dart';
 import 'package:bitree/schedule/model.dart';
-import 'package:bitree/ui/calendar_block.dart';
-import 'package:bitree/ui/course_tile.dart';
+import 'package:bitree/schedule/ui/course_tile.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// Rendering the card never calls the controller; opening details is separate.
-class _Controller extends Fake implements AppController {}
+import 'support/test_app.dart';
 
+// Rendering the card never calls the controller; opening details is separate.
 void main() {
   final course = Course(
     id: 'course',
@@ -45,7 +44,7 @@ void main() {
                 height: height,
                 child: CourseTile(
                   course: shownCourse ?? course,
-                  controller: _Controller(),
+                  controller: TestAppController(),
                   isToday: false,
                 ),
               ),
@@ -95,7 +94,7 @@ void main() {
                     height: 160,
                     child: CalendarBlockTile(
                       items: [CalendarItem.course(shownCourse, date)],
-                      controller: _Controller(),
+                      controller: TestAppController(),
                       isToday: dayOffset == 0,
                     ),
                   ),
