@@ -57,20 +57,20 @@ class _AgendaTimelineState extends State<AgendaTimeline>
   int _gesturePointers = 0;
   DateTime? _gestureAnchor;
   List<AgendaEntry>? _cachedEntries;
-  double? _cachedPixelsPerHour;
   List<AgendaTimelinePlacement> _cachedPlacements = const [];
+  final Map<String, DateTime> _nextStartById = {};
 
-  List<AgendaTimelinePlacement> _layout(double pixelsPerHour) {
-    if (!identical(_cachedEntries, widget.entries) ||
-        _cachedPixelsPerHour != pixelsPerHour) {
+  List<AgendaTimelinePlacement> _layout() {
+    if (!identical(_cachedEntries, widget.entries)) {
       _cachedEntries = widget.entries;
-      _cachedPixelsPerHour = pixelsPerHour;
-      _cachedPlacements = layoutAgendaTimeline(
-        widget.entries,
-        pixelsPerHour: pixelsPerHour,
-        // Tiny real-duration bars get a transparent 24px tap target below.
-        gap: 24,
-      );
+      _cachedPlacements = layoutAgendaTimeline(widget.entries);
+      _nextStartById.clear();
+      final nextByLane = <int, DateTime>{};
+      for (final placement in _cachedPlacements.reversed) {
+        final next = nextByLane[placement.lane];
+        if (next != null) _nextStartById[placement.entry.id] = next;
+        nextByLane[placement.lane] = placement.start;
+      }
     }
     return _cachedPlacements;
   }
@@ -234,11 +234,15 @@ class _AgendaTimelineState extends State<AgendaTimeline>
         measure.dispose();
         return result;
       }
-      final headerStyle = theme.textTheme.labelMedium ??
+      final baseHeaderStyle = theme.textTheme.labelMedium ??
           const TextStyle(fontSize: 12);
+      final headerStyle = baseHeaderStyle.copyWith(
+        fontSize: (baseHeaderStyle.fontSize ?? 12) * 5 / 6,
+        height: 1,
+      );
       final headerHeight = math.max(
-        40.0 * fontScale,
-        textHeight(headerStyle.fontSize ?? 12, headerStyle.height ?? 1.2) * 2 + 6,
+        24.0 * fontScale,
+        textHeight(headerStyle.fontSize!, 1) * 2 + 4,
       );
       final barHeight = math.max(
         46.0 * fontScale,
@@ -246,7 +250,13 @@ class _AgendaTimelineState extends State<AgendaTimeline>
             math.max(textHeight(11, 1.1), 13 * fontScale) + 8,
       );
       final laneHeight = barHeight + 12;
-      final placements = _layout(pixelsPerHour);
+      // Width is set by the MINIMUM zoom, never by the current zoom.
+      final deadlineWidth = cellWidth * 3.75;
+      final deadlineDuration = Duration(
+        microseconds: (deadlineWidth / pixelsPerHour * _microsecondsPerHour)
+            .ceil(),
+      );
+      final placements = _layout();
       final laneCount = placements.fold<int>(
         0,
         (count, placement) => math.max(count, placement.lane + 1),
@@ -259,7 +269,7 @@ class _AgendaTimelineState extends State<AgendaTimeline>
         pixelsPerHour: pixelsPerHour,
         cellWidth: cellWidth,
         scheme: theme.colorScheme,
-        textStyle: theme.textTheme.labelMedium ?? const TextStyle(fontSize: 12),
+        textStyle: headerStyle,
         textScaler: textScaler,
         header: true,
       );
@@ -310,15 +320,6 @@ class _AgendaTimelineState extends State<AgendaTimeline>
                   ),
                 ),
                 Text(scaleLabel, style: theme.textTheme.labelMedium),
-                Tooltip(
-                  message: '拖动浏览时间；双指缩放。滚轮平移，Ctrl + 滚轮缩放，'
-                      'Shift + 滚轮或上下拖动浏览日程行。',
-                  child: Icon(
-                    Icons.help_outline,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
               ],
             ),
           ),
@@ -476,9 +477,12 @@ class _AgendaTimelineState extends State<AgendaTimeline>
                           final offset = _lanes.hasClients ? _lanes.offset : 0.0;
                           final visible = placements.where((placement) =>
                               placement.end.isAfter(left) &&
-                              placement.start.isBefore(right) &&
+                              (placement.entry.isDeadline
+                                      ? placement.end.subtract(deadlineDuration)
+                                      : placement.start)
+                                  .isBefore(right) &&
                               (placement.lane + 1) * laneHeight >= offset &&
-                              placement.lane * laneHeight <= offset + height);
+                              placement.lane * laneHeight + 12 <= offset + height);
                           return Stack(
                             fit: StackFit.expand,
                             children: [
@@ -514,6 +518,7 @@ class _AgendaTimelineState extends State<AgendaTimeline>
                                             width,
                                             pixelsPerHour,
                                             laneHeight,
+                                            deadlineWidth,
                                           ),
                                       ],
                                     ),
@@ -557,18 +562,26 @@ class _AgendaTimelineState extends State<AgendaTimeline>
     double width,
     double pixelsPerHour,
     double laneHeight,
+    double deadlineWidth,
   ) {
     final entry = placement.entry;
     final scheme = Theme.of(context).colorScheme;
     double x(DateTime time) => width / 2 +
         time.difference(_center).inMicroseconds /
             _microsecondsPerHour * pixelsPerHour;
-    final actualLeft = x(placement.start);
     final actualRight = x(placement.end);
+    final actualLeft = entry.isDeadline
+        ? actualRight - deadlineWidth
+        : x(placement.start);
     // Crop long ordinary events before creating widgets; no huge canvas/boxes.
     final left = entry.isDeadline ? actualLeft : math.max(0.0, actualLeft);
     final right = entry.isDeadline ? actualRight : math.min(width, actualRight);
-    final barWidth = math.max(1.0, right - left);
+    final barWidth = math.max(0.0, right - left);
+    final nextStart = _nextStartById[entry.id];
+    final availableWidth = nextStart == null
+        ? double.infinity
+        : math.max(0.0, x(nextStart) - left);
+    final tapWidth = math.min(math.max(24.0, barWidth), availableWidth);
     final overdue = entry.overdue(widget.now);
     final finished = entry.isFinished(widget.now);
     final color = finished
@@ -612,8 +625,8 @@ class _AgendaTimelineState extends State<AgendaTimeline>
         '${entry.location.isEmpty ? '' : '，${entry.location}'}';
     return Positioned(
       left: left,
-      top: placement.lane * laneHeight + 6,
-      width: math.max(24.0, barWidth),
+      top: placement.lane * laneHeight + 12,
+      width: tapWidth,
       height: laneHeight - 12,
       child: Semantics(
         button: true,
@@ -660,7 +673,7 @@ class _AgendaTimelineState extends State<AgendaTimeline>
                       ),
                       child: Padding(
                         padding: EdgeInsets.only(
-                          left: entry.isDeadline ? 66 : 8,
+                          left: entry.isDeadline ? deadlineWidth * 0.37 : 8,
                           right: 8,
                           top: 4,
                           bottom: 4,
@@ -845,7 +858,7 @@ class _TimelineGridPainter extends CustomPainter {
           canvas,
           size,
           '${day.month}/${day.day}',
-          Offset((dayX + x(nextDay)) / 2, 3),
+          Offset((dayX + x(nextDay)) / 2, 1),
           bold: true,
         );
       }

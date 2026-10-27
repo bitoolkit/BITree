@@ -1,9 +1,7 @@
 import 'model.dart';
 
-const _microsecondsPerHour = Duration.microsecondsPerSecond * 3600;
-
-/// Visual bounds and the (possibly larger) interval reserved in a lane.
-/// DDLs have no real start: three days are reserved solely for packing.
+/// Lane bounds are expressed only in campus time, never in screen pixels.
+/// DDLs reserve four days solely for packing; their painted width is separate.
 class AgendaTimelinePlacement {
   const AgendaTimelinePlacement({
     required this.entry,
@@ -22,29 +20,22 @@ class AgendaTimelinePlacement {
   final DateTime layoutEnd;
 }
 
-/// Pack entries in deterministic lanes. Reserve both the three-day virtual DDL
-/// interval and its fixed-width visible bar, so neither can collide at any zoom.
-/// Dates keep the same campus wall-clock convention as [AgendaEntry].
+/// Pack true event intervals and fixed four-day DDL reservations. No zoom,
+/// viewport width or pixel gap participates, so zooming cannot change lanes.
 List<AgendaTimelinePlacement> layoutAgendaTimeline(
-  Iterable<AgendaEntry> entries, {
-  required double pixelsPerHour,
-  double deadlineWidth = 180,
-  double gap = 10,
-}) {
-  assert(pixelsPerHour > 0);
-  assert(deadlineWidth > 0);
-  assert(gap >= 0);
-  final deadlineDuration = Duration(
-    microseconds: (deadlineWidth / pixelsPerHour * _microsecondsPerHour).ceil(),
-  );
-  final separation = Duration(
-    microseconds: (gap / pixelsPerHour * _microsecondsPerHour).ceil(),
-  );
+  Iterable<AgendaEntry> entries,
+) {
   final intervals = [
     for (final entry in entries.where((entry) => !entry.deleted))
-      _interval(entry, deadlineDuration),
+      (
+        entry: entry,
+        start: entry.isDeadline
+            ? entry.dueAt.subtract(const Duration(days: 4))
+            : entry.startsAt,
+        end: entry.isDeadline ? entry.dueAt : entry.endsAt!,
+      ),
   ]..sort((a, b) {
-      final byStart = a.layoutStart.compareTo(b.layoutStart);
+      final byStart = a.start.compareTo(b.start);
       if (byStart != 0) return byStart;
       final byEnd = a.end.compareTo(b.end);
       return byEnd != 0 ? byEnd : a.entry.id.compareTo(b.entry.id);
@@ -53,44 +44,22 @@ List<AgendaTimelinePlacement> layoutAgendaTimeline(
   final result = <AgendaTimelinePlacement>[];
   for (final interval in intervals) {
     var lane = laneEnds.indexWhere(
-      (end) => !interval.layoutStart.isBefore(end),
+      (end) => !interval.start.isBefore(end),
     );
-    final reservedEnd = interval.end.add(separation);
     if (lane < 0) {
       lane = laneEnds.length;
-      laneEnds.add(reservedEnd);
+      laneEnds.add(interval.end);
     } else {
-      laneEnds[lane] = reservedEnd;
+      laneEnds[lane] = interval.end;
     }
     result.add(AgendaTimelinePlacement(
       entry: interval.entry,
       lane: lane,
       start: interval.start,
       end: interval.end,
-      layoutStart: interval.layoutStart,
+      layoutStart: interval.start,
       layoutEnd: interval.end,
     ));
   }
   return result;
-}
-
-({AgendaEntry entry, DateTime start, DateTime end, DateTime layoutStart})
-_interval(AgendaEntry entry, Duration deadlineDuration) {
-  if (!entry.isDeadline) {
-    return (
-      entry: entry,
-      start: entry.startsAt,
-      end: entry.endsAt!,
-      layoutStart: entry.startsAt,
-    );
-  }
-  final end = entry.dueAt;
-  final visualStart = end.subtract(deadlineDuration);
-  final virtualStart = end.subtract(const Duration(days: 3));
-  return (
-    entry: entry,
-    start: visualStart,
-    end: end,
-    layoutStart: visualStart.isBefore(virtualStart) ? visualStart : virtualStart,
-  );
 }
