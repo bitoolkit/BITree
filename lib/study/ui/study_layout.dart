@@ -213,31 +213,37 @@ class StudyCourseCover extends StatelessWidget {
         ?.file;
     final placeholder = ColoredBox(
       color: colors.fill,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Center(
-            child: Text(
-              course.title.toLowerCase().contains('java')
-                  ? '{ }'
-                  : _initials(course.title),
-              style: TextStyle(
-                fontSize: 38,
-                color: colors.ink,
-                fontWeight: FontWeight.w500,
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  course.title.toLowerCase().contains('java')
+                      ? '{ }'
+                      : _initials(course.title),
+                  style: TextStyle(
+                    fontSize: 38,
+                    color: colors.ink,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
             ),
-          ),
-          Positioned(
-            left: 10,
-            bottom: 10,
-            right: 8,
-            child: Text(
-              lectureDate(lecture),
-              style: TextStyle(color: colors.ink, fontSize: 11),
+            const SizedBox(height: 6),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                lectureDate(lecture),
+                style: TextStyle(color: colors.ink, fontSize: 11),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
     return ExcludeSemantics(

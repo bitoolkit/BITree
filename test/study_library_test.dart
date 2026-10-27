@@ -1,6 +1,7 @@
 import 'package:bitree/study/library.dart';
 import 'package:bitree/study/model.dart';
 import 'package:bitree/study/ui/study_course.dart';
+import 'package:bitree/study/ui/study_layout.dart';
 import 'package:bitree/study/ui/study_screen.dart';
 import 'package:bitree/ui/app_menu_anchor.dart';
 import 'package:bitree/ui/app_menu_trigger.dart';
@@ -61,6 +62,89 @@ List<StudyCourse> libraryCourses() => [
 ];
 
 void main() {
+  testWidgets(
+    'Course covers keep the date clear of the course mark at thumbnail sizes and large text',
+    (tester) async {
+      for (final (title, mark) in [('JAVA语言程序设计', '{ }'), ('概率论与数理统计', '概率')]) {
+        for (final size in [
+          const Size(65, 60),
+          const Size(100, 78),
+          const Size(79, 142),
+          const Size(164, 175),
+        ]) {
+          for (final scale in [1.0, 1.8]) {
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: bitreeTheme(Brightness.light),
+                home: Scaffold(
+                  body: MediaQuery(
+                    data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: SizedBox.fromSize(
+                        size: size,
+                        child: StudyCourseCover(
+                          key: const ValueKey('cover'),
+                          course: StudyCourse(id: 'java', title: title),
+                          lecture: StudyLecture(
+                            id: 'lesson',
+                            title: '课堂',
+                            startsAt: DateTime.utc(2026, 10, 27),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+            final date = find.text('10月27日');
+            final markBounds = Rect.fromPoints(
+              tester.getTopLeft(find.text(mark)),
+              tester.getBottomRight(find.text(mark)),
+            );
+            final dateBounds = Rect.fromPoints(
+              tester.getTopLeft(date),
+              tester.getBottomRight(date),
+            );
+            final coverBounds = tester.getRect(
+              find.byKey(const ValueKey('cover')),
+            );
+            final reason = '$title at $size with text scale $scale';
+            expect(
+              markBounds.bottom + 6,
+              lessThanOrEqualTo(dateBounds.top),
+              reason: reason,
+            );
+            for (final bounds in [markBounds, dateBounds]) {
+              expect(
+                bounds.left,
+                greaterThanOrEqualTo(coverBounds.left + 10),
+                reason: reason,
+              );
+              expect(
+                bounds.right,
+                lessThanOrEqualTo(coverBounds.right - 10),
+                reason: reason,
+              );
+              expect(
+                bounds.top,
+                greaterThanOrEqualTo(coverBounds.top + 10),
+                reason: reason,
+              );
+              expect(
+                bounds.bottom,
+                lessThanOrEqualTo(coverBounds.bottom - 10),
+                reason: reason,
+              );
+            }
+            expect(tester.takeException(), isNull, reason: reason);
+          }
+        }
+      }
+    },
+  );
+
   test('Saved course counts distinguish unknown courses from empty ones', () {
     for (final count in [null, 0, 12]) {
       final course = StudyCourse(
