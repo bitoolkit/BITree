@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../academics/controller.dart';
 import '../agenda/controller.dart';
+import '../agenda/view_mode.dart';
 import '../classrooms/repository.dart';
 import '../core/diagnostics.dart';
 import '../schedule/controller.dart';
@@ -41,6 +42,9 @@ class AppController extends ChangeNotifier {
   final AcademicController academics;
   final StudyController study;
   final SharedPreferencesAsync _preferences;
+  final agendaViewMode = ValueNotifier(AgendaViewMode.timeline);
+  Future<void> _agendaViewWrite = Future<void>.value();
+  bool _agendaViewChosen = false;
   bool _ready = false;
   ThemeMode _themeMode = ThemeMode.system;
 
@@ -56,6 +60,17 @@ class AppController extends ChangeNotifier {
           ThemeMode.system;
     } catch (failure, stack) {
       AppDiagnostics.instance.report('读取外观设置', failure, stack);
+    }
+    try {
+      final savedView = await _preferences.getString('agendaViewMode');
+      if (!_agendaViewChosen) {
+        agendaViewMode.value = AgendaViewMode.values
+                .where((mode) => mode.name == savedView)
+                .firstOrNull ??
+            AgendaViewMode.timeline;
+      }
+    } catch (failure, stack) {
+      AppDiagnostics.instance.report('读取日程视图设置', failure, stack);
     }
     await school.loadAccount();
     await agenda.load();
@@ -75,8 +90,24 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  /// Publish immediately and serialize writes so rapid toggles cannot save an
+  /// older choice after a newer one. Preference failures do not alter entries.
+  Future<void> setAgendaViewMode(AgendaViewMode value) {
+    _agendaViewChosen = true;
+    agendaViewMode.value = value;
+    _agendaViewWrite = _agendaViewWrite.then((_) async {
+      try {
+        await _preferences.setString('agendaViewMode', value.name);
+      } catch (failure, stack) {
+        AppDiagnostics.instance.report('保存日程视图设置', failure, stack);
+      }
+    });
+    return _agendaViewWrite;
+  }
+
   @override
   void dispose() {
+    agendaViewMode.dispose();
     classrooms.dispose();
     school.dispose();
     timetable.dispose();

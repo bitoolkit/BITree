@@ -92,7 +92,11 @@ class _AppScreenState extends State<AppScreen> {
                 now: now,
                 active: _tab == 0,
               ),
-              CalendarScreen(controller: widget.controller, now: now),
+              CalendarScreen(
+                controller: widget.controller,
+                now: now,
+                active: _tab == 1,
+              ),
               StudyScreen(controller: widget.controller),
               ToolsScreen(controller: widget.controller),
               SettingsScreen(

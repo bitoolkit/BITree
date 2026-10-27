@@ -13,10 +13,13 @@ enum SchoolAction {
   importExams('同步考试安排'),
   importGrades('同步成绩'),
   importStudyPlan('同步学分进度'),
+  importLexueDeadlines('更新乐学 DDL', source: DeadlineSource.lexue),
+  importEclassDeadlines('更新新延河课堂 DDL', source: DeadlineSource.eclass),
   importDeadlines('同步 DDL');
 
-  const SchoolAction(this.label);
+  const SchoolAction(this.label, {this.source});
   final String label;
+  final DeadlineSource? source;
 }
 
 Future<bool> _fetchSchoolData(
@@ -36,6 +39,11 @@ Future<bool> _fetchSchoolData(
   ),
   SchoolAction.importGrades => controller.school.importGrades(verify: verify),
   SchoolAction.importStudyPlan => controller.school.importStudyPlan(
+    verify: verify,
+  ),
+  SchoolAction.importLexueDeadlines ||
+  SchoolAction.importEclassDeadlines => controller.school.importDeadlines(
+    source: action.source,
     verify: verify,
   ),
   SchoolAction.importDeadlines => controller.school.importDeadlines(
@@ -117,9 +125,11 @@ class _SchoolScreenState extends State<_SchoolScreen> {
       final signedIn = await controller.school.signIn(
         SchoolCredentials(username: _username.text, password: _password.text),
         verify,
-        source: widget.action == SchoolAction.importDeadlines
-            ? DeadlineSource.lexue
-            : null,
+        source:
+            widget.action.source ??
+            (widget.action == SchoolAction.importDeadlines
+                ? DeadlineSource.lexue
+                : null),
       );
       if (!mounted) return;
       if (!signedIn) return;

@@ -144,6 +144,49 @@ void main() {
     );
   }
 
+  for (final source in DeadlineSource.values) {
+    test('A source-specific DDL update only fetches ${source.label}', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      final hosts = <String>{};
+      server.listen((request) async {
+        final path = request.uri.path;
+        hosts.add(request.uri.pathSegments.first);
+        switch (path) {
+          case '/lexue.bit.edu.cn/login/index.php':
+            request.response.write('<script>M.cfg={"sesskey":"test"}</script>');
+          case '/lexue.bit.edu.cn/calendar/export.php':
+            request.response.write(
+              '<div class="calendarurl">https://lexue.bit.edu.cn/calendar/export_execute.php</div>',
+            );
+          case '/lexue.bit.edu.cn/calendar/export_execute.php':
+            request.response.write('BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n');
+          case '/zy-eclass.bit.edu.cn/user/courses':
+            request.response.headers.contentType = ContentType.json;
+            request.response.write('{}');
+          case '/zy-eclass.bit.edu.cn/api/my-courses':
+            request.response.headers.contentType = ContentType.json;
+            request.response.write(jsonEncode({'courses': [], 'pages': 1}));
+          default:
+            throw StateError('Unexpected request: $path');
+        }
+        await request.response.close();
+      });
+      final app = TestAppController();
+      await app.initialize();
+      final success = await HttpOverrides.runWithHttpOverrides(
+        () => app.school.importDeadlines(
+          source: source,
+          verify: (_) async => null,
+        ),
+        LocalHttpOverrides(server.port),
+      );
+      expect(success, isTrue);
+      expect(hosts, {source.origin.host});
+      expect(app.school.busy, isFalse);
+    });
+  }
+
   test(
     'Cancelling a combined DDL update does not start the next platform',
     () async {

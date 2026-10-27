@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../agenda/ui/deleted_deadlines.dart';
+import '../../agenda/ui/physics_lab_import.dart';
 import '../../app/controller.dart';
 import '../../ui/app_menu_anchor.dart';
 import 'school_screen.dart';
@@ -10,8 +11,23 @@ class SchoolImportButton extends StatelessWidget {
   final AppController controller;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: Listenable.merge([
+      controller.timetable,
+      controller.agenda,
+      controller.school,
+    ]),
+    builder: (context, _) => _build(context),
+  );
+
+  Widget _build(BuildContext context) {
     final busy = controller.timetable.busy || controller.school.busy;
+    final physicsEnabled =
+        controller.timetable.ready &&
+        !controller.timetable.busy &&
+        controller.timetable.schedule != null &&
+        controller.agenda.ready &&
+        !controller.agenda.busy;
     return AppMenuAnchor(
       menuChildren: [
         AppMenuItemButton(
@@ -36,16 +52,24 @@ class SchoolImportButton extends StatelessWidget {
                 ),
           child: Text(SchoolAction.importExams.label),
         ),
+        const Divider(),
+        for (final action in [
+          SchoolAction.importLexueDeadlines,
+          SchoolAction.importEclassDeadlines,
+        ])
+          AppMenuItemButton(
+            leadingIcon: const Icon(Icons.flag_outlined),
+            onPressed: busy || !controller.agenda.ready
+                ? null
+                : () => openSchoolPage(context, controller, action: action),
+            child: Text(action.label),
+          ),
         AppMenuItemButton(
           leadingIcon: const Icon(Icons.flag_outlined),
-          onPressed: busy || !controller.agenda.ready
-              ? null
-              : () => openSchoolPage(
-                  context,
-                  controller,
-                  action: SchoolAction.importDeadlines,
-                ),
-          child: Text(SchoolAction.importDeadlines.label),
+          onPressed: physicsEnabled
+              ? () => updatePhysicsLabDeadlines(context, controller)
+              : null,
+          child: const Text('更新大物实验 DDL'),
         ),
         const Divider(),
         AppMenuItemButton(
@@ -60,8 +84,8 @@ class SchoolImportButton extends StatelessWidget {
         ),
       ],
       builder: (context, menu, isOpen) => IconButton(
-        tooltip: '同步',
-        onPressed: busy ? null : () => isOpen ? menu.close() : menu.open(),
+        tooltip: '导入',
+        onPressed: () => isOpen ? menu.close() : menu.open(),
         icon: controller.school.busy
             ? const SizedBox.square(
                 dimension: 20,

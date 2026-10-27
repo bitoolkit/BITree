@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../agenda/deadline_clear_scope.dart';
+import '../../agenda/ui/clear_deadlines_dialog.dart';
 import '../../schedule/ui/week_range_dialog.dart';
 import '../../school/ui/school_account.dart';
 import '../../school/ui/school_screen.dart';
@@ -200,12 +202,16 @@ class SettingsScreen extends StatelessWidget {
       controller,
       controller.timetable,
       controller.school,
+      controller.agenda,
     ]),
     builder: (context, _) => _build(context),
   );
 
   Widget _build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final deadlineCount = controller.agenda.countDeadlinesIn(
+      DeadlineClearScope.values,
+    );
 
     Widget section(String title, List<Widget> children) => Padding(
       padding: const EdgeInsets.only(top: 24),
@@ -302,6 +308,23 @@ class SettingsScreen extends StatelessWidget {
                     : () => _clearSchedule(context),
               ),
             ]),
+          section('本地日程', [
+            ListTile(
+              contentPadding: tilePadding,
+              leading: Icon(Icons.delete_outline_rounded, color: scheme.error),
+              title: Text('删除 DDL', style: TextStyle(color: scheme.error)),
+              subtitle: Text(
+                '可勾选手动创建、大物实验、乐学和新延河课堂来源\n'
+                '共 $deadlineCount 条（所有学期，含已完成、已删除）',
+              ),
+              onTap:
+                  !controller.agenda.ready ||
+                      controller.agenda.busy ||
+                      deadlineCount == 0
+                  ? null
+                  : () => showClearDeadlines(context, controller.agenda),
+            ),
+          ]),
           section('应用', [
             ListTile(
               contentPadding: tilePadding,

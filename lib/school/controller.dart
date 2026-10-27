@@ -190,41 +190,43 @@ class SchoolController extends ChangeNotifier {
         );
       });
 
-  Future<bool> importDeadlines({required VerifySchoolLogin verify}) =>
-      _run('同步 DDL', () async {
-        var success = true;
-        for (final source in DeadlineSource.values) {
-          try {
-            final saved = await _access.readLearningPlatform(source, verify, (
-              session,
-              page,
-            ) async {
-              final deadlines = await switch (source) {
-                DeadlineSource.lexue => fetchLexueDeadlines(session, page),
-                DeadlineSource.eclass => fetchEclassDeadlines(session),
-              };
-              session.checkActive();
-              return _agenda.mergeDeadlines(deadlines);
-            });
-            success = saved && success;
-          } on RequestCancelled {
-            rethrow;
-          } catch (failure, stack) {
-            success = false;
-            if (failure is SessionExpired ||
-                failure is SchoolCredentialsRequired) {
-              requireLogin();
-            }
-            AppDiagnostics.instance.report(
-              '同步${source.label} DDL',
-              failure,
-              stack,
-              message: '${source.label} DDL 同步失败，可稍后重试。',
-            );
-          }
+  Future<bool> importDeadlines({
+    DeadlineSource? source,
+    required VerifySchoolLogin verify,
+  }) => _run('同步 DDL', () async {
+    var success = true;
+    final sources = source == null ? DeadlineSource.values : [source];
+    for (final source in sources) {
+      try {
+        final saved = await _access.readLearningPlatform(source, verify, (
+          session,
+          page,
+        ) async {
+          final deadlines = await switch (source) {
+            DeadlineSource.lexue => fetchLexueDeadlines(session, page),
+            DeadlineSource.eclass => fetchEclassDeadlines(session),
+          };
+          session.checkActive();
+          return _agenda.mergeDeadlines(deadlines);
+        });
+        success = saved && success;
+      } on RequestCancelled {
+        rethrow;
+      } catch (failure, stack) {
+        success = false;
+        if (failure is SessionExpired || failure is SchoolCredentialsRequired) {
+          requireLogin();
         }
-        return success;
-      });
+        AppDiagnostics.instance.report(
+          '同步${source.label} DDL',
+          failure,
+          stack,
+          message: '${source.label} DDL 同步失败，可稍后重试。',
+        );
+      }
+    }
+    return success;
+  });
 
   void cancel() => _access.cancel();
 
