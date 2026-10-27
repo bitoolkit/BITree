@@ -31,14 +31,12 @@ class StudyReader extends StatefulWidget {
     required this.lecture,
     required this.initial,
     this.initialPosition,
-    this.courseAction,
   });
   final AppController app;
   final StudyCourse course;
   final StudyLecture lecture;
   final StudyMaterial initial;
   final Duration? initialPosition;
-  final Widget? courseAction;
   @override
   State<StudyReader> createState() => _StudyReaderState();
 }
@@ -451,7 +449,6 @@ class _StudyReaderState extends State<StudyReader>
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      actions: [if (widget.courseAction != null) widget.courseAction!],
     ),
     body: _material == null
         ? Center(

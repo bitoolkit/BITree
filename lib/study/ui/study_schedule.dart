@@ -6,7 +6,6 @@ import '../../app/controller.dart';
 import '../../core/async/cancelable_request.dart';
 import '../../schedule/model.dart';
 import '../../schedule/selection.dart';
-import '../../schedule/ui/course_detail.dart';
 import '../model.dart';
 import 'study_common.dart';
 import 'study_course.dart';
@@ -27,19 +26,18 @@ Future<void> openScheduledStudy(
                 .mondayAt(app.timetable.week)
                 .add(Duration(days: course.weekday! - 1))
           : null);
-  if (occurrence == null || course.startSection == null) {
-    return showCourse(context, app, course, date: date);
-  }
   return Navigator.of(context).push<void>(
     MaterialPageRoute(
       builder: (_) => _ScheduledStudy(
         app: app,
         course: course,
-        selection: TimetableSelection(
-          date: occurrence,
-          startSection: course.startSection!,
-          endSection: course.endSection!,
-        ),
+        selection: occurrence == null || course.startSection == null
+            ? null
+            : TimetableSelection(
+                date: occurrence,
+                startSection: course.startSection!,
+                endSection: course.endSection!,
+              ),
       ),
     ),
   );
@@ -53,7 +51,7 @@ class _ScheduledStudy extends StatefulWidget {
   });
   final AppController app;
   final Course course;
-  final TimetableSelection selection;
+  final TimetableSelection? selection;
   @override
   State<_ScheduledStudy> createState() => _ScheduledStudyState();
 }
@@ -61,19 +59,6 @@ class _ScheduledStudy extends StatefulWidget {
 class _ScheduledStudyState extends State<_ScheduledStudy> {
   final _cancel = CancellationToken();
   bool _loading = true;
-
-  Widget _details() => Builder(
-    builder: (context) => IconButton(
-      tooltip: '课表课程详情',
-      icon: const Icon(Icons.info_outline_rounded),
-      onPressed: () => showCourse(
-        context,
-        widget.app,
-        widget.course,
-        date: widget.selection.date,
-      ),
-    ),
-  );
 
   @override
   void initState() {
@@ -96,11 +81,11 @@ class _ScheduledStudyState extends State<_ScheduledStudy> {
       course.term == widget.app.timetable.schedule?.term;
 
   bool _overlaps(DateTime? start, DateTime? end) {
-    if (start == null || end == null) return false;
+    final selection = widget.selection;
+    if (start == null || end == null || selection == null) return false;
     final from = start.toUtc().add(const Duration(hours: 8));
     final to = end.toUtc().add(const Duration(hours: 8));
-    return from.isBefore(widget.selection.endsAt) &&
-        to.isAfter(widget.selection.startsAt);
+    return from.isBefore(selection.endsAt) && to.isAfter(selection.startsAt);
   }
 
   Future<void> _load() async {
@@ -124,9 +109,11 @@ class _ScheduledStudyState extends State<_ScheduledStudy> {
       if (widget.course.teacher.isNotEmpty) courses = teachers;
       Widget? destination;
       final now = campusNow();
+      final selection = widget.selection;
       final live =
-          !now.isBefore(widget.selection.startsAt) &&
-          now.isBefore(widget.selection.endsAt);
+          selection != null &&
+          !now.isBefore(selection.startsAt) &&
+          now.isBefore(selection.endsAt);
       if (courses.length == 1) {
         var course = courses.single;
         if (widget.app.school.username != null) {
@@ -143,34 +130,26 @@ class _ScheduledStudyState extends State<_ScheduledStudy> {
         if (lectures.length == 1 &&
             (live
                 ? lectures.single.status.canPlay
-                : now.isAfter(widget.selection.endsAt) &&
+                : selection != null &&
+                      now.isAfter(selection.endsAt) &&
                       lectures.single.status == StudyLectureStatus.recorded)) {
           destination = StudyReader(
             app: widget.app,
             course: course,
             lecture: lectures.single,
             initial: StudyMaterial.video,
-            courseAction: _details(),
           );
         } else {
-          destination = StudyCourseScreen(
-            app: widget.app,
-            courses: [course],
-            courseAction: _details(),
-          );
+          destination = StudyCourseScreen(app: widget.app, courses: [course]);
         }
       } else if (courses.isNotEmpty) {
-        destination = StudyCourseScreen(
-          app: widget.app,
-          courses: courses,
-          courseAction: _details(),
-        );
+        destination = StudyCourseScreen(app: widget.app, courses: courses);
       }
       // Public classroom broadcasts use a separate playback ID. Only use one
       // when the actual timetable occurrence matches, rather than its name alone.
       if (live && (destination == null || destination is StudyCourseScreen)) {
         await widget.app.study.broadcasts.refresh(
-          widget.selection.date,
+          selection.date,
           verify,
           signedIn: widget.app.school.username != null,
         );
@@ -187,10 +166,7 @@ class _ScheduledStudyState extends State<_ScheduledStudy> {
             )
             .toList();
         if (public.length == 1) {
-          destination = LegacyLiveScreen(
-            item: public.single.legacy!,
-            courseAction: _details(),
-          );
+          destination = LegacyLiveScreen(item: public.single.legacy!);
         }
       }
       if (!mounted || destination == null) return;
@@ -205,35 +181,19 @@ class _ScheduledStudyState extends State<_ScheduledStudy> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.course.name), actions: [_details()]),
+    appBar: AppBar(title: Text(widget.course.name)),
     body: Center(
       child: _loading
           ? const CircularProgressIndicator()
           : StudyEmpty(
               text: '还没有找到这门课的学习资料',
-              action: Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: [
-                  FilledButton(
-                    onPressed: () async {
-                      if (await studyAccount(context, widget.app) && mounted) {
-                        await _load();
-                      }
-                    },
-                    child: const Text('获取课程'),
-                  ),
-                  TextButton(
-                    onPressed: () => showCourse(
-                      context,
-                      widget.app,
-                      widget.course,
-                      date: widget.selection.date,
-                    ),
-                    child: const Text('课程详情'),
-                  ),
-                ],
+              action: FilledButton(
+                onPressed: () async {
+                  if (await studyAccount(context, widget.app) && mounted) {
+                    await _load();
+                  }
+                },
+                child: const Text('获取课程'),
               ),
             ),
     ),

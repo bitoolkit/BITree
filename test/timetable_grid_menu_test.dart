@@ -109,12 +109,7 @@ void main() {
 
   void expectClosed(WidgetTester tester) {
     expect(addCourse, findsNothing);
-    expect(
-      tester
-          .widget<AddMenu>(find.byType(AddMenu, skipOffstage: false))
-          .selection,
-      isNull,
-    );
+    expect(tester.widget<AddMenu>(find.byType(AddMenu)).selection, isNull);
     expect(tester.takeException(), isNull);
   }
 
@@ -144,18 +139,15 @@ void main() {
 
   for (final occupied in [(day: 4, section: 3), (day: 5, section: 5)]) {
     testWidgets(
-      'Tapping an occupied cell ${occupied.day} closes the menu and keeps details accessible',
+      'Tapping an occupied cell ${occupied.day} closes the menu and opens details',
       (tester) async {
         await showGrid(tester);
         await openMenu(tester);
         await tester.tapAt(cell(tester, occupied.day, occupied.section));
         await tester.pumpAndSettle();
         expectClosed(tester);
-        if (occupied.day == 4) {
-          await tester.tap(find.byTooltip('课表课程详情'));
-          await tester.pumpAndSettle();
-        }
         expect(find.byType(BottomSheet), findsOneWidget);
+        if (occupied.day == 4) expect(find.text('课程学习'), findsOneWidget);
       },
     );
   }

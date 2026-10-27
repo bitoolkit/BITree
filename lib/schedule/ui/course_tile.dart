@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
-import '../../study/ui/study_schedule.dart';
 import '../../ui/design.dart';
 import '../../ui/theme.dart';
 import '../model.dart';
+import 'course_detail.dart';
 
 class CourseTile extends StatelessWidget {
   const CourseTile({
@@ -33,7 +33,7 @@ class CourseTile extends StatelessWidget {
               ? '，上课中'
               : isToday
               ? '，今天'
-              : ''}，打开课程学习',
+              : ''}，查看详情',
       child: ExcludeSemantics(
         child: Tooltip(
           triggerMode: TooltipTriggerMode.manual,
@@ -48,8 +48,7 @@ class CourseTile extends StatelessWidget {
             ),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
-              onTap: () =>
-                  openScheduledStudy(context, controller, course, date: date),
+              onTap: () => showCourse(context, controller, course, date: date),
               child: Stack(
                 fit: StackFit.expand,
                 children: [

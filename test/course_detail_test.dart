@@ -1,6 +1,9 @@
 import 'package:bitree/agenda/model.dart';
 import 'package:bitree/schedule/model.dart';
 import 'package:bitree/schedule/ui/course_detail.dart';
+import 'package:bitree/schedule/ui/course_tile.dart';
+import 'package:bitree/study/model.dart';
+import 'package:bitree/study/ui/study_course.dart';
 import 'package:bitree/ui/sheet_layout.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
@@ -86,6 +89,8 @@ void main() {
         );
         await tester.tap(find.text('课程详情'));
         await tester.pumpAndSettle();
+        expect(find.text('课程学习').hitTestable(), findsOneWidget);
+        expect(find.byType(StudyCourseScreen), findsNothing);
         expect(find.text('跨片区换楼'), findsOneWidget);
         expect(find.text(next.name), findsOneWidget);
         expect(find.text('下周课程'), findsNothing);
@@ -111,6 +116,78 @@ void main() {
         await tester.tap(find.byTooltip('关闭'));
         await tester.pumpAndSettle();
         expect(find.byType(BottomSheet), findsNothing);
+      },
+    );
+  }
+
+  for (final scheduled in [true, false]) {
+    testWidgets(
+      'Study entry uses the selected drawer course, scheduled=$scheduled',
+      (tester) async {
+        final first = scheduled
+            ? course('概率论与数理统计', 3, 4, '理教楼105')
+            : Course(
+                id: 'unscheduled',
+                name: '未排课课程',
+                weekday: null,
+                startSection: null,
+                endSection: null,
+                weeks: [],
+              );
+        final selected = scheduled ? course('数据结构', 6, 7, '综教B103') : first;
+        final app = TestAppController(
+          schedule: SemesterSchedule(
+            term: '2026-2027-1',
+            firstMonday: mondayOf(date),
+            courses: [first, if (scheduled) selected],
+          ),
+        );
+        (app.study.store as MemoryStudyStore).courses = [
+          StudyCourse(
+            id: 'expected',
+            title: selected.name,
+            term: '2026-2027-1',
+            lectures: [const StudyLecture(id: 'recording', title: '课程录播')],
+          ),
+        ];
+        await app.initialize();
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: bitreeTheme(Brightness.light),
+            home: Scaffold(
+              body: SizedBox(
+                width: 160,
+                height: 96,
+                child: CourseTile(
+                  course: first,
+                  controller: app,
+                  isToday: false,
+                  date: date,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.byType(CourseTile));
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsOneWidget);
+        expect(find.byType(StudyCourseScreen), findsNothing);
+        if (scheduled) {
+          await tester.ensureVisible(find.text(selected.name));
+          await tester.tap(find.text(selected.name));
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(find.text('课程学习'));
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsNothing);
+        final screen = tester.widget<StudyCourseScreen>(
+          find.byType(StudyCourseScreen),
+        );
+        expect(screen.courses.single.id, 'expected');
+        expect(screen.courses.single.title, selected.name);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
       },
     );
   }

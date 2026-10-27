@@ -20,11 +20,9 @@ class StudyCourseScreen extends StatefulWidget {
     super.key,
     required this.app,
     required this.courses,
-    this.courseAction,
   });
   final AppController app;
   final List<StudyCourse> courses;
-  final Widget? courseAction;
   @override
   State<StudyCourseScreen> createState() => _StudyCourseScreenState();
 }
@@ -221,10 +219,7 @@ class _StudyCourseScreenState extends State<StudyCourseScreen> {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(_courses.first.title),
-          actions: [if (widget.courseAction != null) widget.courseAction!],
-        ),
+        appBar: AppBar(title: Text(_courses.first.title)),
         body: SafeArea(
           child: Align(
             alignment: Alignment.topCenter,

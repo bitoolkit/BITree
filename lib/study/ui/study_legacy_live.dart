@@ -5,13 +5,12 @@ import '../legacy_yanhekt.dart';
 import 'study_live_player.dart';
 
 class LegacyLiveScreen extends StatelessWidget {
-  const LegacyLiveScreen({super.key, required this.item, this.courseAction});
+  const LegacyLiveScreen({super.key, required this.item});
   final LegacyLive item;
-  final Widget? courseAction;
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(item.title), actions: [?courseAction]),
+    appBar: AppBar(title: Text(item.title)),
     body: SafeArea(
       child: Align(
         alignment: Alignment.topCenter,

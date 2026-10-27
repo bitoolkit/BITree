@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:bitree/core/async/cancelable_request.dart';
 import 'package:bitree/core/diagnostics.dart';
 import 'package:bitree/schedule/model.dart';
+import 'package:bitree/schedule/ui/course_tile.dart';
 import 'package:bitree/school/errors.dart';
 import 'package:bitree/school/network.dart';
 import 'package:bitree/school/storage.dart';
@@ -18,7 +19,6 @@ import 'package:bitree/study/tasks.dart';
 import 'package:bitree/study/ui/study_course.dart';
 import 'package:bitree/study/ui/study_live.dart';
 import 'package:bitree/study/ui/study_reader.dart';
-import 'package:bitree/study/ui/study_schedule.dart';
 import 'package:bitree/study/yanhekt.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
@@ -486,7 +486,7 @@ void main() {
 
   for (final historical in [true, false]) {
     testWidgets(
-      'Timetable opens the exact past lecture or upcoming course: past=$historical',
+      'Course drawer opens the exact past lecture or upcoming course only from its study button: past=$historical',
       (tester) async {
         final timetableCourse = Course(
           id: 'scheduled',
@@ -561,22 +561,31 @@ void main() {
           await tester.pumpWidget(
             MaterialApp(
               theme: bitreeTheme(Brightness.light),
-              home: Builder(
-                builder: (context) => Scaffold(
-                  body: TextButton(
-                    onPressed: () => openScheduledStudy(
-                      context,
-                      app,
-                      timetableCourse,
-                      date: DateTime.utc(historical ? 2025 : 2035, 10, 27),
-                    ),
-                    child: const Text('打开课表课程'),
+              home: Scaffold(
+                body: SizedBox(
+                  width: 160,
+                  height: 96,
+                  child: CourseTile(
+                    course: timetableCourse,
+                    controller: app,
+                    isToday: false,
+                    date: DateTime.utc(historical ? 2025 : 2035, 10, 27),
                   ),
                 ),
               ),
             ),
           );
-          await tester.tap(find.text('打开课表课程'));
+          await tester.tap(find.byType(CourseTile));
+          await tester.pumpAndSettle();
+          expect(find.byType(BottomSheet), findsOneWidget);
+          expect(find.text('编辑课程'), findsOneWidget);
+          expect(find.text('删除'), findsOneWidget);
+          expect(find.byType(StudyReader), findsNothing);
+          expect(find.byType(StudyCourseScreen), findsNothing);
+          expect(served.isCompleted, isFalse);
+          await tester.ensureVisible(find.text('课程学习'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('课程学习'));
           if (historical) {
             for (
               var attempt = 0;
