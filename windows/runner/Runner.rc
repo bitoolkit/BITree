@@ -93,7 +93,7 @@ BEGIN
             VALUE "FileDescription", "BITree" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "bitree" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 BITree. All rights reserved." "\0"
+            VALUE "LegalCopyright", "The BITree Authors. Unlicense." "\0"
             VALUE "OriginalFilename", "bitree.exe" "\0"
             VALUE "ProductName", "BITree" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"

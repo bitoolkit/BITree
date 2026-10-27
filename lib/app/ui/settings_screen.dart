@@ -128,13 +128,9 @@ class SettingsScreen extends StatelessWidget {
             children: [
               const Text('面向北京理工大学的本地跨平台工具集。'),
               const SizedBox(height: 12),
-              DefaultTextStyle(
-                style: theme.textTheme.bodySmall!,
-                child: const Wrap(
-                  spacing: 12,
-                  runSpacing: 4,
-                  children: [Text('Made by Ray'), Text('Unlicense')],
-                ),
+              Text(
+                'Unlicense. Made by The BITree Authors with ♥️',
+                style: theme.textTheme.bodySmall,
               ),
             ],
           ),

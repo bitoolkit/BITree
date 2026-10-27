@@ -67,6 +67,6 @@ flutter symbolize --debug-info=app.android-arm64.symbols --input=stacktrace.txt
 
 模块职责、数据流和验证命令见[代码结构与数据流](docs/architecture.md)。
 
-## 许可
+## LICENSE
 
-[Unlicense](LICENSE)。Made by [Ray](https://github.com/so1ve)。
+[Unlicense](LICENSE). Made by [The BITree Authors](https://github.com/so1ve/bitree/graphs/contributors) with ♥️
