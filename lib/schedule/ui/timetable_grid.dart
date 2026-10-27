@@ -167,9 +167,16 @@ class _TimetableGridState extends State<TimetableGrid> {
 
     // Rebuild the menu with the selected date and sections before opening it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _selection == null) return;
+      final selection = _selection;
+      if (!mounted || selection == null) return;
       final box = _grid.currentContext!.findRenderObject()! as RenderBox;
-      _addMenu.open(position: box.globalToLocal(position));
+      // The range stays in its initial day even if a long drag drifts sideways.
+      _addMenu.open(
+        position: Offset(
+          (selection.day + 0.5) * box.size.width / 7,
+          box.globalToLocal(position).dy,
+        ),
+      );
     });
     WidgetsBinding.instance.ensureVisualUpdate();
   }

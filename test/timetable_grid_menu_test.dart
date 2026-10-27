@@ -312,6 +312,73 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final (kind, day, startSection, endSection, autoScroll) in [
+    (PointerDeviceKind.touch, 0, 2, 12, false),
+    (PointerDeviceKind.touch, 2, 12, 2, false),
+    (PointerDeviceKind.mouse, 0, 2, 12, false),
+    (PointerDeviceKind.touch, 6, 2, 12, true),
+  ]) {
+    testWidgets(
+      '$kind long selection stays in day $day despite horizontal drift, scrolling $autoScroll',
+      (tester) async {
+        final size = Size(390, autoScroll ? 600 : 900);
+        await showGrid(tester, size: size);
+        final scrollable = tester.state<ScrollableState>(
+          find.byType(Scrollable),
+        );
+        final start = cell(tester, day, startSection);
+        final end = autoScroll
+            ? Offset(start.dx, size.height - 12)
+            : cell(tester, day, endSection);
+        final release = Offset(day == 0 ? size.width - 20 : 20, end.dy);
+        final gesture = await tester.startGesture(start, kind: kind);
+        if (kind == PointerDeviceKind.touch) {
+          await tester.pump(const Duration(milliseconds: 600));
+        }
+        await gesture.moveTo(release);
+        await tester.pump();
+        if (autoScroll) {
+          for (var frame = 0; frame < 30; frame++) {
+            await tester.pump(const Duration(milliseconds: 20));
+          }
+          expect(scrollable.position.pixels, greaterThan(0));
+        }
+        await gesture.up();
+        await tester.pumpAndSettle();
+        final panel = tester.getRect(
+          find.byWidgetPredicate(
+            (widget) => widget is Material && widget.elevation == 6,
+          ),
+        );
+        expect(
+          panel.left,
+          closeTo(start.dx.clamp(8, size.width - panel.width - 8), .1),
+        );
+        final top = release.dy + panel.height <= size.height - 8
+            ? release.dy
+            : release.dy - panel.height;
+        expect(panel.top, closeTo(top, .1));
+        expect(panel.left, greaterThanOrEqualTo(8));
+        expect(panel.right, lessThanOrEqualTo(size.width - 8));
+        final selection = tester
+            .widget<AddMenu>(find.byType(AddMenu))
+            .selection!;
+        expect(selection.date.weekday, day + 1);
+        expect(
+          selection.startSection,
+          startSection < endSection ? startSection : endSection,
+        );
+        if (!autoScroll) {
+          expect(
+            selection.endSection,
+            startSection > endSection ? startSection : endSection,
+          );
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('Menu actions retain the selected date and section', (
     tester,
   ) async {
