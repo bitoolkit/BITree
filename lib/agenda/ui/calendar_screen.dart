@@ -30,27 +30,12 @@ class CalendarScreen extends StatefulWidget {
   State<CalendarScreen> createState() => _CalendarScreenState();
 }
 
-class _CalendarScreenState extends State<CalendarScreen>
-    with SingleTickerProviderStateMixin {
+class _CalendarScreenState extends State<CalendarScreen> {
   AgendaKind? _kind;
   int _status = 0;
-  late final TabController _timelineTabs;
-
-  @override
-  void initState() {
-    super.initState();
-    _timelineTabs = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _timelineTabs.dispose();
-    super.dispose();
-  }
 
   void _setStatus(int index) {
     if (_status != index) setState(() => _status = index);
-    if (_timelineTabs.index != index) _timelineTabs.animateTo(index);
   }
 
   @override
@@ -74,12 +59,25 @@ class _CalendarScreenState extends State<CalendarScreen>
     final doneCount = entries.where((entry) => entry.isFinished(now)).length;
     final timeline = controller.agendaViewMode.value == AgendaViewMode.timeline;
 
-    Widget statusHeader(TabController tabs, {ValueChanged<int>? onTap}) => Column(
+    Widget loadStatus() => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!controller.agenda.ready && controller.agenda.busy)
+          const LinearProgressIndicator(minHeight: 3),
+        if (!controller.agenda.ready && !controller.agenda.busy)
+          TextButton.icon(
+            onPressed: controller.agenda.load,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('重新加载日程'),
+          ),
+      ],
+    );
+
+    Widget statusHeader(TabController tabs) => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TabBar(
           controller: tabs,
-          onTap: onTap,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
           indicatorSize: TabBarIndicatorSize.label,
@@ -96,14 +94,7 @@ class _CalendarScreenState extends State<CalendarScreen>
             Tab(text: '已完成 $doneCount'),
           ],
         ),
-        if (!controller.agenda.ready && controller.agenda.busy)
-          const LinearProgressIndicator(minHeight: 3),
-        if (!controller.agenda.ready && !controller.agenda.busy)
-          TextButton.icon(
-            onPressed: controller.agenda.load,
-            icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('重新加载日程'),
-          ),
+        loadStatus(),
       ],
     );
 
@@ -155,15 +146,14 @@ class _CalendarScreenState extends State<CalendarScreen>
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              statusHeader(_timelineTabs, onTap: _setStatus),
+              loadStatus(),
               Expanded(
                 child: AgendaTimeline(
                   controller: controller,
-                  entries: entries
-                      .where((entry) => entry.isFinished(now) == (_status == 1))
-                      .toList(),
+                  entries: entries,
                   now: now,
                   active: widget.active,
+                  visible: timeline,
                 ),
               ),
             ],

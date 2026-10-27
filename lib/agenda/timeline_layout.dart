@@ -3,7 +3,7 @@ import 'model.dart';
 const _microsecondsPerHour = Duration.microsecondsPerSecond * 3600;
 
 /// Visual bounds and the (possibly larger) interval reserved in a lane.
-/// DDLs have no real start: six days are reserved solely for packing.
+/// DDLs have no real start: three days are reserved solely for packing.
 class AgendaTimelinePlacement {
   const AgendaTimelinePlacement({
     required this.entry,
@@ -22,7 +22,7 @@ class AgendaTimelinePlacement {
   final DateTime layoutEnd;
 }
 
-/// Pack entries in deterministic lanes. Reserve both the six-day virtual DDL
+/// Pack entries in deterministic lanes. Reserve both the three-day virtual DDL
 /// interval and its fixed-width visible bar, so neither can collide at any zoom.
 /// Dates keep the same campus wall-clock convention as [AgendaEntry].
 List<AgendaTimelinePlacement> layoutAgendaTimeline(
@@ -86,7 +86,7 @@ _interval(AgendaEntry entry, Duration deadlineDuration) {
   }
   final end = entry.dueAt;
   final visualStart = end.subtract(deadlineDuration);
-  final virtualStart = end.subtract(const Duration(days: 6));
+  final virtualStart = end.subtract(const Duration(days: 3));
   return (
     entry: entry,
     start: visualStart,

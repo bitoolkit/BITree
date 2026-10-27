@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/controller.dart';
@@ -20,6 +21,7 @@ class AgendaTimeline extends StatefulWidget {
     required this.entries,
     required this.now,
     this.active = true,
+    this.visible = true,
   });
 
   final AppController controller;
@@ -29,12 +31,26 @@ class AgendaTimeline extends StatefulWidget {
   /// Reset the date on page re-entry, not when changing list/timeline mode.
   final bool active;
 
+  /// Stop motion when list mode hides this retained timeline, without resetting.
+  final bool visible;
+
   @override
   State<AgendaTimeline> createState() => _AgendaTimelineState();
 }
 
-class _AgendaTimelineState extends State<AgendaTimeline> {
+class _AgendaTimelineState extends State<AgendaTimeline>
+    with TickerProviderStateMixin {
   final ScrollController _lanes = ScrollController();
+  late final AnimationController _horizontalFling;
+  late final AnimationController _verticalFling;
+  double _lastHorizontal = 0;
+  double _lastVertical = 0;
+  double _flingPixelsPerHour = 1;
+  bool _gestureHadMultiplePointers = false;
+  bool _gestureScaled = false;
+  bool _gestureTrackpad = false;
+  final Set<int> _downPointers = <int>{};
+  final Set<int> _panZoomPointers = <int>{};
   late DateTime _center;
   double _zoom = 1;
   double _gestureZoom = 1;
@@ -64,14 +80,87 @@ class _AgendaTimelineState extends State<AgendaTimeline> {
     super.initState();
     _center = calendarDate(widget.now).add(const Duration(hours: 12));
     _lanes.addListener(_laneChanged);
+    _horizontalFling = AnimationController.unbounded(vsync: this)
+      ..addListener(_tickHorizontal);
+    _verticalFling = AnimationController.unbounded(vsync: this)
+      ..addListener(_tickVertical);
+  }
+
+  void _stopMotion() {
+    _horizontalFling.stop();
+    _verticalFling.stop();
+  }
+
+  void _tickHorizontal() {
+    final delta = _horizontalFling.value - _lastHorizontal;
+    _lastHorizontal = _horizontalFling.value;
+    if (!mounted || !widget.active || !widget.visible) return;
+    setState(() {
+      _center = _center.subtract(Duration(
+        microseconds: (delta / _flingPixelsPerHour * _microsecondsPerHour)
+            .round(),
+      ));
+    });
+  }
+
+  void _tickVertical() {
+    final delta = _verticalFling.value - _lastVertical;
+    _lastVertical = _verticalFling.value;
+    if (!_lanes.hasClients || !widget.active || !widget.visible) {
+      _verticalFling.stop();
+      return;
+    }
+    final target = _lanes.offset - delta;
+    _scrollLanes(-delta);
+    if (target <= 0 || target >= _lanes.position.maxScrollExtent) {
+      _verticalFling.stop();
+    }
+  }
+
+  void _startFling(Offset velocity, double pixelsPerHour) {
+    if (!widget.active || !widget.visible ||
+        _gestureHadMultiplePointers || _gestureScaled || _gestureTrackpad) return;
+    _flingPixelsPerHour = pixelsPerHour;
+    // Framework friction supplies both axes; only the viewport/date is moved.
+    if (velocity.dx.abs() >= 50) {
+      _lastHorizontal = 0;
+      _horizontalFling.value = 0;
+      _horizontalFling.animateWith(FrictionSimulation(0.135, 0, velocity.dx));
+    }
+    if (velocity.dy.abs() >= 50 && _lanes.hasClients) {
+      _lastVertical = 0;
+      _verticalFling.value = 0;
+      _verticalFling.animateWith(FrictionSimulation(0.135, 0, velocity.dy));
+    }
   }
 
   @override
   void didUpdateWidget(covariant AgendaTimeline oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!oldWidget.active && widget.active) {
-      _center = calendarDate(widget.now).add(const Duration(hours: 12));
+    if (oldWidget.visible != widget.visible) {
+      _stopMotion();
+      _gestureAnchor = null;
+      _downPointers.clear();
+      _panZoomPointers.clear();
     }
+    if (oldWidget.active != widget.active) {
+      _stopMotion();
+      _gestureAnchor = null;
+      _downPointers.clear();
+      _panZoomPointers.clear();
+      if (widget.active) {
+        _center = calendarDate(widget.now).add(const Duration(hours: 12));
+      }
+    }
+  }
+
+  @override
+  void deactivate() {
+    _stopMotion();
+    _gestureAnchor = null;
+    _downPointers.clear();
+    _panZoomPointers.clear();
+    super.deactivate();
   }
 
   void _laneChanged() {
@@ -80,6 +169,9 @@ class _AgendaTimelineState extends State<AgendaTimeline> {
 
   @override
   void dispose() {
+    _stopMotion();
+    _horizontalFling.dispose();
+    _verticalFling.dispose();
     _lanes.removeListener(_laneChanged);
     _lanes.dispose();
     super.dispose();
@@ -100,6 +192,7 @@ class _AgendaTimelineState extends State<AgendaTimeline> {
   }
 
   void _zoomAt(double zoom, double x, double width, double baseline) {
+    _stopMotion();
     final anchor = _timeAt(x, width, baseline * _zoom);
     final next = zoom.clamp(1.0, 24.0).toDouble();
     setState(() {
@@ -119,7 +212,7 @@ class _AgendaTimelineState extends State<AgendaTimeline> {
     final fontScale = math.max(1.0, textScaler.scale(14) / 14);
     return LayoutBuilder(builder: (context, constraints) {
       final width = constraints.maxWidth;
-      final cellWidth = (width / 5).clamp(80.0, 140.0).toDouble();
+      final cellWidth = (width / 5).clamp(80.0, 140.0).toDouble() * 0.6;
       final baseline = cellWidth / 24;
       final pixelsPerHour = baseline * _zoom;
       final hoursPerCell = 24 / _zoom;
@@ -128,8 +221,31 @@ class _AgendaTimelineState extends State<AgendaTimeline> {
           : _zoom == 24
               ? '1 小时 / 格'
               : '${hoursPerCell.toStringAsFixed(1)} 小时 / 格';
-      final headerHeight = 60.0 * fontScale;
-      final laneHeight = 82.0 * fontScale;
+      double textHeight(double fontSize, double height) {
+        final measure = TextPainter(
+          text: TextSpan(
+            text: '日程 Ag',
+            style: TextStyle(fontSize: fontSize, height: height),
+          ),
+          textScaler: textScaler,
+          textDirection: TextDirection.ltr,
+        )..layout();
+        final result = measure.height;
+        measure.dispose();
+        return result;
+      }
+      final headerStyle = theme.textTheme.labelMedium ??
+          const TextStyle(fontSize: 12);
+      final headerHeight = math.max(
+        40.0 * fontScale,
+        textHeight(headerStyle.fontSize ?? 12, headerStyle.height ?? 1.2) * 2 + 6,
+      );
+      final barHeight = math.max(
+        46.0 * fontScale,
+        textHeight(14, 1.2) +
+            math.max(textHeight(11, 1.1), 13 * fontScale) + 8,
+      );
+      final laneHeight = barHeight + 12;
       final placements = _layout(pixelsPerHour);
       final laneCount = placements.fold<int>(
         0,
@@ -141,13 +257,19 @@ class _AgendaTimelineState extends State<AgendaTimeline> {
         center: _center,
         now: widget.now,
         pixelsPerHour: pixelsPerHour,
+        cellWidth: cellWidth,
         scheme: theme.colorScheme,
         textStyle: theme.textTheme.labelMedium ?? const TextStyle(fontSize: 12),
         textScaler: textScaler,
         header: true,
       );
 
-      return Column(
+      return Listener(
+        onPointerDown: (_) => _stopMotion(),
+        onPointerSignal: (event) {
+          if (event is PointerScrollEvent) _stopMotion();
+        },
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
@@ -158,10 +280,13 @@ class _AgendaTimelineState extends State<AgendaTimeline> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 TextButton.icon(
-                  onPressed: () => setState(() {
-                    _center = calendarDate(widget.now)
-                        .add(const Duration(hours: 12));
-                  }),
+                  onPressed: () {
+                    _stopMotion();
+                    setState(() {
+                      _center = calendarDate(widget.now)
+                          .add(const Duration(hours: 12));
+                    });
+                  },
                   icon: const Icon(Icons.today_outlined, size: 18),
                   label: const Text('今天'),
                 ),
@@ -199,8 +324,35 @@ class _AgendaTimelineState extends State<AgendaTimeline> {
           ),
           Expanded(
             child: Listener(
+              onPointerDown: (event) {
+                _stopMotion();
+                if (_downPointers.isEmpty) {
+                  _gestureHadMultiplePointers = false;
+                }
+                _downPointers.add(event.pointer);
+                if (_downPointers.length > 1) {
+                  _gestureHadMultiplePointers = true;
+                }
+              },
+              onPointerUp: (event) => _downPointers.remove(event.pointer),
+              onPointerCancel: (event) {
+                _downPointers.remove(event.pointer);
+                _panZoomPointers.remove(event.pointer);
+                _gestureHadMultiplePointers = true;
+                _stopMotion();
+              },
+              onPointerPanZoomStart: (event) {
+                _stopMotion();
+                if (_panZoomPointers.isEmpty && _downPointers.isEmpty) {
+                  _gestureHadMultiplePointers = false;
+                }
+                _panZoomPointers.add(event.pointer);
+              },
+              onPointerPanZoomEnd: (event) =>
+                  _panZoomPointers.remove(event.pointer),
               onPointerSignal: (event) {
                 if (event is! PointerScrollEvent) return;
+                _stopMotion();
                 GestureBinding.instance.pointerSignalResolver.register(
                   event,
                   (resolved) {
@@ -239,6 +391,12 @@ class _AgendaTimelineState extends State<AgendaTimeline> {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onScaleStart: (details) {
+                  _stopMotion();
+                  _gestureTrackpad = _panZoomPointers.isNotEmpty;
+                  _gestureHadMultiplePointers = _gestureHadMultiplePointers ||
+                      (!_gestureTrackpad &&
+                          (details.pointerCount > 1 || _downPointers.length > 1));
+                  _gestureScaled = false;
                   _gesturePointers = details.pointerCount;
                   _gestureZoom = _zoom;
                   _gestureAnchor = _timeAt(
@@ -248,6 +406,15 @@ class _AgendaTimelineState extends State<AgendaTimeline> {
                   );
                 },
                 onScaleUpdate: (details) {
+                  if (!_gestureTrackpad && details.pointerCount > 1) {
+                    _gestureHadMultiplePointers = true;
+                  }
+                  // Pan/zoom events identify trackpads, regardless of whether
+                  // the recognizer reports zero or virtual multiple pointers.
+                  // Native trackpad momentum must never get a second fling.
+                  if ((details.scale - 1).abs() > 0.0001) {
+                    _gestureScaled = true;
+                  }
                   // Adding/removing a finger changes the focal point. Rebase so
                   // that transition does not jump to another calendar time.
                   if (_gesturePointers != details.pointerCount) {
@@ -273,97 +440,113 @@ class _AgendaTimelineState extends State<AgendaTimeline> {
                           .round(),
                     ));
                   });
-                  if (details.pointerCount == 1) {
+                  if ((_gestureTrackpad || details.pointerCount <= 1) &&
+                      !_gestureHadMultiplePointers && !_gestureScaled) {
                     _scrollLanes(-details.focalPointDelta.dy);
                   }
                 },
-                onScaleEnd: (_) => _gestureAnchor = null,
-                child: Column(
-                  children: [
-                    SizedBox(
-                      height: headerHeight,
-                      width: width,
-                      child: CustomPaint(painter: painter),
-                    ),
-                    Expanded(
-                      child: LayoutBuilder(builder: (context, laneConstraints) {
-                        final height = laneConstraints.maxHeight;
-                        final contentHeight = math.max(
-                          height,
-                          laneCount * laneHeight + 24,
-                        );
-                        final offset = _lanes.hasClients ? _lanes.offset : 0.0;
-                        final visible = placements.where((placement) =>
-                            placement.end.isAfter(left) &&
-                            placement.start.isBefore(right) &&
-                            (placement.lane + 1) * laneHeight >= offset &&
-                            placement.lane * laneHeight <= offset + height);
-                        return Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            CustomPaint(
-                              painter: _TimelineGridPainter(
-                                center: _center,
-                                now: widget.now,
-                                pixelsPerHour: pixelsPerHour,
-                                scheme: theme.colorScheme,
-                                textStyle: theme.textTheme.labelMedium ??
-                                    const TextStyle(fontSize: 12),
-                                textScaler: textScaler,
-                                header: false,
-                              ),
-                            ),
-                            Scrollbar(
-                              controller: _lanes,
-                              thumbVisibility: contentHeight > height,
-                              interactive: true,
-                              child: SingleChildScrollView(
-                                controller: _lanes,
-                                physics: const NeverScrollableScrollPhysics(),
-                                child: SizedBox(
-                                  height: contentHeight,
-                                  width: width,
-                                  child: Stack(
-                                    clipBehavior: Clip.hardEdge,
-                                    children: [
-                                      for (final placement in visible)
-                                        _buildEntry(
-                                          context,
-                                          placement,
-                                          width,
-                                          pixelsPerHour,
-                                          laneHeight,
-                                        ),
-                                    ],
-                                  ),
+                onScaleEnd: (details) {
+                  final hadAnchor = _gestureAnchor != null;
+                  _gestureAnchor = null;
+                  if (hadAnchor) {
+                    _startFling(details.velocity.pixelsPerSecond, baseline * _zoom);
+                  }
+                },
+                child: CustomPaint(
+                  foregroundPainter: _TimelineNowPainter(
+                    center: _center,
+                    now: widget.now,
+                    pixelsPerHour: pixelsPerHour,
+                    color: theme.colorScheme.error,
+                  ),
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: headerHeight,
+                        width: width,
+                        child: CustomPaint(painter: painter),
+                      ),
+                      Expanded(
+                        child: LayoutBuilder(builder: (context, laneConstraints) {
+                          final height = laneConstraints.maxHeight;
+                          final contentHeight = math.max(
+                            height,
+                            laneCount * laneHeight + 24,
+                          );
+                          final offset = _lanes.hasClients ? _lanes.offset : 0.0;
+                          final visible = placements.where((placement) =>
+                              placement.end.isAfter(left) &&
+                              placement.start.isBefore(right) &&
+                              (placement.lane + 1) * laneHeight >= offset &&
+                              placement.lane * laneHeight <= offset + height);
+                          return Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              CustomPaint(
+                                painter: _TimelineGridPainter(
+                                  center: _center,
+                                  now: widget.now,
+                                  pixelsPerHour: pixelsPerHour,
+                                  cellWidth: cellWidth,
+                                  scheme: theme.colorScheme,
+                                  textStyle: headerStyle,
+                                  textScaler: textScaler,
+                                  header: false,
                                 ),
                               ),
-                            ),
-                            if (widget.entries.isEmpty)
-                              Center(
-                                child: IgnorePointer(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(24),
-                                    child: Text(
-                                      '暂无此类日程\n可拖动时间轴，或添加新的日程',
-                                      textAlign: TextAlign.center,
-                                      style: theme.textTheme.bodyLarge?.copyWith(
-                                        color: theme.colorScheme.onSurfaceVariant,
-                                      ),
+                              Scrollbar(
+                                controller: _lanes,
+                                thumbVisibility: contentHeight > height,
+                                interactive: true,
+                                child: SingleChildScrollView(
+                                  controller: _lanes,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  child: SizedBox(
+                                    height: contentHeight,
+                                    width: width,
+                                    child: Stack(
+                                      clipBehavior: Clip.hardEdge,
+                                      children: [
+                                        for (final placement in visible)
+                                          _buildEntry(
+                                            context,
+                                            placement,
+                                            width,
+                                            pixelsPerHour,
+                                            laneHeight,
+                                          ),
+                                      ],
                                     ),
                                   ),
                                 ),
                               ),
-                          ],
-                        );
-                      }),
-                    ),
-                  ],
+                              if (widget.entries.isEmpty)
+                                Center(
+                                  child: IgnorePointer(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(24),
+                                      child: Text(
+                                        '暂无日程\n可拖动时间轴，或添加新的日程',
+                                        textAlign: TextAlign.center,
+                                        style: theme.textTheme.bodyLarge?.copyWith(
+                                          color: theme.colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        }),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ],
+        ),
       );
     });
   }
@@ -429,9 +612,9 @@ class _AgendaTimelineState extends State<AgendaTimeline> {
         '${entry.location.isEmpty ? '' : '，${entry.location}'}';
     return Positioned(
       left: left,
-      top: placement.lane * laneHeight + 8,
+      top: placement.lane * laneHeight + 6,
       width: math.max(24.0, barWidth),
-      height: laneHeight - 16,
+      height: laneHeight - 12,
       child: Semantics(
         button: true,
         label: description,
@@ -447,7 +630,7 @@ class _AgendaTimelineState extends State<AgendaTimeline> {
               alignment: Alignment.centerLeft,
               child: SizedBox(
                 width: barWidth,
-                height: laneHeight - 16,
+                height: laneHeight - 12,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: entry.isDeadline ? null : color,
@@ -493,7 +676,7 @@ class _AgendaTimelineState extends State<AgendaTimeline> {
                                   Flexible(
                                     child: Text(
                                       entry.title,
-                                      maxLines: 2,
+                                      maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       textAlign: entry.isDeadline
                                           ? TextAlign.right
@@ -512,7 +695,14 @@ class _AgendaTimelineState extends State<AgendaTimeline> {
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(icon, size: 13, color: foreground),
+                                      Icon(
+                                        icon,
+                                        size: 13 * math.max(
+                                          1.0,
+                                          MediaQuery.textScalerOf(context).scale(14) / 14,
+                                        ),
+                                        color: foreground,
+                                      ),
                                       const SizedBox(width: 3),
                                       Flexible(
                                         child: Text(
@@ -522,6 +712,7 @@ class _AgendaTimelineState extends State<AgendaTimeline> {
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
                                             fontSize: 11,
+                                            height: 1.1,
                                             color: foreground,
                                           ),
                                         ),
@@ -548,6 +739,7 @@ class _TimelineGridPainter extends CustomPainter {
     required this.center,
     required this.now,
     required this.pixelsPerHour,
+    required this.cellWidth,
     required this.scheme,
     required this.textStyle,
     required this.textScaler,
@@ -557,10 +749,31 @@ class _TimelineGridPainter extends CustomPainter {
   final DateTime center;
   final DateTime now;
   final double pixelsPerHour;
+  final double cellWidth;
   final ColorScheme scheme;
   final TextStyle textStyle;
   final TextScaler textScaler;
   final bool header;
+
+  TextPainter _text(String text, {bool bold = false}) => TextPainter(
+        text: TextSpan(
+          text: text,
+          style: textStyle.copyWith(
+            color: scheme.onSurfaceVariant,
+            fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+        textScaler: textScaler,
+        maxLines: 1,
+      )..layout();
+
+  double _textWidth(String text, {bool bold = false}) {
+    final painter = _text(text, bold: bold);
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -580,68 +793,85 @@ class _TimelineGridPainter extends CustomPainter {
           .ceil(),
     ));
     final today = calendarDate(now);
+    final tomorrow = DateTime.utc(today.year, today.month, today.day + 1);
     final dayWidth = 24 * pixelsPerHour;
     canvas.drawRect(
-      Rect.fromLTRB(x(today), 0, x(today) + dayWidth, size.height),
+      Rect.fromLTRB(x(today), 0, x(tomorrow), size.height),
       Paint()..color = scheme.primary.withValues(alpha: 0.06),
     );
     final gridPaint = Paint()
       ..strokeWidth = 1
       ..color = scheme.outlineVariant.withValues(alpha: 0.65);
-    // Adaptive clock ticks remain readable even with large accessibility text.
-    final minLabelWidth = math.max(60.0, textScaler.scale(46));
+    // Text density must not change the grid's one-day / one-hour endpoints.
     final hourStep = <int>[1, 2, 3, 6, 12, 24].firstWhere(
-      (hours) => hours * pixelsPerHour >= minLabelWidth,
+      (hours) => hours * pixelsPerHour >= cellWidth - 0.001,
       orElse: () => 24,
     );
-    var day = calendarDate(left);
-    while (!day.isAfter(right)) {
+    double maxDigitWidth(bool bold) {
+      var width = 0.0;
+      for (var digit = 0; digit <= 9; digit++) {
+        width = math.max(width, _textWidth('$digit', bold: bold));
+      }
+      return width;
+    }
+    final dateLabelWidth = header
+        ? maxDigitWidth(true) * 4 + _textWidth('/', bold: true) + 8
+        : 0.0;
+    final hourLabelWidth = header
+        ? maxDigitWidth(false) * 4 + _textWidth(':') + 8
+        : 0.0;
+    final dayStride = math.max(1, (dateLabelWidth / dayWidth).ceil());
+    final hourLabelStride = math.max(
+      1,
+      (hourLabelWidth / (hourStep * pixelsPerHour)).ceil(),
+    );
+    // Include adjacent cells based on TEXT bounds, never just tick positions.
+    // Date centers remain the original day's midpoint even at huge day widths.
+    final extraDays = header
+        ? (math.max(dateLabelWidth, hourLabelWidth) / 2 / dayWidth).ceil() + 1
+        : 0;
+    var day = DateTime.utc(left.year, left.month, left.day - extraDays);
+    final lastDay = DateTime.utc(right.year, right.month, right.day + extraDays);
+    while (!day.isAfter(lastDay)) {
+      final nextDay = DateTime.utc(day.year, day.month, day.day + 1);
       final dayX = x(day);
       canvas.drawLine(Offset(dayX, 0), Offset(dayX, size.height), gridPaint);
-      if (header) {
-        final nextX = x(day.add(const Duration(days: 1)));
-        final visibleLeft = math.max(0.0, dayX);
-        final visibleRight = math.min(size.width, nextX);
-        if (visibleRight - visibleLeft > minLabelWidth) {
-          _label(
-            canvas,
-            '${day.month}/${day.day}${day == today ? ' 今天' : ''}',
-            Offset(visibleLeft + 6, 3),
-            math.max(1.0, visibleRight - visibleLeft - 10),
-            bold: true,
-          );
-        }
-      }
-      for (var hour = hourStep; hour < 24; hour += hourStep) {
-        final tick = day.add(Duration(hours: hour));
-        final tickX = x(tick);
-        if (tickX < 0 || tickX > size.width) continue;
-        canvas.drawLine(
-          Offset(tickX, header ? size.height * 0.6 : 0),
-          Offset(tickX, size.height),
-          gridPaint,
+      // UTC calendar ordinals give a stable stride independent of panning/DST.
+      final dayOrdinal = DateTime.utc(day.year, day.month, day.day)
+          .difference(DateTime.utc(1970))
+          .inDays;
+      if (header && dayOrdinal % dayStride == 0) {
+        _label(
+          canvas,
+          size,
+          '${day.month}/${day.day}',
+          Offset((dayX + x(nextDay)) / 2, 3),
+          bold: true,
         );
-        if (header) {
+      }
+      for (var hour = 0; hour < 24; hour += hourStep) {
+        final tick = DateTime.utc(day.year, day.month, day.day, hour);
+        final tickX = x(tick);
+        if (hour != 0) {
+          canvas.drawLine(
+            Offset(tickX, header ? size.height / 2 : 0),
+            Offset(tickX, size.height),
+            gridPaint,
+          );
+        }
+        if (header && hourStep < 24 &&
+            (dayOrdinal * (24 ~/ hourStep) + hour ~/ hourStep) %
+                    hourLabelStride == 0) {
+          final cellEnd = DateTime.utc(day.year, day.month, day.day, hour + hourStep);
           _label(
             canvas,
+            size,
             '${hour.toString().padLeft(2, '0')}:00',
-            Offset(tickX + 4, size.height * 0.53),
-            math.max(1.0, hourStep * pixelsPerHour - 8),
+            Offset((tickX + x(cellEnd)) / 2, size.height / 2),
           );
         }
       }
-      day = day.add(const Duration(days: 1));
-    }
-    final nowX = x(now);
-    if (nowX >= 0 && nowX <= size.width) {
-      canvas.drawLine(
-        Offset(nowX, 0),
-        Offset(nowX, size.height),
-        Paint()..color = scheme.error..strokeWidth = 1.5,
-      );
-      if (header) {
-        canvas.drawCircle(Offset(nowX, size.height - 3), 3, Paint()..color = scheme.error);
-      }
+      day = nextDay;
     }
     if (header) {
       canvas.drawLine(
@@ -655,25 +885,18 @@ class _TimelineGridPainter extends CustomPainter {
 
   void _label(
     Canvas canvas,
+    Size viewport,
     String text,
-    Offset offset,
-    double maxWidth, {
+    Offset centerTop, {
     bool bold = false,
   }) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: textStyle.copyWith(
-          color: scheme.onSurfaceVariant,
-          fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      textScaler: textScaler,
-      maxLines: 1,
-      ellipsis: '…',
-    )..layout(maxWidth: maxWidth);
-    painter.paint(canvas, offset);
+    final painter = _text(text, bold: bold);
+    final offset = Offset(centerTop.dx - painter.width / 2, centerTop.dy);
+    // Full intrinsic width, fixed cell center; only the viewport clips text.
+    if ((offset & painter.size).overlaps(Offset.zero & viewport)) {
+      painter.paint(canvas, offset);
+    }
+    painter.dispose();
   }
 
   @override
@@ -681,8 +904,50 @@ class _TimelineGridPainter extends CustomPainter {
       oldDelegate.center != center ||
       oldDelegate.now != now ||
       oldDelegate.pixelsPerHour != pixelsPerHour ||
+      oldDelegate.cellWidth != cellWidth ||
       oldDelegate.scheme != scheme ||
       oldDelegate.textStyle != textStyle ||
       oldDelegate.textScaler != textScaler ||
       oldDelegate.header != header;
+}
+
+/// Foreground decoration across header and lanes; never participates in input.
+class _TimelineNowPainter extends CustomPainter {
+  const _TimelineNowPainter({
+    required this.center,
+    required this.now,
+    required this.pixelsPerHour,
+    required this.color,
+  });
+
+  final DateTime center;
+  final DateTime now;
+  final double pixelsPerHour;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final nowX = size.width / 2 +
+        now.difference(center).inMicroseconds /
+            _microsecondsPerHour * pixelsPerHour;
+    if (nowX < 0 || nowX > size.width) return;
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+    canvas.drawLine(
+      Offset(nowX, 0),
+      Offset(nowX, size.height),
+      Paint()..color = color..strokeWidth = 1.5,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool? hitTest(Offset position) => false;
+
+  @override
+  bool shouldRepaint(covariant _TimelineNowPainter oldDelegate) =>
+      oldDelegate.center != center ||
+      oldDelegate.now != now ||
+      oldDelegate.pixelsPerHour != pixelsPerHour ||
+      oldDelegate.color != color;
 }
