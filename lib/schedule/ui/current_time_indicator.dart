@@ -54,18 +54,6 @@ class CurrentTimeIndicator extends StatelessWidget {
                 ),
               ),
             ),
-            Positioned(
-              left: day * columnWidth + _horizontalInset - 2,
-              top: (top - 1.5).clamp(0.0, gridHeight - 5),
-              width: 5,
-              height: 5,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
           ],
         ),
       ),
