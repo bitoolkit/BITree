@@ -78,10 +78,12 @@ class SchoolController extends ChangeNotifier {
     AppDiagnostics.instance.info('开始$label');
     try {
       final success = await operation();
-      _status = _username == null
-          ? AccountStatus.signedOut
-          : AccountStatus.signedIn;
-      if (success) AppDiagnostics.instance.info('$label完成');
+      if (success) {
+        _status = _username == null
+            ? AccountStatus.signedOut
+            : AccountStatus.signedIn;
+        AppDiagnostics.instance.info('$label完成');
+      }
       return success;
     } on RequestCancelled {
       return false;
@@ -139,7 +141,7 @@ class SchoolController extends ChangeNotifier {
 
   Future<bool> synchronize({String? term, required VerifySchoolLogin verify}) =>
       _run(
-        '导入课表',
+        '同步课表',
         () => _access.read(verify, (session) async {
           final result = await _service.synchronize(
             session,
@@ -153,7 +155,7 @@ class SchoolController extends ChangeNotifier {
 
   Future<bool> importExams({String? term, required VerifySchoolLogin verify}) =>
       _run(
-        '获取考试安排',
+        '同步考试安排',
         () => _access.read(verify, (session) async {
           final result = await _service.exams(
             session,
@@ -166,7 +168,7 @@ class SchoolController extends ChangeNotifier {
       );
 
   Future<bool> importGrades({required VerifySchoolLogin verify}) =>
-      _run('导入成绩', () async {
+      _run('同步成绩', () async {
         final grades = await _access.read(
           verify,
           fetchSchoolGrades,
@@ -181,27 +183,50 @@ class SchoolController extends ChangeNotifier {
       });
 
   Future<bool> importStudyPlan({required VerifySchoolLogin verify}) =>
-      _run('更新学分进度', () async {
+      _run('同步学分进度', () async {
         final plan = await _access.read(verify, fetchStudyPlan);
         return _academics.save(
           _academics.record.copyWith(plan: plan, planUpdatedAt: DateTime.now()),
         );
       });
 
-  Future<bool> importDeadlines(
-    DeadlineSource source, {
+  Future<bool> importDeadlines({
+    DeadlineSource? source,
     required VerifySchoolLogin verify,
-  }) => _run(
-    '更新${source.label} DDL',
-    () => _access.readLearningPlatform(source, verify, (session, page) async {
-      final deadlines = await switch (source) {
-        DeadlineSource.lexue => fetchLexueDeadlines(session, page),
-        DeadlineSource.eclass => fetchEclassDeadlines(session),
-      };
-      session.checkActive();
-      return _agenda.mergeDeadlines(deadlines);
-    }),
-  );
+  }) => _run('同步 DDL', () async {
+    var success = true;
+    final sources = source == null ? DeadlineSource.values : [source];
+    for (final source in sources) {
+      try {
+        final saved = await _access.readLearningPlatform(source, verify, (
+          session,
+          page,
+        ) async {
+          final deadlines = await switch (source) {
+            DeadlineSource.lexue => fetchLexueDeadlines(session, page),
+            DeadlineSource.eclass => fetchEclassDeadlines(session),
+          };
+          session.checkActive();
+          return _agenda.mergeDeadlines(deadlines);
+        });
+        success = saved && success;
+      } on RequestCancelled {
+        rethrow;
+      } catch (failure, stack) {
+        success = false;
+        if (failure is SessionExpired || failure is SchoolCredentialsRequired) {
+          requireLogin();
+        }
+        AppDiagnostics.instance.report(
+          '同步${source.label} DDL',
+          failure,
+          stack,
+          message: '${source.label} DDL 同步失败，可稍后重试。',
+        );
+      }
+    }
+    return success;
+  });
 
   void cancel() => _access.cancel();
 

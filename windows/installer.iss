@@ -2,8 +2,8 @@
 AppId=dev.so1ve.bitree
 AppName=BITree
 AppVersion={#AppVersion}
-AppPublisher=BITree
-AppPublisherURL=https://github.com/so1ve/bitree
+AppPublisher=BIToolkit
+AppPublisherURL=https://github.com/bitoolkit
 DefaultDirName={localappdata}\Programs\BITree
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible

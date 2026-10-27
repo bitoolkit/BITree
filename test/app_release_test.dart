@@ -8,7 +8,7 @@ Map<String, dynamic> _release(
   bool development = false,
 }) => {
   'tag_name': development ? 'v0.2.0-dev' : 'v0.2.0',
-  'html_url': 'https://github.com/so1ve/bitree/releases/tag/v0.2.0',
+  'html_url': 'https://github.com/bitoolkit/bitree/releases/tag/v0.2.0',
   'body': '更新说明',
   'prerelease': development,
   'assets': [
@@ -38,7 +38,7 @@ void main() {
           release.downloadUrl.path,
           endsWith('-android-$architecture$suffix.apk'),
         );
-        expect(release.url.path, '/so1ve/bitree/releases/tag/v0.2.0');
+        expect(release.url.path, '/bitoolkit/bitree/releases/tag/v0.2.0');
         expect(release.version, 'v0.2.0');
         expect(release.notes, '更新说明');
       });

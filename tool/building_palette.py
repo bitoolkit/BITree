@@ -66,11 +66,24 @@ def srgb(lightness, a, b):
     return 0xFF000000 | red << 16 | green << 8 | blue
 
 
-def colors(a, b):
+def colors(hue, chroma=1):
+    a = math.cos(math.radians(hue)) * chroma
+    b = math.sin(math.radians(hue)) * chroma
     return {
-        "light": [srgb(0.91, a, b), srgb(0.34, a, b), srgb(0.56, a * 1.3, b * 1.3)],
-        "dark": [srgb(0.30, a * 0.55, b * 0.55), srgb(0.86, a * 0.6, b * 0.6), srgb(0.72, a, b)],
+        "light": [srgb(0.90, a * 0.065, b * 0.065), srgb(0.27, 0, 0), srgb(0.46, a * 0.12, b * 0.12)],
+        "dark": [srgb(0.30, a * 0.045, b * 0.045), srgb(0.95, 0, 0), srgb(0.78, a * 0.12, b * 0.12)],
     }
+
+
+# Fixed colour families make the teaching areas recognizable. Map coordinates
+# choose the nearest area; small variations distinguish neighbouring buildings.
+AREAS = [
+    ("northTeaching", 1630, 2375, 250),
+    ("wencui", 2240, 2570, 164),
+    ("southScience", 1690, 3600, 78),
+    ("eastFacilities", 2820, 2750, 310),
+    ("southEngineering", 2220, 4420, 42),
+]
 
 
 def pattern(aliases):
@@ -85,11 +98,9 @@ def pattern(aliases):
 def palette():
     buildings = []
     for name, x, y, aliases in BUILDINGS:
-        # A continuous colour plane keeps neighbours similar across area names.
-        # East shifts toward green, south toward yellow; tanh bounds the gamut.
-        a = 0.065 * math.tanh((1800 - x) / 650)
-        b = 0.065 * math.tanh((y - 2850) / 800)
-        buildings.append({"name": name, "point": [x, y], "aliases": aliases, "pattern": pattern(aliases), **colors(a, b)})
+        area, cx, cy, hue = min(AREAS, key=lambda area: (x - area[1]) ** 2 + (y - area[2]) ** 2)
+        hue += 10 * math.tanh((cy - y) / 350) + 6 * math.tanh((cx - x) / 350)
+        buildings.append({"name": name, "area": area, "point": [x, y], "aliases": aliases, "pattern": pattern(aliases), **colors(hue)})
     return {"neutral": colors(0, 0), "buildings": buildings}
 
 
@@ -112,6 +123,7 @@ def generate():
         lines.extend([
             "  (", f"    r'{building['pattern']}',", "    BuildingPalette(",
             f"      name: '{building['name']}',",
+            f"      area: CampusArea.{building['area']},",
             f"      light: {dart_colors(building['light'])},",
             f"      dark: {dart_colors(building['dark'])},", "    ),", "  ),",
         ])

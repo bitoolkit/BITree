@@ -14,7 +14,7 @@ AppRelease _release({
 }) => AppRelease.fromGitHub({
   'tag_name': development ? 'v0.2.0-dev' : 'v0.2.0',
   'html_url':
-      'https://github.com/so1ve/bitree/releases/tag/${development ? 'dev' : 'stable'}',
+      'https://github.com/bitoolkit/bitree/releases/tag/${development ? 'dev' : 'stable'}',
   'body': notes ?? '## 更新内容\n\n修复课程显示，改进更新下载。',
   'prerelease': development,
   'assets': [
@@ -131,6 +131,46 @@ void main() {
     expect(launched, [release.url.toString(), release.downloadUrl.toString()]);
     expect(find.byType(UpdateDialog), findsNothing);
   });
+
+  testWidgets(
+    'The full changelog opens the exact version comparison without closing the dialog',
+    (tester) async {
+      const comparison =
+          'https://github.com/bitoolkit/bitree/compare/1111111...3333333';
+      await _show(
+        tester,
+        releases: [
+          _release(notes: '- 本次修复\n\n另有 12 项变更，[查看完整变更]($comparison)。'),
+        ],
+      );
+      const label = '查看完整变更';
+      final paragraph = find.byWidgetPredicate(
+        (widget) =>
+            widget is SelectableText &&
+            widget.textSpan!.toPlainText().contains(label),
+      );
+      final editable = tester
+          .state<EditableTextState>(
+            find.descendant(of: paragraph, matching: find.byType(EditableText)),
+          )
+          .renderEditable;
+      final start = editable.text!.toPlainText().indexOf(label);
+      final box = editable
+          .getBoxesForSelection(
+            TextSelection(
+              baseOffset: start,
+              extentOffset: start + label.length,
+            ),
+          )
+          .first;
+      await tester.tapAt(editable.localToGlobal(box.toRect().center));
+      await tester.pumpAndSettle();
+      expect(launched, [comparison]);
+      expect(find.byType(UpdateDialog), findsOneWidget);
+      expect(find.text('发布页'), findsOneWidget);
+      expect(find.text('下载测试版'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'Selecting a release updates both actions and keeps three buttons',

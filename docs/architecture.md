@@ -1,6 +1,6 @@
 # 代码结构与数据流
 
-各功能放在同名目录：`schedule`、`agenda`、`academics`、`classrooms`、`school`、`wencui` 和 `updates`。功能的页面与表单位于各自的 `ui/`；跨功能控件、主题和动效位于 `lib/ui/`。通用异步、文件和平台访问位于 `lib/core/`。
+各功能放在同名目录：`schedule`、`agenda`、`study`、`academics`、`classrooms`、`school`、`wencui` 和 `updates`。功能的页面与表单位于各自的 `ui/`；跨功能控件、主题和动效位于 `lib/ui/`。通用异步、文件和平台访问位于 `lib/core/`。
 
 `main.dart` 创建依赖。`AppController` 负责组合模块、启动和外观设置。各功能控制器拥有自己的状态，页面通过 Flutter 的 `ListenableBuilder` 监听所需模块；功能更新不会经过根控制器转发给整个应用。
 
@@ -17,9 +17,15 @@ flowchart LR
   Controller --> View[监听该模块的页面]
 ```
 
-`SchoolController` 负责登录状态、同步操作、请求繁忙状态和错误反馈。成功获取课表、DDL、考试或成绩后，交给相应功能控制器合并并保存。`SchoolAccess` 负责会话生命周期、取消和直连失败后的 WebVPN 重试；`SchoolSession` 负责 HTTP、Cookie 与响应读取。乐学和新延河课堂沿用可校外直连的访问方式。
+`SchoolController` 负责登录状态、同步操作、请求繁忙状态和错误反馈。成功获取课表、DDL、考试或成绩后，交给相应功能控制器合并并保存。
+
+`SchoolAccess` 负责认证流程。每次操作由 `SchoolConnection` 并行探测服务的校内直连和 WebVPN 入口，使用先连通的一条，并关闭另一条探测连接。探测不带 Cookie、不跟随重定向，也不执行登录或业务操作；单条探测最多等待 8 秒。选定通道出现连接故障时，至多通过另一条通道重新执行一次，不重试账号密码错误或数据解析错误。登录端点连接失败时，也会尝试另一通道，因为它可能已有有效会话。
+
+每次操作重新选路，不沿用上一次的通道；取消操作会关闭探测和业务连接。日志记录所选通道和目标端点。`SchoolSession` 负责 HTTP、Cookie 与响应读取。乐学和新延河课堂仅使用可校外访问的直连入口。
 
 数据仍使用 `schedule.json`、`agenda.json`、`academics.json` 和原有 JSON 字段；凭据与 Cookie 仍使用原有系统安全存储。DDL 同步保留本地编辑、删除标记和已完成状态，并接收平台完成状态。恢复已删除 DDL 是独立操作。
+
+日程导入菜单保留乐学、新延河课堂与大物实验三个独立更新入口；平台更新只请求所选来源，登录与验证也绑定该来源。`SchoolController.importDeadlines` 的可选 `source` 用于单来源请求，省略时仍支持依次处理全部平台，并保留逐平台错误处理、取消和登录状态修复。菜单在学校网络忙碌时仍可打开，远端操作单独禁用；大物实验等本地操作只受本地数据加载和保存状态限制。
 
 ## 大物实验 DDL 与分类清空
 
@@ -51,6 +57,14 @@ DDL 绘制与布局分离：右端为 `dueAt`，左侧渐隐，屏幕宽度为�
 
 `ClassroomRepository` 持有教室数据缓存。同账号的教学楼目录缓存一天，占用情况缓存五分钟；相同查询共享进行中的请求。切换账号或退出登录会清空缓存，刷新目录也会清空占用缓存。取消或失败的结果不会缓存。
 
+## 学习
+
+`StudyController` 管理课程、课时及其资料，`StudyStore` 将索引和每节课的资料分别保存到本地 `study/` 目录。录播、课件、字幕和笔记都使用课程编号和课时编号定位。播放位置与随堂笔记会保存，生成笔记与手写笔记分开存储。
+
+`YanhektRepository` 复用学校 CAS 登录和安全 Cookie 存储，直接请求延河课堂接口。录播的 HLS 请求通过只监听本机的 `StudyMediaProxy` 转发，每个媒体片段重新签名。下载使用流式文件写入，保留中断的片段。播放器使用 `media_kit`；课件图像比较和 PDF 生成放在 isolate 中。
+
+`StudyTasks` 同时执行两个任务，切换页面不会取消任务；应用进程关闭时任务停止，重新保存录播可继续已有下载。`StudyModel` 使用 `openai_dart` 的流式接口和请求取消能力，UI 更新最多每 100 毫秒一次。停止或网络中断时保留已收到的文字。模型地址、名称与密钥使用系统安全存储。必剪仅在用户确认后上传所选音频。
+
 ## 手势与布局
 
 - `SwipePager` 统一鼠标与触摸分页，拖过半页即报告新页，程序切页不报告中间页。
@@ -65,7 +79,7 @@ DDL 绘制与布局分离：右端为 `dueAt`，左侧渐隐，屏幕宽度为�
 
 ```sh
 dart format lib test
-flutter analyze --no-pub lib test
+flutter analyze --no-pub
 flutter test --no-pub
 ```
 

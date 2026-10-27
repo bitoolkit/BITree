@@ -30,6 +30,8 @@
 	<string>NSApplication</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
 		<key>NSExceptionDomains</key>
 		<dict>
 			<key>jwms.bit.edu.cn</key>

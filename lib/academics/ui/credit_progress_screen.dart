@@ -61,7 +61,7 @@ class CreditProgressScreen extends StatelessWidget {
           else if (plan == null && record.gradesUpdatedAt == null)
             AcademicEmpty(
               title: '还没有学分记录',
-              label: '获取学分进度',
+              label: SchoolAction.importStudyPlan.label,
               onPressed: controller.school.busy
                   ? null
                   : () => openSchoolPage(
@@ -158,11 +158,11 @@ class CreditProgressScreen extends StatelessWidget {
                         action: SchoolAction.importGrades,
                       ),
                 icon: const Icon(Icons.download_rounded),
-                label: const Text('导入成绩，查看分类学分'),
+                label: const Text('同步成绩，查看分类学分'),
               ),
             const SizedBox(height: 20),
             Text(
-              '分类学分按已导入成绩汇总，同一课程只计一次。分类要求需按你的培养方案核对；不估算在修学分。毕业认定以学校审核为准。',
+              '分类学分按已同步成绩汇总，同一课程只计一次。分类要求需按你的培养方案核对；不估算在修学分。毕业认定以学校审核为准。',
               style: theme.textTheme.bodySmall,
             ),
             if (record.planUpdatedAt ?? record.gradesUpdatedAt

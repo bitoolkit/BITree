@@ -39,7 +39,7 @@ class SchoolImportButton extends StatelessWidget {
                   controller,
                   action: SchoolAction.importSchedule,
                 ),
-          child: const Text('导入课表'),
+          child: Text(SchoolAction.importSchedule.label),
         ),
         AppMenuItemButton(
           leadingIcon: const Icon(Icons.edit_note_rounded),
@@ -50,7 +50,7 @@ class SchoolImportButton extends StatelessWidget {
                   controller,
                   action: SchoolAction.importExams,
                 ),
-          child: const Text('获取考试安排'),
+          child: Text(SchoolAction.importExams.label),
         ),
         const Divider(),
         for (final action in [

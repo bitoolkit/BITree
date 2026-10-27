@@ -276,7 +276,7 @@ ThemeData bitreeTheme(Brightness brightness) {
   );
 }
 
-({Color fill, Color text, Color accent}) courseColors(
+({Color fill, Color text, Color accent, Color elapsedFill}) courseColors(
   BuildContext context,
   Course course,
 ) {
@@ -290,5 +290,6 @@ ThemeData bitreeTheme(Brightness brightness) {
     fill: Color(colors.fill),
     text: Color(colors.text),
     accent: Color(colors.accent),
+    elapsedFill: Color.lerp(Color(colors.fill), Color(colors.accent), 0.32)!,
   );
 }

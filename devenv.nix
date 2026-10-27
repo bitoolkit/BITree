@@ -47,7 +47,11 @@
       gtk3
       libgcrypt
       libsecret
+      mpv
     ];
+
+  # Expose mpv's development dependencies to pkg-config.
+  inputsFrom = lib.optionals pkgs.stdenv.isLinux [ pkgs.mpv.unwrapped ];
 
   env = {
     FLUTTER_GRADLE_PROJECT_DIR = "${config.devenv.state}/flutter-gradle";
@@ -57,6 +61,7 @@
       pkgs.mesa
       pkgs.libGL
       pkgs.libsecret
+      pkgs.mpv
     ];
     __EGL_VENDOR_LIBRARY_FILENAMES = "${pkgs.mesa}/share/glvnd/egl_vendor.d/50_mesa.json";
     LIBGL_DRIVERS_PATH = "${pkgs.mesa}/lib/dri";
@@ -77,6 +82,7 @@
           pkgs.mesa
           pkgs.libGL
           pkgs.libsecret
+          pkgs.mpv
         ]
       }:/run/opengl-driver/lib'
     ''

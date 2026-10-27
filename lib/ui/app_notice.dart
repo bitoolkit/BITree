@@ -27,16 +27,16 @@ void showOverlayNotice(
 }) {
   _dismissNotice();
   late final OverlayEntry entry;
+  void dismiss() {
+    if (identical(_notice, entry)) _dismissNotice();
+  }
+
   entry = OverlayEntry(
     builder: (context) {
       final theme = Theme.of(context);
       return _NoticeLifetime(
-        duration: action != null && MediaQuery.accessibleNavigationOf(context)
-            ? null
-            : Duration(seconds: action == null ? 4 : 8),
-        onDismiss: () {
-          if (identical(_notice, entry)) _dismissNotice();
-        },
+        duration: Duration(seconds: action == null ? 2 : 5),
+        onDismiss: dismiss,
         child: Positioned(
           bottom:
               math.max(
@@ -54,48 +54,64 @@ void showOverlayNotice(
             child: Align(
               alignment: Alignment.bottomCenter,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
-                child: Listener(
-                  behavior: HitTestBehavior.opaque,
-                  child: Material(
-                    color: theme.colorScheme.inverseSurface,
-                    borderRadius: AppCorners.control,
-                    elevation: 6,
-                    child: Semantics(
-                      liveRegion: true,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: action == null ? 12 : 4,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                message,
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onInverseSurface,
+                constraints: BoxConstraints(
+                  minHeight: appControlSize.height,
+                  maxWidth: 560,
+                ),
+                child: Semantics(
+                  container: true,
+                  liveRegion: true,
+                  onDismiss: dismiss,
+                  child: Dismissible(
+                    key: ObjectKey(entry),
+                    direction: DismissDirection.horizontal,
+                    resizeDuration: null,
+                    movementDuration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : Durations.short4,
+                    onDismissed: (_) => dismiss(),
+                    child: Listener(
+                      behavior: HitTestBehavior.opaque,
+                      child: Material(
+                        color: theme.colorScheme.inverseSurface,
+                        borderRadius: AppCorners.control,
+                        elevation: 6,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  child: Text(
+                                    message,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: theme.colorScheme.onInverseSurface,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                            if (action != null) ...[
-                              const SizedBox(width: 12),
-                              TextButton(
-                                style: TextButton.styleFrom(
-                                  foregroundColor:
-                                      theme.colorScheme.inversePrimary,
+                              if (action != null) ...[
+                                const SizedBox(width: 12),
+                                TextButton(
+                                  style: TextButton.styleFrom(
+                                    foregroundColor:
+                                        theme.colorScheme.inversePrimary,
+                                  ),
+                                  onPressed: () {
+                                    dismiss();
+                                    action.onPressed();
+                                  },
+                                  child: Text(action.label),
                                 ),
-                                onPressed: () {
-                                  _dismissNotice();
-                                  action.onPressed();
-                                },
-                                child: Text(action.label),
-                              ),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -125,7 +141,7 @@ class _NoticeLifetime extends StatefulWidget {
     required this.onDismiss,
     required this.child,
   });
-  final Duration? duration;
+  final Duration duration;
   final VoidCallback onDismiss;
   final Widget child;
 
@@ -134,19 +150,17 @@ class _NoticeLifetime extends StatefulWidget {
 }
 
 class _NoticeLifetimeState extends State<_NoticeLifetime> {
-  Timer? _timer;
+  late final Timer _timer;
 
   @override
   void initState() {
     super.initState();
-    if (widget.duration case final duration?) {
-      _timer = Timer(duration, widget.onDismiss);
-    }
+    _timer = Timer(widget.duration, widget.onDismiss);
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _timer.cancel();
     widget.onDismiss();
     super.dispose();
   }

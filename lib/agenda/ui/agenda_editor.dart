@@ -212,9 +212,10 @@ class _AgendaEditorState extends State<_AgendaEditor> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final kindLabel = _kind == AgendaKind.event ? '日程' : _kind.label;
 
     return EditorSheet(
-      title: '${widget.entry == null ? '添加' : '编辑'}${_kind.label}',
+      title: '${widget.entry == null ? '添加' : '编辑'}$kindLabel',
       onDelete: widget.entry == null ? null : _delete,
       saveLabel: _saving
           ? const SizedBox.square(

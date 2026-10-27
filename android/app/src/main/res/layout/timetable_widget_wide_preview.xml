@@ -3,7 +3,7 @@
     android:layout_width="306dp"
     android:layout_height="146dp">
     <include
-        layout="@layout/timetable_widget_wide"
+        layout="@layout/timetable_widget"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 </FrameLayout>

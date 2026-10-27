@@ -7,6 +7,7 @@
     android:paddingStart="@dimen/widget_padding"
     android:paddingEnd="@dimen/widget_padding"
     android:paddingTop="8dp"
+    android:paddingBottom="8dp"
     android:background="@drawable/widget_background"
     android:clipToOutline="true">
     <include layout="@layout/widget_header" />
@@ -15,15 +16,12 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:layout_marginTop="6dp">
-        <GridView
+        <ListView
             android:id="@+id/widget_courses"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:paddingBottom="8dp"
-            android:numColumns="1"
-            android:stretchMode="columnWidth"
-            android:horizontalSpacing="@dimen/widget_column_spacing"
-            android:verticalSpacing="4dp"
+            android:layout_height="wrap_content"
+            android:divider="@null"
+            android:dividerHeight="0dp"
             android:scrollbars="vertical"
             android:scrollbarStyle="insideOverlay"
             android:scrollbarSize="2dp"
@@ -35,7 +33,6 @@
             android:id="@+id/widget_empty"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:paddingBottom="8dp"
             android:gravity="center"
             android:text="@string/widget_today_empty"
             android:textColor="@color/widget_muted"

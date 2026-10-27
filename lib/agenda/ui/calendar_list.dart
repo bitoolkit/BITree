@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import '../../app/controller.dart';
 import '../../schedule/model.dart';
 import '../../schedule/ui/course_detail.dart';
+import '../../ui/campus_time_builder.dart';
 import '../../ui/design.dart';
 import '../../ui/sheet_layout.dart';
 import '../calendar.dart';
 import '../model.dart';
 import 'agenda_detail.dart';
+import 'agenda_list_tile.dart';
 import 'agenda_time.dart';
 import 'completion_text.dart';
 
@@ -21,23 +23,104 @@ Future<void> showAgendaDay(
   BuildContext context,
   AppController controller,
   DateTime date,
-) => showCalendarItems(
-  context,
-  controller,
-  agendaDateLabel(date),
-  controller.agenda
-      .pendingOn(date, now: campusNow())
-      .map(CalendarItem.agenda)
-      .toList(),
-  emptyMessage: '没有未完成的日程',
-);
+) async {
+  final selected = await showModalBottomSheet<AgendaEntry>(
+    context: context,
+    useSafeArea: true,
+    isScrollControlled: true,
+    builder: (context) => CampusTimeBuilder(
+      active: true,
+      builder: (context, now) => ListenableBuilder(
+        listenable: controller.agenda,
+        builder: (context, _) {
+          final pending = controller.agenda.pendingOn(date, now: now);
+          final completed =
+              controller.agenda.entries
+                  .where((entry) => entry.done && entry.occursOn(date))
+                  .toList()
+                ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+          Widget row(AgendaEntry entry) => AgendaListTile(
+            key: ValueKey(entry.id),
+            controller: controller,
+            entry: entry,
+            now: now,
+            onTap: () => Navigator.pop(context, entry),
+          );
+          return SafeArea(
+            top: false,
+            child: SheetLayout(
+              header: SheetHeader(
+                title: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(agendaDateLabel(date)),
+                    if (pending.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '${pending.length}项日程',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
+                ),
+                actions: [
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                  ),
+                ],
+              ),
+              content: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final entry in pending) row(entry),
+                    if (pending.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
+                        child: Text(
+                          '没有未完成的日程',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                        ),
+                      ),
+                    if (completed.isNotEmpty)
+                      ExpansionTile(
+                        title: Text(
+                          '已完成 ${completed.length}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        shape: const Border(),
+                        collapsedShape: const Border(),
+                        children: [for (final entry in completed) row(entry)],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    ),
+  );
+  if (selected != null && context.mounted) {
+    await showAgendaEntry(context, controller, selected);
+  }
+}
 
 Future<void> openCalendarItem(
   BuildContext context,
   AppController controller,
   CalendarItem item,
 ) => item.course != null
-    ? showCourse(context, controller, item.course!)
+    ? showCourse(context, controller, item.course!, date: item.startsAt)
     : showAgendaEntry(context, controller, item.entry!);
 
 Future<void> showCalendarItems(

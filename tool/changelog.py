@@ -36,7 +36,7 @@ def _unreleased_changes():
     for commit in commits.splitlines():
         sha, subject = commit.split("\t", 1)
         lines.append(
-            f"- {subject} ([{sha[:7]}](https://github.com/so1ve/bitree/commit/{sha}))"
+            f"- {subject} ([{sha[:7]}](https://github.com/bitoolkit/bitree/commit/{sha}))"
         )
     return previous, lines
 
@@ -63,7 +63,7 @@ def update_changelog(tag):
         lines.extend(
             [
                 "",
-                f"[完整变更](https://github.com/so1ve/bitree/compare/{previous}...{tag})",
+                f"[完整变更](https://github.com/bitoolkit/bitree/compare/{previous}...{tag})",
             ]
         )
 

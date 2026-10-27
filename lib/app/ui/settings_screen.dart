@@ -5,6 +5,7 @@ import '../../agenda/ui/clear_deadlines_dialog.dart';
 import '../../schedule/ui/week_range_dialog.dart';
 import '../../school/ui/school_account.dart';
 import '../../school/ui/school_screen.dart';
+import '../../study/ui/study_services.dart';
 import '../../ui/app_menu_anchor.dart';
 import '../../ui/app_menu_trigger.dart';
 import '../../ui/app_page.dart';
@@ -129,12 +130,33 @@ class SettingsScreen extends StatelessWidget {
             children: [
               const Text('面向北京理工大学的本地跨平台工具集。'),
               const SizedBox(height: 12),
-              DefaultTextStyle(
-                style: theme.textTheme.bodySmall!,
-                child: const Wrap(
-                  spacing: 12,
-                  runSpacing: 4,
-                  children: [Text('Made by Ray & Purple Rain'), Text('Unlicense')],
+              Semantics(
+                link: true,
+                child: InkWell(
+                  onTap: () => openExternalLink(
+                    dialogContext,
+                    Uri.https('github.com', '/bitoolkit'),
+                    failureTitle: '无法打开 BIToolkit',
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          const TextSpan(text: 'Unlicense. Made by '),
+                          TextSpan(
+                            text: 'BIToolkit',
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                          const TextSpan(text: ' with ♥️'),
+                        ],
+                      ),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -159,7 +181,7 @@ class SettingsScreen extends StatelessWidget {
             TextButton(
               onPressed: () => openExternalLink(
                 dialogContext,
-                Uri.https('github.com', '/so1ve/bitree'),
+                Uri.https('github.com', '/bitoolkit/bitree'),
                 failureTitle: '无法打开 GitHub',
               ),
               child: const Text('GitHub'),
@@ -304,6 +326,17 @@ class SettingsScreen extends StatelessWidget {
             ),
           ]),
           section('应用', [
+            ListTile(
+              contentPadding: tilePadding,
+              leading: const Icon(Icons.auto_stories_outlined),
+              title: const Text('学习服务'),
+              trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => StudyServices(model: controller.study.model),
+                ),
+              ),
+            ),
             ListTile(
               contentPadding: tilePadding,
               leading: const Icon(Icons.description_outlined),

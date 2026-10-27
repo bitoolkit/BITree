@@ -60,4 +60,41 @@ void main() {
     expect(find.byKey(const ValueKey('task')).hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('Swiping away deletion feedback keeps the deadline deleted', (
+    tester,
+  ) async {
+    final app = await showAgenda(tester);
+    await tester.drag(
+      find.byKey(const ValueKey('task')),
+      const Offset(-140, 0),
+    );
+    await tester.pumpAndSettle();
+    await tester.fling(find.text('已删除“第三章作业”'), const Offset(240, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text('撤销'), findsNothing);
+    expect(app.agenda.entries, isEmpty);
+    expect(app.agenda.deletedDeadlines.single.id, 'task');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'Undo restores the deadline and recovery feedback expires after two seconds',
+    (tester) async {
+      final app = await showAgenda(tester);
+      await tester.drag(
+        find.byKey(const ValueKey('task')),
+        const Offset(-140, 0),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('撤销'));
+      await tester.pumpAndSettle();
+      expect(app.agenda.entries.single.id, 'task');
+      expect(app.agenda.deletedDeadlines, isEmpty);
+      expect(find.text('已恢复“第三章作业”'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('已恢复“第三章作业”'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

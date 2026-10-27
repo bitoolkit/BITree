@@ -7,6 +7,7 @@ import '../../agenda/ui/calendar_screen.dart';
 import '../../core/diagnostics.dart';
 import '../../schedule/ui/home_screen.dart';
 import '../../school/ui/school_verification_dialog.dart';
+import '../../study/ui/study_screen.dart';
 import '../../ui/app_notice.dart';
 import '../../ui/app_page.dart';
 import '../../ui/campus_time_builder.dart';
@@ -96,6 +97,7 @@ class _AppScreenState extends State<AppScreen> {
                 now: now,
                 active: _tab == 1,
               ),
+              StudyScreen(controller: widget.controller),
               ToolsScreen(controller: widget.controller),
               SettingsScreen(
                 controller: widget.controller,
@@ -157,6 +159,11 @@ class _AppScreenState extends State<AppScreen> {
                       icon: Icons.calendar_month_rounded,
                     ),
                     label: '日程',
+                  ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.menu_book_outlined),
+                    selectedIcon: Icon(Icons.menu_book_rounded),
+                    label: '学习',
                   ),
                   const NavigationDestination(
                     icon: Icon(Icons.grid_view_outlined),

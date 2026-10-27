@@ -1,9 +1,9 @@
 import 'package:bitree/schedule/model.dart';
 import 'package:bitree/schedule/ui/course_detail.dart';
-import 'package:bitree/ui/app_dropdown_field.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:bitree/wencui/atlas.dart';
 import 'package:bitree/wencui/place.dart';
+import 'package:bitree/wencui/ui/location_card.dart';
 import 'package:bitree/wencui/ui/wencui_map_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -75,7 +75,11 @@ Future<void> _search(WidgetTester tester, String query) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _tapFeature(WidgetTester tester, WencuiFeature feature) async {
+Future<void> _tapFeature(
+  WidgetTester tester,
+  WencuiFeature feature, {
+  Offset delta = Offset.zero,
+}) async {
   final viewer = tester.widget<InteractiveViewer>(
     find.byType(InteractiveViewer),
   );
@@ -86,7 +90,11 @@ Future<void> _tapFeature(WidgetTester tester, WencuiFeature feature) async {
   );
   final point =
       tester.getTopLeft(find.byType(InteractiveViewer)) +
-      MatrixUtils.transformPoint(viewer.transformationController!.value, scene);
+      MatrixUtils.transformPoint(
+        viewer.transformationController!.value,
+        scene,
+      ) +
+      delta;
   expect(
     tester.getRect(find.byType(InteractiveViewer)).contains(point),
     isTrue,
@@ -107,15 +115,20 @@ void main() {
     expect(find.text('F704'), findsOneWidget);
     expect(find.text('上东 · 左北'), findsOneWidget);
     final atlas = (await tester.runAsync(WencuiAtlas.load))!;
+    final camera = tester
+        .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+        .transformationController!;
+    final beforeSelection = camera.value.clone();
     await _tapFeature(tester, atlas.room('F703')!);
     expect(find.text('F703'), findsOneWidget);
     expect(find.text('F704'), findsNothing);
+    expect(camera.value, beforeSelection);
 
     final transform = tester
         .widget<InteractiveViewer>(find.byType(InteractiveViewer))
         .transformationController!;
     final roomScale = transform.value.getMaxScaleOnAxis();
-    await tester.tap(find.text('找楼梯 / 电梯'));
+    await tester.tap(find.widgetWithText(FilterChip, '楼梯'));
     await tester.pumpAndSettle();
     expect(transform.value.getMaxScaleOnAxis(), lessThan(roomScale));
     final stairs = atlas.features.firstWhere(
@@ -124,8 +137,13 @@ void main() {
           feature.kind == WencuiFeatureKind.stairs &&
           feature.wing == WencuiWing.f,
     );
-    await _tapFeature(tester, stairs);
-    expect(find.text(stairs.title), findsOneWidget);
+    await _tapFeature(tester, stairs, delta: const Offset(18, 0));
+    expect(find.text('已选：${stairs.title}'), findsOneWidget);
+    expect(find.text('F703'), findsOneWidget);
+    await tester.tap(find.text('回到教室'));
+    await tester.pumpAndSettle();
+    expect(find.text('F703'), findsOneWidget);
+    expect(find.textContaining('已选：'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -178,15 +196,16 @@ void main() {
     (tester) async {
       await _open(tester, room: 'F706');
       expect(find.textContaining('图中未找到F706'), findsOneWidget);
+      var previousFloor = 7;
       for (var floor = 1; floor <= 10; floor++) {
-        await tester.tap(find.byType(AppDropdownField<int>));
+        await tester.tap(find.widgetWithText(TextButton, '$previousFloor层'));
         await tester.pumpAndSettle();
-        final item = find.text('$floor层').last;
-        await tester.ensureVisible(item);
+        final item = find.widgetWithText(TextButton, '$floor');
         await tester.tap(item);
         await tester.pumpAndSettle();
         expect(_floor(floor), findsOneWidget);
         expect(tester.takeException(), isNull);
+        previousFloor = floor;
       }
     },
   );
@@ -209,7 +228,7 @@ void main() {
       await tester.ensureVisible(find.byTooltip('清除目的地'));
       await tester.tap(find.byTooltip('清除目的地'));
       await tester.pumpAndSettle();
-      expect(find.text('点房间查看位置，双指缩放地图'), findsOneWidget);
+      expect(find.text('点楼栋放大，或搜索教室号'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
@@ -242,7 +261,8 @@ void main() {
     );
     await tester.tap(find.text('查看课程'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('在文萃地图中查看'));
+    expect(find.byType(WencuiLocationCard), findsOneWidget);
+    await tester.tap(find.byType(WencuiLocationCard));
     await tester.pump();
     await tester.runAsync(
       () => precacheImage(
@@ -254,6 +274,47 @@ void main() {
     expect(find.byType(WencuiMapScreen), findsOneWidget);
     expect(_floor(7), findsOneWidget);
     expect(find.text('F704'), findsOneWidget);
+    expect(find.text('概率论与数理统计'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'Overview wing buttons and course shortcuts focus the actual plan',
+    (tester) async {
+      await _open(tester, courses: [_course('概率论与数理统计', '文萃楼F704')]);
+      final transform = tester
+          .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+          .transformationController!;
+      final overviewScale = transform.value.getMaxScaleOnAxis();
+      await tester.tap(find.byKey(const ValueKey('wencui-wing-F')));
+      await tester.pumpAndSettle();
+      expect(transform.value.getMaxScaleOnAxis(), greaterThan(overviewScale));
+      await tester.tap(find.byTooltip('我的文萃课程'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ListTile, '概率论与数理统计'));
+      await tester.pumpAndSettle();
+      expect(_floor(7), findsOneWidget);
+      expect(find.text('F704'), findsOneWidget);
+      expect(find.text('概率论与数理统计'), findsOneWidget);
+      final focused = transform.value.clone();
+      await tester.drag(find.byType(InteractiveViewer), const Offset(65, 40));
+      await tester.pumpAndSettle();
+      expect(transform.value, isNot(focused));
+      await tester.tap(find.text('回到教室'));
+      await tester.pumpAndSettle();
+      expect(
+        transform.value.getTranslation().x,
+        closeTo(focused.getTranslation().x, .01),
+      );
+      expect(
+        transform.value.getTranslation().y,
+        closeTo(focused.getTranslation().y, .01),
+      );
+      expect(
+        transform.value.getMaxScaleOnAxis(),
+        closeTo(focused.getMaxScaleOnAxis(), .001),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

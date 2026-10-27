@@ -63,8 +63,8 @@ class _GradesScreenState extends State<GradesScreen> {
             )
           else if (record.gradesUpdatedAt == null)
             AcademicEmpty(
-              title: '还没有导入成绩',
-              label: '导入成绩',
+              title: '还没有同步成绩',
+              label: SchoolAction.importGrades.label,
               onPressed: controller.school.busy
                   ? null
                   : () => openSchoolPage(

@@ -5,7 +5,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../agenda/model.dart';
 import '../../agenda/ui/calendar_block.dart';
 import '../../app/controller.dart';
 import '../../app/ui/add_menu.dart';
@@ -13,7 +12,6 @@ import '../../ui/design.dart';
 import '../layout.dart';
 import '../model.dart';
 import '../selection.dart';
-import '../time_position.dart';
 import 'current_time_indicator.dart';
 
 class TimetableGrid extends StatefulWidget {
@@ -167,9 +165,16 @@ class _TimetableGridState extends State<TimetableGrid> {
 
     // Rebuild the menu with the selected date and sections before opening it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _selection == null) return;
+      final selection = _selection;
+      if (!mounted || selection == null) return;
       final box = _grid.currentContext!.findRenderObject()! as RenderBox;
-      _addMenu.open(position: box.globalToLocal(position));
+      // The range stays in its initial day even if a long drag drifts sideways.
+      _addMenu.open(
+        position: Offset(
+          (selection.day + 0.5) * box.size.width / 7,
+          box.globalToLocal(position).dy,
+        ),
+      );
     });
     WidgetsBinding.instance.ensureVisualUpdate();
   }
@@ -206,57 +211,17 @@ class _TimetableGridState extends State<TimetableGrid> {
             children: [
               SizedBox(
                 width: widget.gutterWidth,
-                child: Stack(
+                child: Column(
                   children: [
-                    Column(
-                      children: [
-                        for (
-                          var section = 1;
-                          section <= sectionTimes.length;
-                          section++
-                        )
-                          SizedBox(
-                            height: rowHeight,
-                            child: _PeriodLabel(section: section),
-                          ),
-                      ],
-                    ),
-                    ValueListenableBuilder<DateTime>(
-                      valueListenable: widget.currentTime,
-                      builder: (context, now, _) {
-                        final position = timeIndicatorPositionAt(now);
-                        final day = calendarDate(position.time)
-                            .difference(calendarDate(widget.monday))
-                            .inDays;
-                        if (day < 0 || day >= 7) {
-                          return const SizedBox.shrink();
-                        }
-
-                        final height =
-                            MediaQuery.textScalerOf(context).scale(10) * 1.2 +
-                            2;
-                        return Positioned(
-                          left: 0,
-                          right: 0,
-                          top: (position.section * rowHeight - height / 2)
-                              .clamp(0.0, gridHeight - height),
-                          child: IgnorePointer(
-                            child: ColoredBox(
-                              color: scheme.surface,
-                              child: Text(
-                                clockText(position.time),
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  height: 1.2,
-                                  color: scheme.primary,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                    for (
+                      var section = 1;
+                      section <= sectionTimes.length;
+                      section++
+                    )
+                      SizedBox(
+                        height: rowHeight,
+                        child: _PeriodLabel(section: section),
+                      ),
                   ],
                 ),
               ),
@@ -315,23 +280,70 @@ class _TimetableGridState extends State<TimetableGrid> {
                                   top: block.start * rowHeight + 2,
                                   height:
                                       (block.end - block.start) * rowHeight - 4,
-                                  child: CalendarBlockTile(
-                                    items: block.items,
-                                    controller: widget.controller,
-                                    isToday: day == widget.todayColumn,
+                                  child: ValueListenableBuilder<DateTime>(
+                                    valueListenable: widget.currentTime,
+                                    builder: (context, now, _) {
+                                      double? progress;
+                                      if (block.items.length == 1 &&
+                                          block.items.single.course != null) {
+                                        final item = block.items.single;
+                                        final course = item.course!;
+                                        final elapsed = TimetableSelection(
+                                          date: item.startsAt,
+                                          startSection: course.startSection!,
+                                          endSection: course.endSection!,
+                                        ).progressAt(now);
+                                        if (elapsed != null) {
+                                          final height =
+                                              (block.end - block.start) *
+                                              rowHeight;
+                                          // Cards sit 2px inside the grid. Keep the fill
+                                          // frontier aligned with the time indicator.
+                                          progress =
+                                              ((elapsed * height - 2) /
+                                                      (height - 4))
+                                                  .clamp(0.0, 1.0);
+                                        }
+                                      }
+                                      return CalendarBlockTile(
+                                        items: block.items,
+                                        controller: widget.controller,
+                                        isToday: day == widget.todayColumn,
+                                        courseProgress: progress,
+                                      );
+                                    },
                                   ),
                                 ),
                             Positioned.fill(
                               child: RepaintBoundary(
                                 child: ValueListenableBuilder<DateTime>(
                                   valueListenable: widget.currentTime,
-                                  builder: (context, now, _) =>
-                                      CurrentTimeIndicator(
-                                        now: now,
-                                        monday: widget.monday,
-                                        columnWidth: columnWidth,
-                                        rowHeight: rowHeight,
-                                      ),
+                                  builder: (context, now, _) {
+                                    final ongoing = widget.layouts
+                                        .expand((blocks) => blocks)
+                                        .where(
+                                          (block) => block.items.length == 1,
+                                        )
+                                        .map((block) => block.items.single)
+                                        .where(
+                                          (item) =>
+                                              item.course != null &&
+                                              !now.isBefore(item.startsAt) &&
+                                              now.isBefore(item.endsAt!),
+                                        )
+                                        .firstOrNull;
+                                    // The ongoing course draws its own line below
+                                    // its text, alongside the elapsed fill.
+                                    if (ongoing != null) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    return CurrentTimeIndicator(
+                                      now: now,
+                                      monday: widget.monday,
+                                      columnWidth: columnWidth,
+                                      rowHeight: rowHeight,
+                                    );
+                                  },
                                 ),
                               ),
                             ),

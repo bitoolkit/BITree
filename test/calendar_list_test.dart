@@ -39,13 +39,14 @@ Future<TestAppController> _open(
   double scale = 1,
   Brightness brightness = Brightness.light,
   List<CalendarItem>? picker,
+  SemesterSchedule? schedule,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   final agenda = AgendaController(MemoryAgendaStore(entries));
-  final controller = TestAppController(agenda: agenda);
+  final controller = TestAppController(agenda: agenda, schedule: schedule);
   await controller.initialize();
 
   await tester.pumpWidget(
@@ -97,6 +98,55 @@ Future<TestAppController> _open(
 }
 
 void main() {
+  for (final (size, scale) in [
+    (const Size(390, 844), 1.0),
+    (const Size(320, 640), 1.0),
+    (const Size(320, 640), 1.8),
+  ]) {
+    testWidgets(
+      'A title without secondary content aligns with its completion control at $size, $scale',
+      (tester) async {
+        final entry = AgendaEntry(
+          id: 'plain',
+          title: '1',
+          kind: AgendaKind.deadline,
+          startsAt: _date.add(const Duration(hours: 1, minutes: 11)),
+        );
+        await _open(tester, [entry], size: size, scale: scale);
+        final title = tester.getRect(find.byType(CompletionText));
+        final control = tester.getRect(find.byType(Checkbox));
+        expect(title.center.dy, closeTo(control.center.dy, 0.5));
+        expect(find.text('01:11'), findsOneWidget);
+        await tester.tap(find.byType(Checkbox));
+        await tester.pumpAndSettle();
+        expect(find.text('已完成 1'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'The entry description appears below its title, with course context retained',
+    (tester) async {
+      final entry = AgendaEntry(
+        id: 'with-notes',
+        title: '第二章作业',
+        kind: AgendaKind.deadline,
+        startsAt: _date.add(const Duration(hours: 18)),
+        notes: '完成第二章习题，提交 PDF。',
+        course: '离散数学',
+      );
+      await _open(tester, [entry]);
+      final title = tester.getRect(find.byType(CompletionText));
+      final description = tester.getRect(find.text(entry.notes));
+      final course = tester.getRect(find.text(entry.course));
+      expect(description.top, greaterThan(title.bottom));
+      expect(description.left, title.left);
+      expect(course.top, greaterThan(description.bottom));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'Tapping the timetable date shows compact pending entries with prominent times',
     (tester) async {
@@ -111,12 +161,12 @@ void main() {
       expect(find.text(entry.title), findsWidgets);
       expect(find.text('第五章作业2'), findsNothing);
       expect(find.text('第五章作业3'), findsNothing);
-      expect(find.text('DDL · 新延河课堂'), findsOneWidget);
+      expect(find.byType(Checkbox), findsOneWidget);
       expect(find.text('高数数学'), findsOneWidget);
       expect(find.text('18:00'), findsOneWidget);
       expect(find.text('截止'), findsOneWidget);
       final time = tester.widget<Text>(find.text('18:00'));
-      final source = tester.widget<Text>(find.text('DDL · 新延河课堂'));
+      final source = tester.widget<Text>(find.text('高数数学'));
       expect(time.style!.fontSize, greaterThan(source.style!.fontSize!));
       expect(tester.getSize(find.byType(BottomSheet)).height, lessThan(350));
     },
@@ -136,6 +186,47 @@ void main() {
       await tester.tap(find.byTooltip('关闭'));
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Day checklist updates in place, can restore completed DDL, and excludes courses',
+    (tester) async {
+      final entry = _deadline();
+      final course = Course(
+        id: 'course',
+        name: '课程不属于日程',
+        weekday: _date.weekday,
+        startSection: 1,
+        endSection: 2,
+        weeks: [1],
+      );
+      final controller = await _open(
+        tester,
+        [entry],
+        schedule: SemesterSchedule(
+          term: '2026-2027-1',
+          firstMonday: mondayOf(_date),
+          courses: [course],
+        ),
+      );
+      expect(find.text('1项日程'), findsOneWidget);
+      expect(find.text(course.name), findsNothing);
+      await tester.tap(find.byType(Checkbox));
+      await tester.pumpAndSettle();
+      expect(controller.agenda.entries.single.done, isTrue);
+      expect(find.text('没有未完成的日程'), findsOneWidget);
+      expect(find.text('1项日程'), findsNothing);
+      expect(find.byType(BottomSheet), findsOneWidget);
+      await tester.tap(find.text('已完成 1'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
+      await tester.tap(find.byType(Checkbox));
+      await tester.pumpAndSettle();
+      expect(controller.agenda.entries.single.done, isFalse);
+      expect(find.text('1项日程'), findsOneWidget);
+      expect(find.text('已完成 1'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

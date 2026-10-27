@@ -7,8 +7,14 @@ import 'package:bitree/agenda/store.dart';
 import 'package:bitree/app/controller.dart';
 import 'package:bitree/schedule/model.dart';
 import 'package:bitree/schedule/store.dart';
+import 'package:bitree/school/network.dart';
 import 'package:bitree/school/service.dart';
 import 'package:bitree/school/storage.dart';
+import 'package:bitree/study/controller.dart';
+import 'package:bitree/study/model.dart';
+import 'package:bitree/study/store.dart';
+import 'package:bitree/study/yanhekt.dart';
+import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -61,7 +67,7 @@ class MemoryAcademicStore extends AcademicStore {
       accounts[account] = record;
 }
 
-class _Preferences extends Fake implements SharedPreferencesAsync {
+class MemoryPreferences extends Fake implements SharedPreferencesAsync {
   final _values = <String, String>{};
   @override
   Future<String?> getString(String key) async => _values[key];
@@ -73,13 +79,33 @@ class _Preferences extends Fake implements SharedPreferencesAsync {
 class MemorySchoolStorage extends SchoolStorage {
   MemorySchoolStorage({this.credentials});
   SchoolCredentials? credentials;
+  final _cookies = <SchoolNetwork, CookieJar>{};
+
+  CookieJar _cookiesFor(SchoolNetwork network) =>
+      _cookies.putIfAbsent(network, CookieJar.new);
+
+  @override
+  Future<List<Cookie>> cookiesFor(SchoolNetwork network, Uri source) =>
+      _cookiesFor(network).loadForRequest(source);
+  @override
+  Future<void> saveCookies(
+    SchoolNetwork network,
+    Uri source,
+    List<Cookie> cookies,
+  ) => _cookiesFor(network).saveFromResponse(source, cookies);
+  @override
+  Future<void> clearSession(SchoolNetwork network) async =>
+      _cookies.remove(network);
   @override
   Future<SchoolCredentials?> readCredentials() async => credentials;
   @override
   Future<void> saveCredentials(SchoolCredentials credentials) async =>
       this.credentials = credentials;
   @override
-  Future<void> clear() async => credentials = null;
+  Future<void> clear() async {
+    credentials = null;
+    _cookies.clear();
+  }
 }
 
 /// Uses production controllers; only persistence and platform boundaries are in memory.
@@ -95,9 +121,15 @@ class TestAppController extends AppController {
          store: MemoryScheduleStore(schedules: schedules, selected: schedule),
          school: SchoolService(),
          schoolStorage: schoolStorage ?? MemorySchoolStorage(),
-         preferences: _Preferences(),
+         preferences: MemoryPreferences(),
          agenda: agenda ?? AgendaController(MemoryAgendaStore(entries)),
          academics: AcademicController(MemoryAcademicStore()),
+         study: StudyController(
+           store: MemoryStudyStore(),
+           repository: YanhektRepository(
+             schoolStorage ?? MemorySchoolStorage(),
+           ),
+         ),
        ) {
     addTearDown(dispose);
   }
@@ -108,4 +140,29 @@ class TestAppController extends AppController {
     await super.initialize();
     if (initialWeek case final week?) timetable.selectWeek(week);
   }
+}
+
+class MemoryStudyStore extends StudyStore {
+  List<StudyCourse> courses = [];
+  final _materials = <String, LectureMaterials>{};
+  ({String course, String lecture})? resume;
+  @override
+  Future<List<StudyCourse>> readCourses() async => courses;
+  @override
+  Future<void> writeCourses(List<StudyCourse> value) async =>
+      courses = List.of(value);
+  @override
+  Future<LectureMaterials> readMaterials(String course, String lecture) async =>
+      _materials.putIfAbsent('$course/$lecture', LectureMaterials.new);
+  @override
+  Future<void> writeMaterials(
+    String course,
+    String lecture,
+    LectureMaterials value,
+  ) async => _materials['$course/$lecture'] = value;
+  @override
+  Future<({String course, String lecture})?> readResume() async => resume;
+  @override
+  Future<void> writeResume(String course, String lecture) async =>
+      resume = (course: course, lecture: lecture);
 }

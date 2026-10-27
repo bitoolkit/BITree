@@ -14,11 +14,13 @@ class CalendarBlockTile extends StatelessWidget {
     required this.items,
     required this.controller,
     required this.isToday,
+    this.courseProgress,
   });
 
   final List<CalendarItem> items;
   final AppController controller;
   final bool isToday;
+  final double? courseProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -28,11 +30,14 @@ class CalendarBlockTile extends StatelessWidget {
               course: items.single.course!,
               controller: controller,
               isToday: isToday,
+              date: items.single.startsAt,
+              progress: courseProgress,
             )
           : ConflictingCourses(
               courses: items.map((item) => item.course!).toList(),
               controller: controller,
               isToday: isToday,
+              date: items.first.startsAt,
             );
     }
     final scheme = Theme.of(context).colorScheme;

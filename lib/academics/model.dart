@@ -29,11 +29,6 @@ class CourseGrade {
     if (!credits.isFinite || credits < 0) {
       throw const FormatException('课程学分不正确');
     }
-    final numeric = double.tryParse(result);
-    if (numeric != null &&
-        (!numeric.isFinite || numeric < 0 || numeric > 100)) {
-      throw const FormatException('百分制成绩应在 0～100 之间');
-    }
   }
 
   final String id;
@@ -47,7 +42,12 @@ class CourseGrade {
   final String examType;
 
   String get courseKey => number.isEmpty ? name : number;
-  double? get score => double.tryParse(result);
+  double? get score {
+    final numeric = double.tryParse(result);
+    return numeric != null && numeric.isFinite && numeric >= 0 && numeric <= 100
+        ? numeric
+        : null;
+  }
 
   double? get points => switch (result) {
     '优秀' => 4,
