@@ -289,11 +289,8 @@ class _AgendaTimelineState extends State<AgendaTimeline>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
               children: [
                 TextButton.icon(
                   onPressed: () {
@@ -306,26 +303,20 @@ class _AgendaTimelineState extends State<AgendaTimeline>
                   icon: const Icon(Icons.today_outlined, size: 18),
                   label: const Text('今天'),
                 ),
-                Text(
-                  '${_center.year}年${_center.month}月${_center.day}日',
-                  style: theme.textTheme.labelLarge,
-                ),
-                Tooltip(
-                  message: '缩放：从每天一格到每小时一格',
-                  child: SizedBox(
-                    width: math.min(220.0, math.max(100.0, width - 48)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Tooltip(
+                    message: '缩放：从每天一格到每小时一格',
                     child: Slider(
                       value: _zoom,
                       min: 1,
                       max: 24,
-                      label: scaleLabel,
                       semanticFormatterCallback: (_) => scaleLabel,
                       onChanged: (value) =>
                           _zoomAt(value, width / 2, width, baseline),
                     ),
                   ),
                 ),
-                Text(scaleLabel, style: theme.textTheme.labelMedium),
               ],
             ),
           ),
@@ -818,8 +809,26 @@ class _TimelineGridPainter extends CustomPainter {
       }
       return width;
     }
+    final showHours = hourStep < 24;
+    var weekdayWidth = 0.0;
+    if (header) {
+      for (final weekday in weekdays) {
+        weekdayWidth = math.max(
+          weekdayWidth,
+          _textWidth(weekday, bold: showHours),
+        );
+      }
+    }
+    final dateTextWidth = header
+        ? maxDigitWidth(true) * 4 + _textWidth('/', bold: true)
+        : 0.0;
+    // Measure the full date/weekday group, or both independent rows, so labels
+    // retain stable cell centers and cannot collide when weekday text is added.
     final dateLabelWidth = header
-        ? maxDigitWidth(true) * 4 + _textWidth('/', bold: true) + 8
+        ? (showHours
+                ? dateTextWidth + _textWidth(' ', bold: true) + weekdayWidth
+                : math.max(dateTextWidth, weekdayWidth)) +
+            8
         : 0.0;
     final hourLabelWidth = header
         ? maxDigitWidth(false) * 4 + _textWidth(':') + 8
@@ -845,13 +854,24 @@ class _TimelineGridPainter extends CustomPainter {
           .difference(DateTime.utc(1970))
           .inDays;
       if (header && dayOrdinal % dayStride == 0) {
+        final dayCenter = (dayX + x(nextDay)) / 2;
+        final weekday = weekdays[day.weekday - 1];
+        final date = '${day.month}/${day.day}';
         _label(
           canvas,
           size,
-          '${day.month}/${day.day}',
-          Offset((dayX + x(nextDay)) / 2, 1),
+          showHours ? '$date $weekday' : date,
+          Offset(dayCenter, 1),
           bold: true,
         );
+        if (!showHours) {
+          _label(
+            canvas,
+            size,
+            weekday,
+            Offset(dayCenter, size.height / 2),
+          );
+        }
       }
       for (var hour = 0; hour < 24; hour += hourStep) {
         final tick = DateTime.utc(day.year, day.month, day.day, hour);
@@ -863,7 +883,7 @@ class _TimelineGridPainter extends CustomPainter {
             gridPaint,
           );
         }
-        if (header && hourStep < 24 &&
+        if (header && showHours &&
             (dayOrdinal * (24 ~/ hourStep) + hour ~/ hourStep) %
                     hourLabelStride == 0) {
           final cellEnd = DateTime.utc(day.year, day.month, day.day, hour + hourStep);
