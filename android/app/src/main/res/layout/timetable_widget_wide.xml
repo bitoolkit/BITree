@@ -7,6 +7,7 @@
     android:paddingStart="@dimen/widget_padding"
     android:paddingEnd="@dimen/widget_padding"
     android:paddingTop="8dp"
+    android:paddingBottom="8dp"
     android:background="@drawable/widget_background"
     android:clipToOutline="true">
     <include layout="@layout/widget_header" />
@@ -18,8 +19,7 @@
         <GridView
             android:id="@+id/widget_courses"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:paddingBottom="8dp"
+            android:layout_height="wrap_content"
             android:numColumns="2"
             android:stretchMode="columnWidth"
             android:horizontalSpacing="@dimen/widget_column_spacing"
@@ -35,7 +35,6 @@
             android:id="@+id/widget_empty"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:paddingBottom="8dp"
             android:gravity="center"
             android:text="@string/widget_today_empty"
             android:textColor="@color/widget_muted"

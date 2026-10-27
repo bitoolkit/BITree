@@ -78,8 +78,7 @@ open class TimetableWidget : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_date, content.heading)
                 views.setTextViewText(R.id.widget_empty, content.emptyMessage)
                 views.setEmptyView(R.id.widget_courses, R.id.widget_empty)
-                views.setOnClickPendingIntent(R.id.widget_header, open)
-                views.setOnClickPendingIntent(R.id.widget_empty, open)
+                views.setOnClickPendingIntent(R.id.widget_root, open)
                 views.setPendingIntentTemplate(R.id.widget_courses, open)
 
                 views.setViewVisibility(
