@@ -28,10 +28,5 @@ Future<void> updatePhysicsLabDeadlines(
   final schedule = controller.timetable.schedule!;
   final count = await controller.agenda.updatePhysicsLabDeadlines(schedule);
   if (!context.mounted || count == null) return;
-  showAppNotice(
-    context,
-    count == 0
-        ? '${schedule.termLabel} 更新完成：无匹配课程，已按规则清理过期自动生成项。'
-        : '${schedule.termLabel} 全部周次更新完成，匹配 $count 条大物实验 DDL。',
-  );
+  showAppNotice(context, '已更新大物实验 DDL');
 }

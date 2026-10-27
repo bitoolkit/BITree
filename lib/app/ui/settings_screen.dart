@@ -199,7 +199,7 @@ class SettingsScreen extends StatelessWidget {
                 child: const Wrap(
                   spacing: 12,
                   runSpacing: 4,
-                  children: [Text('Made by Ray'), Text('Unlicense')],
+                  children: [Text('Made by Ray & Purple Rain'), Text('Unlicense')],
                 ),
               ),
             ],

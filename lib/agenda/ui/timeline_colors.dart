@@ -13,12 +13,22 @@ import '../physics_lab_deadlines.dart';
 ) {
   final theme = Theme.of(context);
   final scheme = theme.colorScheme;
+  // Pending, overdue DDLs take priority over source colors. Completed DDLs
+  // cannot be overdue, so they retain the faded source palette below.
+  if (entry.overdue(now)) {
+    return (
+      fill: scheme.errorContainer,
+      text: scheme.onErrorContainer,
+      accent: scheme.error,
+    );
+  }
+
   final paletteName = switch (entry.kind) {
     AgendaKind.exam => '物理实验中心',
     AgendaKind.deadline => isPhysicsLabDeadline(entry)
         ? '综合教学楼A'
         : switch (entry.source) {
-            DeadlineSource.lexue => '文博中心',
+            DeadlineSource.lexue => '工程训练中心',
             DeadlineSource.eclass => '文化体育中心',
             null => null,
           },
@@ -26,51 +36,43 @@ import '../physics_lab_deadlines.dart';
   };
   final palette = paletteName == null ? null : buildingPaletteNamed(paletteName);
   final finished = entry.isFinished(now);
-  final alpha = entry.isDeadline && entry.done
-      ? 0.35
-      : finished
-          ? 0.55
-          : 1.0;
+  final fadeAll = finished &&
+      (entry.isDeadline || entry.kind == AgendaKind.exam);
+  final fillAlpha = fadeAll ? 0.5 : (finished ? 0.55 : 1.0);
+  final foregroundAlpha = fadeAll ? 0.5 : 1.0;
   if (palette != null) {
     final values = theme.brightness == Brightness.dark
         ? palette.dark
         : palette.light;
     return (
-      fill: Color(values.fill).withValues(alpha: alpha),
-      text: Color(values.text),
-      accent: Color(values.accent),
+      fill: Color(values.fill).withValues(alpha: fillAlpha),
+      text: Color(values.text).withValues(alpha: foregroundAlpha),
+      accent: Color(values.accent).withValues(alpha: foregroundAlpha),
     );
   }
 
-  final overdue = entry.overdue(now);
   final fill = finished
       ? scheme.surfaceContainerHighest
-      : overdue
-          ? scheme.errorContainer
-          : switch (entry.kind) {
-              AgendaKind.event => scheme.primaryContainer,
-              AgendaKind.exam => scheme.tertiaryContainer,
-              AgendaKind.deadline => scheme.secondaryContainer,
-            };
+      : switch (entry.kind) {
+          AgendaKind.event => scheme.primaryContainer,
+          AgendaKind.exam => scheme.tertiaryContainer,
+          AgendaKind.deadline => scheme.secondaryContainer,
+        };
   final text = finished
       ? scheme.onSurfaceVariant
-      : overdue
-          ? scheme.onErrorContainer
-          : switch (entry.kind) {
-              AgendaKind.event => scheme.onPrimaryContainer,
-              AgendaKind.exam => scheme.onTertiaryContainer,
-              AgendaKind.deadline => scheme.onSecondaryContainer,
-            };
-  final accent = overdue
-      ? scheme.error
       : switch (entry.kind) {
-          AgendaKind.event => scheme.primary,
-          AgendaKind.exam => scheme.tertiary,
-          AgendaKind.deadline => scheme.secondary,
+          AgendaKind.event => scheme.onPrimaryContainer,
+          AgendaKind.exam => scheme.onTertiaryContainer,
+          AgendaKind.deadline => scheme.onSecondaryContainer,
         };
+  final accent = switch (entry.kind) {
+    AgendaKind.event => scheme.primary,
+    AgendaKind.exam => scheme.tertiary,
+    AgendaKind.deadline => scheme.secondary,
+  };
   return (
-    fill: fill.withValues(alpha: alpha),
-    text: text,
-    accent: accent,
+    fill: fill.withValues(alpha: fillAlpha),
+    text: text.withValues(alpha: foregroundAlpha),
+    accent: accent.withValues(alpha: foregroundAlpha),
   );
 }
