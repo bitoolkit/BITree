@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_controller.dart';
+import '../schedule/model.dart';
 import 'add_menu.dart';
 import 'agenda_reminder.dart';
 import 'app_page.dart';
@@ -27,6 +28,10 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final schedule = controller.schedule;
+    final currentSemester = semesterAt(controller.schedules, now);
+    final currentWeek = currentSemester?.term == schedule?.term
+        ? currentSemester?.weekAt(now)
+        : null;
     final selectedDate =
         schedule != null && schedule.weekAt(now) != controller.week
         ? schedule.mondayAt(controller.week).add(const Duration(hours: 9))
@@ -35,7 +40,35 @@ class HomeScreen extends StatelessWidget {
     return AppPage(
       title: schedule == null
           ? const Text('首页')
-          : WeekSelector(controller: controller),
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final selector = WeekSelector(controller: controller);
+                final compact =
+                    constraints.maxWidth <
+                    MediaQuery.textScalerOf(context).scale(200);
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(child: selector),
+                    if (currentWeek != null && controller.week != currentWeek)
+                      if (compact)
+                        IconButton(
+                          tooltip: '回到本周',
+                          onPressed: () => controller.selectWeek(currentWeek),
+                          icon: const Icon(Icons.today_outlined, size: 20),
+                        )
+                      else
+                        TextButton(
+                          onPressed: () => controller.selectWeek(currentWeek),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                          ),
+                          child: const Text('回到本周'),
+                        ),
+                  ],
+                );
+              },
+            ),
       actions: [
         AddButton(controller: controller, date: selectedDate),
         SchoolImportButton(controller: controller),

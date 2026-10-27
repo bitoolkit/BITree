@@ -36,7 +36,7 @@ class AppMenuTrigger extends StatelessWidget {
           backgroundColor: isOpen
               ? scheme.primaryContainer
               : Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           alignment: Alignment.centerLeft,
           textStyle: textStyle ?? Theme.of(context).textTheme.bodyMedium,
         ),

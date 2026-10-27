@@ -39,10 +39,14 @@ class _SwipePagerState extends State<SwipePager> with TickerProviderStateMixin {
       animationDuration: _duration,
       vsync: this,
     )..addListener(_selectionChanged);
+    _tabs!.animation!.addListener(_selectionChanged);
   }
 
   void _selectionChanged() {
-    final index = _tabs!.index;
+    final tabs = _tabs!;
+    final index = tabs.indexIsChanging
+        ? tabs.index
+        : tabs.animation!.value.round().clamp(0, tabs.length - 1);
     if (_index == index) return;
     _index = index;
     widget.onChanged(index);

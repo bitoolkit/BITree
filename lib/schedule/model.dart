@@ -41,6 +41,22 @@ const sectionTimes = [
   ('20:10', '20:55'),
 ];
 
+/// Finds the ongoing saved semester, preferring the later start when ranges overlap.
+SemesterSchedule? semesterAt(
+  Iterable<SemesterSchedule> schedules,
+  DateTime date,
+) {
+  SemesterSchedule? current;
+  for (final schedule in schedules) {
+    final week = schedule.weekAt(date);
+    if (week < schedule.firstWeek || week > schedule.lastWeek) continue;
+    if (current == null || schedule.firstMonday.isAfter(current.firstMonday)) {
+      current = schedule;
+    }
+  }
+  return current;
+}
+
 class Course {
   Course({
     required this.id,
