@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
 
 import '../core/diagnostics.dart';
+import '../schedule/model.dart';
+import 'deadline_clear_scope.dart';
 import 'model.dart';
+import 'physics_lab_deadlines.dart';
 import 'store.dart';
 
 class AgendaController extends ChangeNotifier {
@@ -89,6 +92,38 @@ class AgendaController extends ChangeNotifier {
       );
     }
     return _write(entries.values.toList());
+  }
+
+  int countDeadlines(DeadlineClearScope scope) =>
+      _entries.where(scope.includes).length;
+
+  Future<bool> clearDeadlines(DeadlineClearScope scope) =>
+      _write(_entries.where((entry) => !scope.includes(entry)).toList());
+
+  /// Refresh this semester's generated records, keeping edits and tombstones.
+  /// Returns the matched generated count, or null when persistence fails.
+  Future<int?> updatePhysicsLabDeadlines(SemesterSchedule schedule) async {
+    final incoming = physicsLabDeadlines(schedule);
+    final savedById = {for (final entry in _entries) entry.id: entry};
+    final next = <String, AgendaEntry>{
+      for (final entry in _entries)
+        if (!isPhysicsLabDeadline(entry) ||
+            entry.term != schedule.term ||
+            entry.local ||
+            entry.done ||
+            entry.deleted)
+          entry.id: entry,
+    };
+    for (final entry in incoming) {
+      final saved = savedById[entry.id];
+      next[entry.id] = saved?.local == true
+          ? saved!
+          : entry.copyWith(
+              done: saved?.done ?? false,
+              deleted: saved?.deleted ?? false,
+            );
+    }
+    return await _write(next.values.toList()) ? incoming.length : null;
   }
 
   Future<bool> _write(List<AgendaEntry> next) async {

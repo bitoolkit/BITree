@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../agenda/deadline_clear_scope.dart';
+import '../../agenda/ui/physics_lab_import.dart';
 import '../../schedule/ui/week_range_dialog.dart';
 import '../../school/ui/school_account.dart';
 import '../../school/ui/school_screen.dart';
 import '../../ui/app_menu_anchor.dart';
 import '../../ui/app_menu_trigger.dart';
+import '../../ui/app_notice.dart';
 import '../../ui/app_page.dart';
 import '../../ui/external_link.dart';
 import '../../updates/version.dart';
@@ -61,6 +64,70 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
     if (confirmed == true) await controller.timetable.clear();
+  }
+
+  Future<void> _clearDeadlines(
+    BuildContext context,
+    DeadlineClearScope scope,
+  ) async {
+    final agenda = controller.agenda;
+    if (!agenda.ready || agenda.busy) {
+      showAppNotice(context, '日程尚未加载或正在保存，请稍后重试。');
+      return;
+    }
+    final count = agenda.countDeadlines(scope);
+    if (count == 0) {
+      showAppNotice(context, '没有可清空的${scope.label}。');
+      return;
+    }
+    final recovery = switch (scope) {
+      DeadlineClearScope.local =>
+        '乐学和新延河课堂来源的 DDL 将保留。大物实验 DDL 可根据课表手动重新生成，手动创建的 DDL 无法恢复。',
+      DeadlineClearScope.lexue => '乐学 DDL 之后可从平台重新同步。其他来源的 DDL 将保留。',
+      DeadlineClearScope.eclass => '新延河课堂 DDL 之后可从平台重新同步。其他来源的 DDL 将保留。',
+      DeadlineClearScope.all =>
+        '平台来源的 DDL 之后可重新同步；大物实验 DDL 可根据课表手动重新生成，手动创建的 DDL 无法恢复。',
+    };
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('清空${scope.label}？'),
+        scrollable: true,
+        content: Text(
+          '将永久清空 $count 条${scope.label}。\n'
+          '${scope.description}\n\n'
+          '范围包含所有学期、已完成及已删除的匹配 DDL，不影响考试等其他日程。'
+          '清空后无法撤销，也无法从“已删除的 DDL”中恢复。\n\n'
+          '$recovery',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+              foregroundColor: Theme.of(dialogContext).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text('清空 $count 条 DDL'),
+          ),
+        ],
+      ),
+    );
+    if (!context.mounted || confirmed != true) return;
+    if (!agenda.ready || agenda.busy) {
+      showAppNotice(context, '日程尚未加载或正在保存，请稍后重试。');
+      return;
+    }
+    if (agenda.countDeadlines(scope) != count) {
+      showAppNotice(context, '匹配的 DDL 数量已变化，请重新确认后清空。');
+      return;
+    }
+    final cleared = await agenda.clearDeadlines(scope);
+    if (!context.mounted || !cleared) return;
+    showAppNotice(context, '已清空 $count 条${scope.label}。');
   }
 
   Future<void> _showAbout(BuildContext context) async {
@@ -178,12 +245,20 @@ class SettingsScreen extends StatelessWidget {
       controller,
       controller.timetable,
       controller.school,
+      controller.agenda,
     ]),
     builder: (context, _) => _build(context),
   );
 
   Widget _build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final schedule = controller.timetable.schedule;
+    final physicsEnabled =
+        schedule != null &&
+        controller.timetable.ready &&
+        !controller.timetable.busy &&
+        controller.agenda.ready &&
+        !controller.agenda.busy;
 
     Widget section(String title, List<Widget> children) => Padding(
       padding: const EdgeInsets.only(top: 24),
@@ -280,6 +355,43 @@ class SettingsScreen extends StatelessWidget {
                     : () => _clearSchedule(context),
               ),
             ]),
+          section('本地日程', [
+            ListTile(
+              contentPadding: tilePadding,
+              leading: const Icon(Icons.science_outlined),
+              title: const Text('更新大物实验 DDL'),
+              subtitle: Text(
+                schedule == null
+                    ? '请先选择或导入本地课表；离线生成，无需学校登录'
+                    : '当前选中：${schedule.termLabel} · 全部周次\n离线生成，无需学校登录，仅手动更新',
+              ),
+              onTap: physicsEnabled
+                  ? () => updatePhysicsLabDeadlines(context, controller)
+                  : null,
+            ),
+            for (final scope in DeadlineClearScope.values)
+              ListTile(
+                contentPadding: tilePadding,
+                leading: Icon(
+                  Icons.delete_outline_rounded,
+                  color: scheme.error,
+                ),
+                title: Text(
+                  '清空${scope.label}',
+                  style: TextStyle(color: scheme.error),
+                ),
+                subtitle: Text(
+                  '${scope.description}\n'
+                  '${controller.agenda.countDeadlines(scope)} 条（含已完成、已删除）',
+                ),
+                onTap:
+                    !controller.agenda.ready ||
+                        controller.agenda.busy ||
+                        controller.agenda.countDeadlines(scope) == 0
+                    ? null
+                    : () => _clearDeadlines(context, scope),
+              ),
+          ]),
           section('应用', [
             ListTile(
               contentPadding: tilePadding,

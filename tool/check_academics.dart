@@ -4,8 +4,8 @@ import 'dart:io';
 import 'package:bitree/academics/exam_conflicts.dart';
 import 'package:bitree/academics/model.dart';
 import 'package:bitree/agenda/model.dart';
-import 'package:bitree/data/school_network.dart';
 import 'package:bitree/schedule/model.dart';
+import 'package:bitree/school/network.dart';
 
 void expect(bool condition, String message) {
   if (!condition) throw StateError(message);

@@ -118,8 +118,13 @@ class _AgendaTimelineState extends State<AgendaTimeline>
   }
 
   void _startFling(Offset velocity, double pixelsPerHour) {
-    if (!widget.active || !widget.visible ||
-        _gestureHadMultiplePointers || _gestureScaled || _gestureTrackpad) return;
+    if (!widget.active ||
+        !widget.visible ||
+        _gestureHadMultiplePointers ||
+        _gestureScaled ||
+        _gestureTrackpad) {
+      return;
+    }
     _flingPixelsPerHour = pixelsPerHour;
     // Framework friction supplies both axes; only the viewport/date is moved.
     if (velocity.dx.abs() >= 50) {
