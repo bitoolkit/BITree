@@ -8,9 +8,9 @@ class StudyCourse {
     this.term = '',
     this.remote = true,
     this.lectures = const [],
-    this.lectureCount,
+    int? lectureCount,
     this.review = '',
-  });
+  }) : _lectureCount = lectureCount;
 
   final String id;
   String title;
@@ -18,8 +18,13 @@ class StudyCourse {
   String term;
   final bool remote;
   List<StudyLecture> lectures;
-  int? lectureCount;
+  int? _lectureCount;
   String review;
+
+  // Loaded lectures take precedence over the course-list API's summary.
+  int? get lectureCount =>
+      lectures.isNotEmpty ? lectures.length : _lectureCount;
+  set lectureCount(int? value) => _lectureCount = value;
 
   bool get isEmptyRemote =>
       remote && lectureCount == 0 && lectures.isEmpty && review.isEmpty;

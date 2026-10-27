@@ -117,6 +117,59 @@ void main() {
     expect(studyTermLabel('2026-2027-1'), '2026-2027 秋季学期');
   });
 
+  testWidgets('Library and course details count the same loaded lectures', (
+    tester,
+  ) async {
+    final app = TestAppController();
+    final course = StudyCourse(
+      id: 'java',
+      title: 'JAVA语言程序设计',
+      teacher: '金旭亮',
+      term: '2026-2027-1',
+      lectureCount: 7,
+      lectures: [
+        for (var week = 0; week < 5; week++)
+          StudyLecture(
+            id: 'java-$week',
+            title: '第${week + 1}次课',
+            startsAt: DateTime(2026, 9, 22 + week * 7),
+          ),
+      ],
+    );
+    final store = app.study.store as MemoryStudyStore;
+    store.courses = [StudyCourse.fromJson(course.toJson())];
+    await app.study.load();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: bitreeTheme(Brightness.light),
+        home: Scaffold(body: StudyScreen(controller: app)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('5 课时'), findsOneWidget);
+    expect(find.text('7 课时'), findsNothing);
+
+    // A later library refresh can report a different summary total again.
+    store.courses.single.lectureCount = 7;
+    await app.study.load();
+    await tester.pumpAndSettle();
+    expect(find.text('5 课时'), findsOneWidget);
+    await tester.tap(find.widgetWithText(InkWell, '金旭亮'));
+    await tester.pumpAndSettle();
+    expect(find.byType(StudyCourseScreen), findsOneWidget);
+    expect(find.text('5 课时'), findsOneWidget);
+    for (var week = 1; week <= 5; week++) {
+      expect(find.text('第$week次课'), findsOneWidget);
+    }
+    expect(find.text('7 课时'), findsNothing);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('5 课时'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+  });
+
   for (final (size, scale) in [
     (const Size(320, 640), 1.0),
     (const Size(390, 844), 1.8),
