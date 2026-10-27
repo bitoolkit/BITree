@@ -39,7 +39,7 @@ class AppController extends ChangeNotifier {
   final AgendaController agenda;
   final AcademicController academics;
   final SharedPreferencesAsync _preferences;
-  final agendaViewMode = ValueNotifier(AgendaViewMode.list);
+  final agendaViewMode = ValueNotifier(AgendaViewMode.timeline);
   Future<void> _agendaViewWrite = Future<void>.value();
   bool _agendaViewChosen = false;
   bool _ready = false;
@@ -64,7 +64,7 @@ class AppController extends ChangeNotifier {
         agendaViewMode.value = AgendaViewMode.values
                 .where((mode) => mode.name == savedView)
                 .firstOrNull ??
-            AgendaViewMode.list;
+            AgendaViewMode.timeline;
       }
     } catch (failure, stack) {
       AppDiagnostics.instance.report('读取日程视图设置', failure, stack);
