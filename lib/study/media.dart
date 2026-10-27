@@ -16,7 +16,7 @@ import '../core/async/cancelable_request.dart';
 import '../core/diagnostics.dart';
 import '../school/session.dart';
 import 'model.dart';
-import 'yanhekt.dart';
+import 'playback.dart';
 
 /// HLS child requests need fresh path-specific signatures, including after seeks.
 class StudyMediaProxy {
@@ -57,7 +57,7 @@ class StudyMediaProxy {
         incoming.method,
         streams.sign(url),
       );
-      outgoing.headers.set('Referer', '${YanhektRepository.origin.origin}/');
+      outgoing.headers.set('Referer', streams.referer);
       outgoing.headers.set('User-Agent', SchoolSession.userAgent);
       outgoing.headers.set('Accept-Encoding', 'identity');
       final range = incoming.headers.value('Range');
@@ -176,7 +176,7 @@ class StudyDownloader {
           : await partial.length();
       final request = await client.getUrl(streams.sign(source));
       request.headers
-        ..set('Referer', '${YanhektRepository.origin.origin}/')
+        ..set('Referer', streams.referer)
         ..set('User-Agent', SchoolSession.userAgent)
         ..set('Accept-Encoding', 'identity');
       if (offset > 0) request.headers.set('Range', 'bytes=$offset-');

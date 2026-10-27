@@ -46,6 +46,19 @@ class _StudyCourseScreenState extends State<StudyCourseScreen> {
         for (final lecture in course.lectures) (course, lecture),
     ];
     lectures.sort((a, b) {
+      int rank(StudyLecture lecture) => switch (lecture.status) {
+        StudyLectureStatus.live => 0,
+        StudyLectureStatus.upcoming => 2,
+        _ => 1,
+      };
+      final status = rank(a.$2).compareTo(rank(b.$2));
+      if (status != 0) return status;
+      if (a.$2.status == StudyLectureStatus.upcoming &&
+          b.$2.status == StudyLectureStatus.upcoming) {
+        return (a.$2.startsAt ?? DateTime(0)).compareTo(
+          b.$2.startsAt ?? DateTime(0),
+        );
+      }
       final date = (b.$2.startsAt ?? DateTime(0)).compareTo(
         a.$2.startsAt ?? DateTime(0),
       );
@@ -59,7 +72,11 @@ class _StudyCourseScreenState extends State<StudyCourseScreen> {
     super.initState();
     if (_courses.any(
       (course) =>
-          course.remote && course.lectures.isEmpty && course.lectureCount != 0,
+          course.remote &&
+          ((course.lectures.isEmpty && course.lectureCount != 0) ||
+              course.lectures.any(
+                (lecture) => lecture.status != StudyLectureStatus.recorded,
+              )),
     )) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
     }
@@ -93,8 +110,16 @@ class _StudyCourseScreenState extends State<StudyCourseScreen> {
     }
   }
 
-  Future<StudyCourse?> _chooseCourse() async {
-    final selected = _selected;
+  Future<StudyCourse?> _chooseCourse({bool recordingsOnly = false}) async {
+    final selected = _selected
+        .where(
+          (course) =>
+              !recordingsOnly ||
+              course.lectures.any(
+                (lecture) => lecture.status == StudyLectureStatus.recorded,
+              ),
+        )
+        .toList();
     if (selected.length == 1) return selected.single;
     return showDialog<StudyCourse>(
       context: context,
@@ -123,7 +148,7 @@ class _StudyCourseScreenState extends State<StudyCourseScreen> {
   }
 
   Future<void> _organize() async {
-    final course = await _chooseCourse();
+    final course = await _chooseCourse(recordingsOnly: true);
     if (course != null && mounted && course.lectures.isNotEmpty) {
       await showStudyOrganize(context, widget.app, course);
     }
@@ -171,6 +196,9 @@ class _StudyCourseScreenState extends State<StudyCourseScreen> {
   @override
   Widget build(BuildContext context) {
     final lectures = _lectures;
+    final hasRecordings = lectures.any(
+      (item) => item.$2.status == StudyLectureStatus.recorded,
+    );
     final teachers =
         _courses
             .where((course) => !course.isEmptyRemote)
@@ -187,7 +215,7 @@ class _StudyCourseScreenState extends State<StudyCourseScreen> {
             child: const Text('复习'),
           ),
           TextButton(
-            onPressed: lectures.isEmpty ? null : _organize,
+            onPressed: hasRecordings ? _organize : null,
             child: const Text('整理'),
           ),
           AppMenuAnchor(
@@ -204,7 +232,7 @@ class _StudyCourseScreenState extends State<StudyCourseScreen> {
                 child: const Text('导入本地录播'),
               ),
               AppMenuItemButton(
-                onPressed: lectures.isEmpty ? null : _organize,
+                onPressed: hasRecordings ? _organize : null,
                 leadingIcon: const Icon(Icons.download_outlined),
                 child: const Text('整理资料'),
               ),
@@ -350,9 +378,23 @@ class _LectureRow extends StatelessWidget {
           width: 64,
           child: Padding(
             padding: const EdgeInsets.only(top: 12),
-            child: Text(
-              lectureDate(lecture),
-              style: Theme.of(context).textTheme.bodySmall,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  lectureDate(lecture),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                if (lecture.status != StudyLectureStatus.recorded)
+                  Text(
+                    lecture.status.label,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: lecture.status == StudyLectureStatus.live
+                          ? Theme.of(context).colorScheme.error
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
@@ -361,7 +403,9 @@ class _LectureRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               InkWell(
-                onTap: () => onOpen(StudyMaterial.video),
+                onTap: lecture.status.canPlay
+                    ? () => onOpen(StudyMaterial.video)
+                    : null,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Row(
@@ -373,7 +417,13 @@ class _LectureRow extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(Icons.play_arrow_rounded, size: 22),
+                      if (lecture.status.canPlay)
+                        Icon(
+                          lecture.status == StudyLectureStatus.live
+                              ? Icons.live_tv_rounded
+                              : Icons.play_arrow_rounded,
+                          size: 22,
+                        ),
                     ],
                   ),
                 ),
@@ -387,13 +437,24 @@ class _LectureRow extends StatelessWidget {
                 spacing: 4,
                 children: [
                   for (final (kind, label, icon) in [
-                    (
-                      StudyMaterial.video,
-                      '录播',
-                      Icons.play_circle_outline_rounded,
-                    ),
-                    (StudyMaterial.slides, '课件', Icons.slideshow_outlined),
-                    (StudyMaterial.transcript, '字幕', Icons.subtitles_outlined),
+                    if (lecture.status.canPlay)
+                      (
+                        StudyMaterial.video,
+                        lecture.status == StudyLectureStatus.live
+                            ? '观看直播'
+                            : '录播',
+                        lecture.status == StudyLectureStatus.live
+                            ? Icons.live_tv_rounded
+                            : Icons.play_circle_outline_rounded,
+                      ),
+                    if (lecture.status == StudyLectureStatus.recorded) ...[
+                      (StudyMaterial.slides, '课件', Icons.slideshow_outlined),
+                      (
+                        StudyMaterial.transcript,
+                        '字幕',
+                        Icons.subtitles_outlined,
+                      ),
+                    ],
                     (StudyMaterial.notes, '笔记', Icons.edit_note_rounded),
                   ])
                     TextButton.icon(

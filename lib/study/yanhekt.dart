@@ -1,7 +1,4 @@
-import 'dart:convert';
-
 import 'package:html/parser.dart';
-import 'package:pointycastle/export.dart';
 
 import '../core/async/cancelable_request.dart';
 import '../school/errors.dart';
@@ -11,35 +8,7 @@ import '../school/session.dart';
 import '../school/storage.dart';
 import '../school/verification.dart';
 import 'model.dart';
-
-class LectureStreams {
-  const LectureStreams({
-    required this.urls,
-    required this.duration,
-    required this.user,
-    required this.tenant,
-    required this.phone,
-  });
-  final Map<String, Uri> urls;
-  final Duration duration;
-  final String user;
-  final String tenant;
-  final String phone;
-
-  Uri sign(Uri url, {DateTime? at}) {
-    if (!url.path.startsWith('/play/')) return url;
-    final seconds = ((at ?? DateTime.now()).millisecondsSinceEpoch ~/ 1000)
-        .toString();
-    final input = utf8.encode(
-      '${url.path}$user$tenant${phone.split('').reversed.join()}$seconds',
-    );
-    final digest = MD5Digest()
-        .process(input)
-        .map((b) => b.toRadixString(16).padLeft(2, '0'))
-        .join();
-    return url.replace(queryParameters: {'t': '$user-$seconds-$digest'});
-  }
-}
+import 'playback.dart';
 
 /// Yanhekt's course API. The existing CAS implementation owns school credentials.
 class YanhektRepository {
@@ -255,17 +224,19 @@ class YanhektRepository {
       if (node is Map) {
         if (node.containsKey('sub_title')) {
           lectureCount++;
-          if ('${node['playback_status']}' == '1') {
-            lectures.add(
-              StudyLecture(
-                id: '${node['id']}',
-                title: node['sub_title'] as String,
-                startsAt: DateTime.fromMillisecondsSinceEpoch(
-                  int.parse('${node['class_begin']}') * 1000,
-                ),
+          lectures.add(
+            StudyLecture(
+              id: '${node['id']}',
+              title: node['sub_title'] as String,
+              startsAt: DateTime.fromMillisecondsSinceEpoch(
+                int.parse('${node['class_begin']}') * 1000,
               ),
-            );
-          }
+              endsAt: DateTime.fromMillisecondsSinceEpoch(
+                int.parse('${node['class_over']}') * 1000,
+              ),
+              status: StudyLectureStatus.fromYanhekt(node['sub_status']),
+            ),
+          );
         } else {
           for (final item in node.values) {
             visit(item);
@@ -303,27 +274,96 @@ class YanhektRepository {
       {'course_id': course, 'sub_id': lecture},
     );
     final data = body['data'] as Map<String, dynamic>;
+    final status = StudyLectureStatus.fromYanhekt(data['sub_status']);
     final urls = <String, Uri>{};
-    final raw = data['video_list'];
-    final videos = raw is Map ? raw.values : raw as List? ?? [];
-    for (final video in videos) {
-      if ('${video['status']}' != '2') continue;
-      final kind = switch ('${video['type']}') {
-        '2' => 'screen',
-        '3' => 'classroom',
-        _ => null,
-      };
-      if (kind != null) urls[kind] = Uri.parse(video['preview_url'] as String);
+    if (status == StudyLectureStatus.live) {
+      final live = data['live_url'] as Map;
+      for (final (field, kind) in [
+        ('output', 'classroom'),
+        ('output_ppt', 'screen'),
+      ]) {
+        final url = (live[field] as Map?)?['m3u8'] as String?;
+        if (url != null && url.isNotEmpty) urls[kind] = Uri.parse(url);
+      }
+    } else if (status == StudyLectureStatus.recorded) {
+      final raw = data['video_list'];
+      final videos = raw is Map ? raw.values : raw as List? ?? [];
+      for (final video in videos) {
+        if ('${video['status']}' != '2') continue;
+        final kind = switch ('${video['type']}') {
+          '2' => 'screen',
+          '3' => 'classroom',
+          _ => null,
+        };
+        if (kind != null) {
+          urls[kind] = Uri.parse(video['preview_url'] as String);
+        }
+      }
     }
     return LectureStreams(
       urls: urls,
       duration: Duration(
-        milliseconds: (double.parse('${data['duration']}') * 1000).round(),
+        milliseconds: status == StudyLectureStatus.recorded
+            ? (double.parse('${data['duration']}') * 1000).round()
+            : 0,
       ),
-      user: '${profile['id']}',
-      tenant: '${profile['tenant_id']}',
-      phone: '${profile['phone']}',
+      status: status,
+      signing: status == StudyLectureStatus.recorded
+          ? (
+              user: '${profile['id']}',
+              tenant: '${profile['tenant_id']}',
+              phone: '${profile['phone']}',
+            )
+          : null,
     );
+  });
+
+  Future<List<StudyBroadcast>> broadcasts(
+    DateTime date,
+    VerifySchoolLogin verify,
+    CancellationToken cancellation,
+  ) => _read(verify, cancellation, (session, profile, token) async {
+    final day =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final body = await _json(
+      session,
+      token,
+      '/courseapi/v2/schedule/get-week-schedules',
+      {
+        'user_id': '${profile['id']}',
+        'tenant_id': '${profile['tenant_id']}',
+        'start_at': day,
+        'end_at': day,
+      },
+    );
+    final result = body['result'] as Map;
+    if (result['code'] == 400 && result['msg'] == '课表为空') return [];
+    if ([401, 403].contains(result['code'])) throw const SessionExpired();
+    if (result['code'] != 200) {
+      throw SchoolRequestError(result['msg'] as String);
+    }
+    return [
+      for (final day in result['list'] as List)
+        for (final row in day['course'] as List)
+          StudyBroadcast(
+            course: StudyCourse(
+              id: '${row['course_id']}',
+              title: row['course_title'] as String,
+              teacher: row['lecturer_name'] as String? ?? '',
+            ),
+            lecture: StudyLecture(
+              id: '${row['id']}',
+              title: row['course_title'] as String,
+              startsAt: DateTime.fromMillisecondsSinceEpoch(
+                int.parse('${row['start_at']}') * 1000,
+              ),
+              endsAt: DateTime.fromMillisecondsSinceEpoch(
+                int.parse('${row['end_at']}') * 1000,
+              ),
+              status: StudyLectureStatus.fromYanhekt(row['status']),
+            ),
+          ),
+    ];
   });
 
   Future<List<TranscriptSegment>> transcript(

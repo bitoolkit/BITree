@@ -13,6 +13,9 @@ Future<void> showStudyOrganize(
   StudyCourse course, {
   StudyLecture? lecture,
 }) async {
+  final recordings = course.lectures
+      .where((lecture) => lecture.status == StudyLectureStatus.recorded)
+      .toList();
   var count = lecture == null ? 3 : 1;
   final remote = course.remote && !(lecture?.id.startsWith('local-') ?? false);
   final selected = <String>{if (remote) 'transcript', 'slides'};
@@ -90,10 +93,10 @@ Future<void> showStudyOrganize(
   );
   if (confirmed != true || !context.mounted) return;
   final lectures = count == 1
-      ? [lecture ?? course.lectures.first]
+      ? [lecture ?? recordings.first]
       : count == -1
-      ? course.lectures
-      : course.lectures.take(3);
+      ? recordings
+      : recordings.take(3);
   for (final item in lectures) {
     if (selected.contains('transcript') && !item.id.startsWith('local-')) {
       app.study.fetchTranscript(course, item, studyVerify(context));

@@ -8,6 +8,7 @@ import 'package:bitree/study/controller.dart';
 import 'package:bitree/study/llm.dart';
 import 'package:bitree/study/media.dart';
 import 'package:bitree/study/model.dart';
+import 'package:bitree/study/playback.dart';
 import 'package:bitree/study/store.dart';
 import 'package:bitree/study/tasks.dart';
 import 'package:bitree/study/ui/study_course.dart';
@@ -147,9 +148,7 @@ void main() {
     const streams = LectureStreams(
       urls: {},
       duration: Duration(seconds: 1),
-      user: '1',
-      tenant: '21',
-      phone: '123',
+      signing: (user: '1', tenant: '21', phone: '123'),
     );
     final url = Uri.parse('http://127.0.0.1:${server.port}/recording.mp4');
     final cancel = CancellationToken();

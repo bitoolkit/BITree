@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/async/cancelable_request.dart';
 import '../core/diagnostics.dart';
+import '../school/errors.dart';
 import '../school/verification.dart';
 import 'bcut.dart';
 import 'llm.dart';
@@ -203,6 +204,9 @@ class StudyController extends ChangeNotifier {
             cancel,
           );
           final uri = streams.urls[kind];
+          if (streams.status != StudyLectureStatus.recorded) {
+            throw const SchoolRequestError('录播尚未生成，请稍后再试');
+          }
           if (uri == null) {
             throw StateError('这节课没有${kind == 'screen' ? '课件' : '教室'}录播');
           }
@@ -248,6 +252,9 @@ class StudyController extends ChangeNotifier {
                 cancel,
               );
               final url = streams.urls['screen'];
+              if (streams.status != StudyLectureStatus.recorded) {
+                throw const SchoolRequestError('录播尚未生成，请稍后再试');
+              }
               if (url == null) throw StateError('这节课没有课件画面');
               source = (await proxy.open(url, streams)).toString();
             }

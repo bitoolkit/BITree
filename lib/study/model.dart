@@ -50,23 +50,68 @@ class StudyCourse {
   };
 }
 
+enum StudyLectureStatus {
+  recorded,
+  live,
+  upcoming,
+  processing,
+  ended;
+
+  static StudyLectureStatus fromYanhekt(Object? value) => switch ('$value') {
+    '1' => live,
+    '2' => upcoming,
+    '3' => processing,
+    '6' => recorded,
+    _ => ended,
+  };
+
+  bool get canPlay => this == live || this == recorded;
+  String get label => switch (this) {
+    live => '直播中',
+    upcoming => '尚未开始',
+    processing => '录播生成中',
+    ended => '暂无录播',
+    recorded => '录播',
+  };
+}
+
 class StudyLecture {
-  const StudyLecture({required this.id, required this.title, this.startsAt});
+  const StudyLecture({
+    required this.id,
+    required this.title,
+    this.startsAt,
+    this.endsAt,
+    this.status = StudyLectureStatus.recorded,
+  });
   final String id;
   final String title;
   final DateTime? startsAt;
+  final DateTime? endsAt;
+  final StudyLectureStatus status;
 
   factory StudyLecture.fromJson(Map<String, dynamic> json) => StudyLecture(
     id: json['id'] as String,
     title: json['title'] as String,
     startsAt: DateTime.tryParse(json['startsAt'] as String? ?? ''),
+    endsAt: DateTime.tryParse(json['endsAt'] as String? ?? ''),
+    status: StudyLectureStatus.values.byName(
+      json['status'] as String? ?? 'recorded',
+    ),
   );
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
     'startsAt': startsAt?.toIso8601String(),
+    'endsAt': endsAt?.toIso8601String(),
+    'status': status.name,
   };
+}
+
+class StudyBroadcast {
+  const StudyBroadcast({required this.course, required this.lecture});
+  final StudyCourse course;
+  final StudyLecture lecture;
 }
 
 class TranscriptSegment {

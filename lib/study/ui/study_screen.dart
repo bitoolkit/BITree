@@ -10,6 +10,7 @@ import '../model.dart';
 import 'study_common.dart';
 import 'study_course.dart';
 import 'study_library.dart';
+import 'study_live.dart';
 import 'study_search.dart';
 import 'study_services.dart';
 import 'study_tasks.dart';
@@ -51,6 +52,15 @@ class StudyScreen extends StatelessWidget {
     builder: (context, _) => AppPage(
       title: const Text('学习'),
       actions: [
+        IconButton(
+          tooltip: '课堂直播',
+          icon: const Icon(Icons.live_tv_rounded),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => StudyLiveScreen(app: controller),
+            ),
+          ),
+        ),
         IconButton(
           tooltip: '搜索课程',
           icon: const Icon(Icons.search_rounded),

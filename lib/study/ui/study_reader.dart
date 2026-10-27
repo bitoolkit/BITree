@@ -18,6 +18,7 @@ import '../media.dart';
 import '../model.dart';
 import '../tasks.dart';
 import 'study_common.dart';
+import 'study_live_player.dart';
 import 'study_organize.dart';
 import 'study_services.dart';
 
@@ -54,8 +55,10 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
   VideoController? _video;
   VideoController? _secondaryVideo;
   Timer? _saveTimer;
+  late bool _livePlayback =
+      widget.lecture.status != StudyLectureStatus.recorded;
   late var _tab = widget.initial == StudyMaterial.video
-      ? 0
+      ? (widget.lecture.status == StudyLectureStatus.live ? 2 : 0)
       : switch (widget.initial) {
           StudyMaterial.transcript => 0,
           StudyMaterial.slides => 1,
@@ -147,6 +150,7 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
       studyVerify(context),
       _cancellation,
     );
+    _livePlayback = streams.status == StudyLectureStatus.live;
     for (final entry in streams.urls.entries) {
       _sources[entry.key] = (await _proxy.open(
         entry.value,
@@ -157,6 +161,10 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
 
   Future<void> _openPlayer({Duration? seek}) async {
     if (_opening || _material == null) return;
+    if (_livePlayback) {
+      setState(() => _showPlayer = true);
+      return;
+    }
     final requestedPosition = seek ?? _material!.position;
     setState(() {
       _opening = true;
@@ -165,6 +173,7 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
     await studyOperation(context, '播放录播', () async {
       await _resolveSources();
       _cancellation.check();
+      if (_livePlayback) return;
       if (_sources.isEmpty) throw StateError('这节课没有可播放的录播');
       if (_player == null) {
         MediaKit.ensureInitialized();
@@ -254,6 +263,7 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
   }
 
   Future<void> _seek(Duration value) async {
+    if (_livePlayback) return;
     _position.value = value;
     await _openPlayer(seek: value);
   }
@@ -399,7 +409,7 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
         AppMenuAnchor(
           menuChildren: [
             AppMenuItemButton(
-              onPressed: _material == null
+              onPressed: _material == null || _livePlayback
                   ? null
                   : () => showStudyOrganize(
                       context,
@@ -462,7 +472,7 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            trailing: const Text('观看录播'),
+                            trailing: Text(_livePlayback ? '观看直播' : '观看录播'),
                             onTap: () => _openPlayer(),
                           ),
                         _materialTabs(),
@@ -501,7 +511,28 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
           ),
   );
 
-  Widget _playerPanel() => Padding(
+  Widget _playerPanel() {
+    if (_livePlayback) {
+      return StudyLivePlayer(
+        initialStatus: widget.lecture.status,
+        load: (cancel) => widget.app.study.repository.streams(
+          widget.course.id,
+          widget.lecture.id,
+          studyVerify(context),
+          cancel,
+        ),
+        onRecording: () {
+          setState(() => _livePlayback = false);
+          _sources.clear();
+          unawaited(_openPlayer());
+        },
+        onCollapse: () => setState(() => _showPlayer = false),
+      );
+    }
+    return _recordedPlayerPanel();
+  }
+
+  Widget _recordedPlayerPanel() => Padding(
     padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
     child: Column(
       children: [
@@ -714,13 +745,15 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
     final transcript = _material!.transcript;
     if (transcript.isEmpty) {
       return StudyEmpty(
-        text: '还没有字幕',
+        text: _livePlayback ? '直播结束后可获取平台字幕' : '还没有字幕',
         action: Wrap(
           spacing: 12,
           runSpacing: 8,
           alignment: WrapAlignment.center,
           children: [
-            if (widget.course.remote && !widget.lecture.id.startsWith('local-'))
+            if (!_livePlayback &&
+                widget.course.remote &&
+                !widget.lecture.id.startsWith('local-'))
               FilledButton(
                 onPressed: () {
                   widget.app.study.fetchTranscript(
@@ -801,7 +834,7 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
                     row.text,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                  onTap: () => _seek(row.start),
+                  onTap: _livePlayback ? null : () => _seek(row.start),
                 );
               },
             ),
@@ -814,6 +847,7 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
   Widget _slidesPanel() {
     final slides = _material!.slides.where((slide) => !slide.hidden).toList();
     if (slides.isEmpty) {
+      if (_livePlayback) return const StudyEmpty(text: '直播结束后可提取课件');
       return StudyEmpty(
         text: '还没有课件',
         action: FilledButton(
