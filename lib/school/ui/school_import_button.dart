@@ -36,18 +36,17 @@ class SchoolImportButton extends StatelessWidget {
                 ),
           child: const Text('获取考试安排'),
         ),
-        const Divider(),
-        for (final action in [
-          SchoolAction.importLexueDeadlines,
-          SchoolAction.importEclassDeadlines,
-        ])
-          AppMenuItemButton(
-            leadingIcon: const Icon(Icons.flag_outlined),
-            onPressed: busy || !controller.agenda.ready
-                ? null
-                : () => openSchoolPage(context, controller, action: action),
-            child: Text(action.label),
-          ),
+        AppMenuItemButton(
+          leadingIcon: const Icon(Icons.flag_outlined),
+          onPressed: busy || !controller.agenda.ready
+              ? null
+              : () => openSchoolPage(
+                  context,
+                  controller,
+                  action: SchoolAction.importDeadlines,
+                ),
+          child: const Text('更新 DDL'),
+        ),
         const Divider(),
         AppMenuItemButton(
           leadingIcon: const Icon(Icons.restore_from_trash_outlined),

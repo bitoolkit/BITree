@@ -13,12 +13,10 @@ enum SchoolAction {
   importExams('获取考试安排'),
   importGrades('导入成绩'),
   importStudyPlan('更新学分进度'),
-  importLexueDeadlines('更新乐学 DDL', source: DeadlineSource.lexue),
-  importEclassDeadlines('更新新延河课堂 DDL', source: DeadlineSource.eclass);
+  importDeadlines('更新 DDL');
 
-  const SchoolAction(this.label, {this.source});
+  const SchoolAction(this.label);
   final String label;
-  final DeadlineSource? source;
 }
 
 Future<bool> _fetchSchoolData(
@@ -40,8 +38,9 @@ Future<bool> _fetchSchoolData(
   SchoolAction.importStudyPlan => controller.school.importStudyPlan(
     verify: verify,
   ),
-  SchoolAction.importLexueDeadlines || SchoolAction.importEclassDeadlines =>
-    controller.school.importDeadlines(action.source!, verify: verify),
+  SchoolAction.importDeadlines => controller.school.importDeadlines(
+    verify: verify,
+  ),
 };
 
 Future<bool?> openSchoolPage(
@@ -78,7 +77,7 @@ Future<bool?> openSchoolPage(
       SchoolAction.importExams => '已更新考试安排',
       SchoolAction.importGrades => '已更新成绩',
       SchoolAction.importStudyPlan => '已更新学分进度',
-      _ => '已更新${action.source!.label} DDL',
+      _ => '已更新 DDL',
     });
   }
   return success;
@@ -124,7 +123,9 @@ class _SchoolScreenState extends State<_SchoolScreen> {
       final signedIn = await controller.school.signIn(
         SchoolCredentials(username: _username.text, password: _password.text),
         verify,
-        source: widget.action.source,
+        source: widget.action == SchoolAction.importDeadlines
+            ? DeadlineSource.lexue
+            : null,
       );
       if (!mounted) return;
       if (!signedIn) return;
@@ -247,16 +248,14 @@ class _SchoolScreenState extends State<_SchoolScreen> {
                   SchoolAction.importExams ||
                   SchoolAction.importGrades ||
                   SchoolAction.importStudyPlan ||
-                  SchoolAction.importLexueDeadlines ||
-                  SchoolAction.importEclassDeadlines => '获取中…',
+                  SchoolAction.importDeadlines => '获取中…',
                   null => switch (widget.action) {
                     SchoolAction.signIn => '登录',
                     SchoolAction.importSchedule => '登录并导入',
                     SchoolAction.importExams ||
                     SchoolAction.importGrades ||
                     SchoolAction.importStudyPlan ||
-                    SchoolAction.importLexueDeadlines ||
-                    SchoolAction.importEclassDeadlines => '登录并获取',
+                    SchoolAction.importDeadlines => '登录并获取',
                   },
                 }),
               ],

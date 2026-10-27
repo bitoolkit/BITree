@@ -21,8 +21,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('导入课表'), findsOneWidget);
     expect(find.text('获取考试安排'), findsOneWidget);
-    expect(find.text('更新乐学 DDL'), findsOneWidget);
-    expect(find.text('更新新延河课堂 DDL'), findsOneWidget);
+    expect(find.text('更新 DDL'), findsOneWidget);
+    expect(find.text('更新乐学 DDL'), findsNothing);
+    expect(find.text('更新新延河课堂 DDL'), findsNothing);
+    expect(find.byType(Divider), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
