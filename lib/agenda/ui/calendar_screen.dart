@@ -10,25 +10,48 @@ import '../../ui/app_page.dart';
 import '../../ui/pull_to_reveal_list.dart';
 import '../../ui/swipe_pager.dart';
 import '../model.dart';
+import '../view_mode.dart';
 import 'agenda_list_tile.dart';
+import 'agenda_timeline.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({
     super.key,
     required this.controller,
     required this.now,
+    this.active = true,
   });
 
   final AppController controller;
   final DateTime now;
+  final bool active;
 
   @override
   State<CalendarScreen> createState() => _CalendarScreenState();
 }
 
-class _CalendarScreenState extends State<CalendarScreen> {
+class _CalendarScreenState extends State<CalendarScreen>
+    with SingleTickerProviderStateMixin {
   AgendaKind? _kind;
   int _status = 0;
+  late final TabController _timelineTabs;
+
+  @override
+  void initState() {
+    super.initState();
+    _timelineTabs = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _timelineTabs.dispose();
+    super.dispose();
+  }
+
+  void _setStatus(int index) {
+    if (_status != index) setState(() => _status = index);
+    if (_timelineTabs.index != index) _timelineTabs.animateTo(index);
+  }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -36,6 +59,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       widget.controller.agenda,
       widget.controller.school,
       widget.controller.timetable,
+      widget.controller.agendaViewMode,
     ]),
     builder: (context, _) => _build(context),
   );
@@ -48,6 +72,40 @@ class _CalendarScreenState extends State<CalendarScreen> {
         .where((entry) => _kind == null || entry.kind == _kind)
         .toList();
     final doneCount = entries.where((entry) => entry.isFinished(now)).length;
+    final timeline = controller.agendaViewMode.value == AgendaViewMode.timeline;
+
+    Widget statusHeader(TabController tabs, {ValueChanged<int>? onTap}) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TabBar(
+          controller: tabs,
+          onTap: onTap,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          indicatorSize: TabBarIndicatorSize.label,
+          labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+          labelColor: scheme.primary,
+          unselectedLabelColor: scheme.onSurfaceVariant,
+          labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+          ),
+          tabs: [
+            Tab(text: '未完成 ${entries.length - doneCount}'),
+            Tab(text: '已完成 $doneCount'),
+          ],
+        ),
+        if (!controller.agenda.ready && controller.agenda.busy)
+          const LinearProgressIndicator(minHeight: 3),
+        if (!controller.agenda.ready && !controller.agenda.busy)
+          TextButton.icon(
+            onPressed: controller.agenda.load,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('重新加载日程'),
+          ),
+      ],
+    );
 
     return AppPage(
       title: Row(
@@ -65,52 +123,52 @@ class _CalendarScreenState extends State<CalendarScreen> {
       actions: [
         AddButton(controller: controller, includeCourse: false),
         SchoolImportButton(controller: controller),
+        IconButton(
+          tooltip: timeline ? '切换到列表' : '切换到时间轴',
+          icon: Icon(
+            timeline ? Icons.view_list_outlined : Icons.view_timeline_outlined,
+          ),
+          onPressed: () => controller.setAgendaViewMode(
+            timeline ? AgendaViewMode.list : AgendaViewMode.timeline,
+          ),
+        ),
       ],
-      child: SwipePager(
-        index: _status,
-        itemCount: 2,
-        onChanged: (index) => setState(() => _status = index),
-        headerBuilder: (context, tabs) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TabBar(
-              controller: tabs,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              indicatorSize: TabBarIndicatorSize.label,
-              labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-              labelColor: scheme.primary,
-              unselectedLabelColor: scheme.onSurfaceVariant,
-              labelStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-              unselectedLabelStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-              ),
-              tabs: [
-                Tab(text: '未完成 ${entries.length - doneCount}'),
-                Tab(text: '已完成 $doneCount'),
-              ],
+      // Keep both presentations alive so toggling views preserves the browsing
+      // position. The timeline is not inside SwipePager: horizontal gestures
+      // belong to time navigation rather than the completion-status pager.
+      child: IndexedStack(
+        index: timeline ? 1 : 0,
+        children: [
+          SwipePager(
+            index: _status,
+            itemCount: 2,
+            onChanged: _setStatus,
+            headerBuilder: (context, tabs) => statusHeader(tabs),
+            itemBuilder: (context, index) => _AgendaStatusList(
+              key: ValueKey((_kind, index)),
+              controller: controller,
+              entries: entries,
+              completed: index == 1,
+              now: now,
             ),
-            if (!controller.agenda.ready && controller.agenda.busy)
-              const LinearProgressIndicator(minHeight: 3),
-            if (!controller.agenda.ready && !controller.agenda.busy)
-              TextButton.icon(
-                onPressed: controller.agenda.load,
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('重新加载日程'),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              statusHeader(_timelineTabs, onTap: _setStatus),
+              Expanded(
+                child: AgendaTimeline(
+                  controller: controller,
+                  entries: entries
+                      .where((entry) => entry.isFinished(now) == (_status == 1))
+                      .toList(),
+                  now: now,
+                  active: widget.active,
+                ),
               ),
-          ],
-        ),
-        itemBuilder: (context, index) => _AgendaStatusList(
-          key: ValueKey((_kind, index)),
-          controller: controller,
-          entries: entries,
-          completed: index == 1,
-          now: now,
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
