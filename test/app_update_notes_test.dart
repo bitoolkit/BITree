@@ -11,7 +11,7 @@ import 'support/test_app.dart';
 Map<String, dynamic> _release({required bool development}) => {
   'tag_name': development ? 'v0.3.0-dev' : 'v0.3.0',
   'html_url':
-      'https://github.com/so1ve/bitree/releases/tag/${development ? 'v0.3.0-dev' : 'v0.3.0'}',
+      'https://github.com/bitoolkit/bitree/releases/tag/${development ? 'v0.3.0-dev' : 'v0.3.0'}',
   'body': '## Unreleased\n\n- 已安装的旧变更\n- 更早的历史变更',
   'published_at': '2026-10-27T10:00:00Z',
   'prerelease': development,
@@ -30,7 +30,7 @@ List<Map<String, dynamic>> _commits(int count, {String head = '3333333'}) => [
     {
       'sha': (index == count ? head : index.toRadixString(16).padLeft(7, '0'))
           .padRight(40, '0'),
-      'html_url': 'https://github.com/so1ve/bitree/commit/change-$index',
+      'html_url': 'https://github.com/bitoolkit/bitree/commit/change-$index',
       'commit': {'message': '变更 $index\n\n提交正文不应进入摘要'},
     },
 ];
@@ -61,12 +61,12 @@ void main() {
       requests.add(request.uri);
       Object? data;
       switch (request.uri.path) {
-        case '/api.github.com/repos/so1ve/bitree/releases/latest':
+        case '/api.github.com/repos/bitoolkit/bitree/releases/latest':
           request.response.statusCode = stable == null
               ? HttpStatus.notFound
               : discoveryStatus;
           data = stable;
-        case '/api.github.com/repos/so1ve/bitree/releases':
+        case '/api.github.com/repos/bitoolkit/bitree/releases':
           request.response.statusCode = discoveryStatus;
           data = [?development];
         case '/downloads.example/update.json':
@@ -194,7 +194,7 @@ void main() {
           expect(
             release.notes,
             contains(
-              'https://github.com/so1ve/bitree/compare/1111111...3333333',
+              'https://github.com/bitoolkit/bitree/compare/1111111...3333333',
             ),
           );
         }

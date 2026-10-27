@@ -14,7 +14,7 @@ AppRelease _release({
 }) => AppRelease.fromGitHub({
   'tag_name': development ? 'v0.2.0-dev' : 'v0.2.0',
   'html_url':
-      'https://github.com/so1ve/bitree/releases/tag/${development ? 'dev' : 'stable'}',
+      'https://github.com/bitoolkit/bitree/releases/tag/${development ? 'dev' : 'stable'}',
   'body': notes ?? '## 更新内容\n\n修复课程显示，改进更新下载。',
   'prerelease': development,
   'assets': [
@@ -136,7 +136,7 @@ void main() {
     'The full changelog opens the exact version comparison without closing the dialog',
     (tester) async {
       const comparison =
-          'https://github.com/so1ve/bitree/compare/1111111...3333333';
+          'https://github.com/bitoolkit/bitree/compare/1111111...3333333';
       await _show(
         tester,
         releases: [

@@ -11,4 +11,4 @@ PRODUCT_NAME = BITree
 PRODUCT_BUNDLE_IDENTIFIER = dev.so1ve.bitree
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = The BITree Authors. Unlicense.
+PRODUCT_COPYRIGHT = BIToolkit. Unlicense.

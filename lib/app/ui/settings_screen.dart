@@ -128,9 +128,34 @@ class SettingsScreen extends StatelessWidget {
             children: [
               const Text('面向北京理工大学的本地跨平台工具集。'),
               const SizedBox(height: 12),
-              Text(
-                'Unlicense. Made by The BITree Authors with ♥️',
-                style: theme.textTheme.bodySmall,
+              Semantics(
+                link: true,
+                child: InkWell(
+                  onTap: () => openExternalLink(
+                    dialogContext,
+                    Uri.https('github.com', '/bitoolkit'),
+                    failureTitle: '无法打开 BIToolkit',
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          const TextSpan(text: 'Unlicense. Made by '),
+                          TextSpan(
+                            text: 'BIToolkit',
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                          const TextSpan(text: ' with ♥️'),
+                        ],
+                      ),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -154,7 +179,7 @@ class SettingsScreen extends StatelessWidget {
             TextButton(
               onPressed: () => openExternalLink(
                 dialogContext,
-                Uri.https('github.com', '/so1ve/bitree'),
+                Uri.https('github.com', '/bitoolkit/bitree'),
                 failureTitle: '无法打开 GitHub',
               ),
               child: const Text('GitHub'),

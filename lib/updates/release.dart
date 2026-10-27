@@ -86,11 +86,11 @@ Future<List<AppRelease>> availableAppReleases(
     final [stable, releases] = await Future.wait([
       _readJson(
         client,
-        Uri.https('api.github.com', '/repos/so1ve/bitree/releases/latest'),
+        Uri.https('api.github.com', '/repos/bitoolkit/bitree/releases/latest'),
       ),
       _readJson(
         client,
-        Uri.https('api.github.com', '/repos/so1ve/bitree/releases'),
+        Uri.https('api.github.com', '/repos/bitoolkit/bitree/releases'),
       ),
     ]);
     final dev = (releases as List?)
@@ -221,7 +221,7 @@ Future<String> _updateNotes(HttpClient client, String base, String head) async {
   Future<Map<String, dynamic>> readPage(int page) async {
     final url = Uri.https(
       'api.github.com',
-      '/repos/so1ve/bitree/compare/$base...$head',
+      '/repos/bitoolkit/bitree/compare/$base...$head',
       {'per_page': '$pageSize', 'page': '$page'},
     );
     final comparison = await _readJson(client, url) as Map<String, dynamic>?;
@@ -256,7 +256,7 @@ Future<String> _updateNotes(HttpClient client, String base, String head) async {
           '([${(commit['sha'] as String).substring(0, 7)}](${commit['html_url']}))',
     if (total > preview.length)
       '\n另有 ${total - preview.length} 项变更，'
-          '[查看完整变更](https://github.com/so1ve/bitree/compare/$base...$head)。',
+          '[查看完整变更](https://github.com/bitoolkit/bitree/compare/$base...$head)。',
   ];
   return notes.join('\n');
 }

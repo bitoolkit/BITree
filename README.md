@@ -9,9 +9,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/so1ve/bitree/releases/latest">下载正式版</a>
+  <a href="https://github.com/bitoolkit/bitree/releases/latest">下载正式版</a>
   &nbsp;|&nbsp;
-  <a href="https://github.com/so1ve/bitree/releases?q=prerelease%3Atrue">下载测试版</a>
+  <a href="https://github.com/bitoolkit/bitree/releases?q=prerelease%3Atrue">下载测试版</a>
 </p>
 
 ## 功能
@@ -30,7 +30,7 @@
 
 ## 下载
 
-前往 [正式版](https://github.com/so1ve/bitree/releases/latest) 或 [测试版](https://github.com/so1ve/bitree/releases?q=prerelease%3Atrue)，按平台选择文件：
+前往 [正式版](https://github.com/bitoolkit/bitree/releases/latest) 或 [测试版](https://github.com/bitoolkit/bitree/releases?q=prerelease%3Atrue)，按平台选择文件：
 
 | 平台 | 下载文件 |
 | --- | --- |
@@ -69,4 +69,4 @@ flutter symbolize --debug-info=app.android-arm64.symbols --input=stacktrace.txt
 
 ## LICENSE
 
-[Unlicense](LICENSE). Made by [The BITree Authors](https://github.com/so1ve/bitree/graphs/contributors) with ♥️
+[Unlicense](LICENSE). Made by [BIToolkit](https://github.com/bitoolkit) with ♥️
