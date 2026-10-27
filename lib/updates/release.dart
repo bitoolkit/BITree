@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:pub_semver/pub_semver.dart';
 
+import '../core/diagnostics.dart';
+
 class AppRelease {
   const AppRelease({
     required this.version,
@@ -96,7 +98,10 @@ Future<List<AppRelease>> availableAppReleases(
       builtAt: builtAt,
     );
 
-    return [?stableUpdate, ?developmentUpdate];
+    return await Future.wait([
+      for (final update in [?stableUpdate, ?developmentUpdate])
+        _withUpdateNotes(client, update, installed),
+    ]);
   } finally {
     client.close(force: true);
   }
@@ -160,6 +165,84 @@ Future<AppRelease?> _developmentUpdate(
   if (!newer) return null;
 
   return AppRelease.fromGitHub(release, abi: Abi.current(), version: version);
+}
+
+String _revision(String version) =>
+    RegExp(r'-(?:dev\.)?([0-9a-f]{7,40})$').firstMatch(version)?[1] ??
+    (version.startsWith('v') ? version : 'v$version');
+
+Future<AppRelease> _withUpdateNotes(
+  HttpClient client,
+  AppRelease release,
+  String installed,
+) async {
+  String notes;
+  try {
+    notes = await _updateNotes(
+      client,
+      _revision(installed),
+      _revision(release.version),
+    );
+  } catch (failure, stack) {
+    AppDiagnostics.instance.error('读取 ${release.version} 更新日志', failure, stack);
+    notes = '更新说明暂时无法读取，请查看发布页。';
+  }
+  return AppRelease(
+    version: release.version,
+    url: release.url,
+    downloadUrl: release.downloadUrl,
+    notes: notes,
+    isDevelopment: release.isDevelopment,
+  );
+}
+
+Future<String> _updateNotes(HttpClient client, String base, String head) async {
+  const previewCount = 6;
+  const pageSize = 100;
+  const unchanged = '此版本没有新增代码变更，完整说明见发布页。';
+  if (base == head) return unchanged;
+
+  Future<Map<String, dynamic>> readPage(int page) async {
+    final url = Uri.https(
+      'api.github.com',
+      '/repos/so1ve/bitree/compare/$base...$head',
+      {'per_page': '$pageSize', 'page': '$page'},
+    );
+    final comparison = await _readJson(client, url) as Map<String, dynamic>?;
+    if (comparison == null) {
+      throw HttpException('找不到版本比较记录。', uri: url);
+    }
+    return comparison;
+  }
+
+  final first = await readPage(1);
+  final total = first['total_commits'] as int;
+  if (total == 0) return unchanged;
+
+  var commits = (first['commits'] as List).cast<Map<String, dynamic>>();
+  if (total > pageSize) {
+    final lastPage = (total + pageSize - 1) ~/ pageSize;
+    final last = await readPage(lastPage);
+    commits = (last['commits'] as List).cast<Map<String, dynamic>>();
+    if (commits.length < previewCount) {
+      final previous = lastPage == 2 ? first : await readPage(lastPage - 1);
+      commits = [
+        ...(previous['commits'] as List).cast<Map<String, dynamic>>(),
+        ...commits,
+      ];
+    }
+  }
+
+  final preview = commits.reversed.take(previewCount).toList();
+  final notes = [
+    for (final commit in preview)
+      '- ${((commit['commit'] as Map)['message'] as String).split('\n').first} '
+          '([${(commit['sha'] as String).substring(0, 7)}](${commit['html_url']}))',
+    if (total > preview.length)
+      '\n另有 ${total - preview.length} 项变更，'
+          '[查看完整变更](https://github.com/so1ve/bitree/compare/$base...$head)。',
+  ];
+  return notes.join('\n');
 }
 
 Future<Object?> _readJson(HttpClient client, Uri url) async {
