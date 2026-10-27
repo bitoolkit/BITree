@@ -58,7 +58,7 @@ class AddMenu extends StatelessWidget {
               ? () => _addAgenda(context, AgendaKind.event)
               : null,
           leadingIcon: const Icon(Icons.event_outlined),
-          child: const Text('添加活动'),
+          child: const Text('添加日程'),
         ),
         if (selection == null)
           AppMenuItemButton(
