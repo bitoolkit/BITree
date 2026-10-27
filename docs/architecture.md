@@ -1,6 +1,6 @@
 # 代码结构与数据流
 
-各功能放在同名目录：`schedule`、`agenda`、`academics`、`classrooms`、`school`、`wencui` 和 `updates`。功能的页面与表单位于各自的 `ui/`；跨功能控件、主题和动效位于 `lib/ui/`。通用异步、文件和平台访问位于 `lib/core/`。
+各功能放在同名目录：`schedule`、`agenda`、`study`、`academics`、`classrooms`、`school`、`wencui` 和 `updates`。功能的页面与表单位于各自的 `ui/`；跨功能控件、主题和动效位于 `lib/ui/`。通用异步、文件和平台访问位于 `lib/core/`。
 
 `main.dart` 创建依赖。`AppController` 负责组合模块、启动和外观设置。各功能控制器拥有自己的状态，页面通过 Flutter 的 `ListenableBuilder` 监听所需模块；功能更新不会经过根控制器转发给整个应用。
 
@@ -30,6 +30,14 @@ flowchart LR
 页面只负责显示控件、日期选择和登录验证界面。`ClassroomController` 管理查询输入、结果和取消：更换校区或日期会取消旧查询，等待其资源结束后执行新查询；教学楼和时段筛选直接复用已获取的数据。
 
 `ClassroomRepository` 持有教室数据缓存。同账号的教学楼目录缓存一天，占用情况缓存五分钟；相同查询共享进行中的请求。切换账号或退出登录会清空缓存，刷新目录也会清空占用缓存。取消或失败的结果不会缓存。
+
+## 学习
+
+`StudyController` 管理课程、课时及其资料，`StudyStore` 将索引和每节课的资料分别保存到本地 `study/` 目录。录播、课件、字幕和笔记都使用课程编号和课时编号定位。播放位置与随堂笔记会保存，生成笔记与手写笔记分开存储。
+
+`YanhektRepository` 复用学校 CAS 登录和安全 Cookie 存储，直接请求延河课堂接口。录播的 HLS 请求通过只监听本机的 `StudyMediaProxy` 转发，每个媒体片段重新签名。下载使用流式文件写入，保留中断的片段。播放器使用 `media_kit`；课件图像比较和 PDF 生成放在 isolate 中。
+
+`StudyTasks` 同时执行两个任务，切换页面不会取消任务；应用进程关闭时任务停止，重新保存录播可继续已有下载。`StudyModel` 使用 `openai_dart` 的流式接口和请求取消能力，UI 更新最多每 100 毫秒一次。停止或网络中断时保留已收到的文字。模型地址、名称与密钥使用系统安全存储。必剪仅在用户确认后上传所选音频。
 
 ## 手势与布局
 

@@ -10,6 +10,7 @@ import '../schedule/store.dart';
 import '../school/controller.dart';
 import '../school/service.dart';
 import '../school/storage.dart';
+import '../study/controller.dart';
 
 /// Composes feature state and owns application startup and appearance.
 /// Feature changes are observed by their views, not relayed through this object.
@@ -21,6 +22,7 @@ class AppController extends ChangeNotifier {
     required this._preferences,
     required this.agenda,
     required this.academics,
+    required this.study,
   }) : timetable = TimetableController(store) {
     this.school = SchoolController(
       service: school,
@@ -37,6 +39,7 @@ class AppController extends ChangeNotifier {
   late final ClassroomRepository classrooms;
   final AgendaController agenda;
   final AcademicController academics;
+  final StudyController study;
   final SharedPreferencesAsync _preferences;
   bool _ready = false;
   ThemeMode _themeMode = ThemeMode.system;
@@ -57,6 +60,7 @@ class AppController extends ChangeNotifier {
     await school.loadAccount();
     await agenda.load();
     await academics.load(school.username);
+    await study.load();
     _ready = true;
     notifyListeners();
   }
@@ -78,6 +82,7 @@ class AppController extends ChangeNotifier {
     timetable.dispose();
     agenda.dispose();
     academics.dispose();
+    study.dispose();
     super.dispose();
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../schedule/ui/week_range_dialog.dart';
 import '../../school/ui/school_account.dart';
 import '../../school/ui/school_screen.dart';
+import '../../study/ui/study_services.dart';
 import '../../ui/app_menu_anchor.dart';
 import '../../ui/app_menu_trigger.dart';
 import '../../ui/app_page.dart';
@@ -281,6 +282,17 @@ class SettingsScreen extends StatelessWidget {
               ),
             ]),
           section('应用', [
+            ListTile(
+              contentPadding: tilePadding,
+              leading: const Icon(Icons.auto_stories_outlined),
+              title: const Text('学习服务'),
+              trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => StudyServices(model: controller.study.model),
+                ),
+              ),
+            ),
             ListTile(
               contentPadding: tilePadding,
               leading: const Icon(Icons.description_outlined),
