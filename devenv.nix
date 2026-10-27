@@ -50,6 +50,9 @@
       mpv
     ];
 
+  # Expose mpv's development dependencies to pkg-config.
+  inputsFrom = lib.optionals pkgs.stdenv.isLinux [ pkgs.mpv.unwrapped ];
+
   env = {
     FLUTTER_GRADLE_PROJECT_DIR = "${config.devenv.state}/flutter-gradle";
   }
