@@ -12,11 +12,15 @@ class CourseTile extends StatelessWidget {
     required this.course,
     required this.controller,
     required this.isToday,
+    this.date,
+    this.progress,
   });
 
   final Course course;
   final AppController controller;
   final bool isToday;
+  final DateTime? date;
+  final double? progress;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +29,11 @@ class CourseTile extends StatelessWidget {
     return Semantics(
       button: true,
       label:
-          '${course.name}，${course.timeLabel}，${course.room}${isToday ? '，今天' : ''}，查看详情',
+          '${course.name}，${course.timeLabel}，${course.room}${progress != null
+              ? '，上课中'
+              : isToday
+              ? '，今天'
+              : ''}，查看详情',
       child: ExcludeSemantics(
         child: Tooltip(
           triggerMode: TooltipTriggerMode.manual,
@@ -40,118 +48,152 @@ class CourseTile extends StatelessWidget {
             ),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
-              onTap: () => showCourse(context, controller, course),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final narrow = constraints.maxWidth < 100;
-                  final fontSize = narrow ? 12.0 : 14.0;
-                  final media = MediaQuery.of(context);
-                  final horizontalPadding = narrow ? 3.0 : 10.0;
-                  final verticalPadding = narrow ? 4.0 : 6.0;
-                  final spacing = narrow ? 3.0 : 4.0;
-                  final width = constraints.maxWidth - horizontalPadding * 2;
-                  final available = constraints.maxHeight - verticalPadding * 2;
-                  final defaults = DefaultTextStyle.of(context);
-                  final titleStyle = TextStyle(
-                    fontSize: fontSize,
-                    height: narrow ? 1.25 : 1.4,
-                    fontWeight: FontWeight.w600,
-                    color: colors.text,
-                  );
-                  final roomStyle = TextStyle(
-                    fontSize: fontSize - 1,
-                    height: narrow ? 1.2 : 1.35,
-                    color: colors.text.withValues(alpha: 0.8),
-                  );
-
-                  TextPainter measure(String text, TextStyle style) =>
-                      TextPainter(
-                        text: TextSpan(
-                          text: text,
-                          style: defaults.style
-                              .merge(style)
-                              .copyWith(
-                                fontWeight: media.boldText
-                                    ? FontWeight.bold
-                                    : null,
-                                height: media.lineHeightScaleFactorOverride,
-                                letterSpacing: media.letterSpacingOverride,
-                                wordSpacing: media.wordSpacingOverride,
+              onTap: () => showCourse(context, controller, course, date: date),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (progress case final value?)
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: FractionallySizedBox(
+                        widthFactor: 1,
+                        heightFactor: value,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Positioned.fill(
+                              child: ColoredBox(color: colors.elapsedFill),
+                            ),
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: -1,
+                              height: 2,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(color: colors.accent),
                               ),
+                            ),
+                          ],
                         ),
-                        textDirection: Directionality.of(context),
-                        textScaler: media.textScaler,
-                        locale: Localizations.maybeLocaleOf(context),
-                        textHeightBehavior:
-                            defaults.textHeightBehavior ??
-                            DefaultTextHeightBehavior.maybeOf(context),
-                        textWidthBasis: defaults.textWidthBasis,
-                      )..layout(maxWidth: width);
+                      ),
+                    ),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final narrow = constraints.maxWidth < 100;
+                      final fontSize = narrow ? 12.0 : 14.0;
+                      final media = MediaQuery.of(context);
+                      final horizontalPadding = narrow ? 3.0 : 10.0;
+                      final verticalPadding = narrow ? 4.0 : 6.0;
+                      final spacing = narrow ? 3.0 : 4.0;
+                      final width =
+                          constraints.maxWidth - horizontalPadding * 2;
+                      final available =
+                          constraints.maxHeight - verticalPadding * 2;
+                      final defaults = DefaultTextStyle.of(context);
+                      final titleStyle = TextStyle(
+                        fontSize: fontSize,
+                        height: narrow ? 1.25 : 1.4,
+                        fontWeight: FontWeight.w600,
+                        color: colors.text,
+                      );
+                      final roomStyle = TextStyle(
+                        fontSize: fontSize - 1,
+                        height: narrow ? 1.2 : 1.35,
+                        color: progress != null
+                            ? colors.text
+                            : colors.text.withValues(alpha: 0.8),
+                      );
 
-                  final title = measure(course.name, titleStyle);
-                  final room = measure(course.room, roomStyle);
-                  var titleLines = title.computeLineMetrics().length;
-                  var roomLines = course.room.isEmpty
-                      ? 0
-                      : room.computeLineMetrics().length;
-                  if (title.height +
-                          (roomLines > 0 ? room.height + spacing : 0) >
-                      available) {
-                    title.maxLines = 1;
-                    title.layout(maxWidth: width);
-                    room.maxLines = 1;
-                    room.layout(maxWidth: width);
-                    final reserveRoom =
-                        roomLines > 0 &&
-                        title.height + room.height + spacing <= available;
-                    titleLines = _fittingLines(
-                      title,
-                      width,
-                      available - (reserveRoom ? room.height + spacing : 0),
-                    );
-                    roomLines = reserveRoom
-                        ? _fittingLines(
-                            room,
-                            width,
-                            available - title.height - spacing,
-                          )
-                        : 0;
-                  }
-                  title.dispose();
-                  room.dispose();
-                  return Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: horizontalPadding,
-                      vertical: verticalPadding,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            course.name,
-                            textAlign: TextAlign.start,
-                            softWrap: true,
-                            maxLines: titleLines > 0 ? titleLines : 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: titleStyle,
-                          ),
+                      TextPainter measure(String text, TextStyle style) =>
+                          TextPainter(
+                            text: TextSpan(
+                              text: text,
+                              style: defaults.style
+                                  .merge(style)
+                                  .copyWith(
+                                    fontWeight: media.boldText
+                                        ? FontWeight.bold
+                                        : null,
+                                    height: media.lineHeightScaleFactorOverride,
+                                    letterSpacing: media.letterSpacingOverride,
+                                    wordSpacing: media.wordSpacingOverride,
+                                  ),
+                            ),
+                            textDirection: Directionality.of(context),
+                            textScaler: media.textScaler,
+                            locale: Localizations.maybeLocaleOf(context),
+                            textHeightBehavior:
+                                defaults.textHeightBehavior ??
+                                DefaultTextHeightBehavior.maybeOf(context),
+                            textWidthBasis: defaults.textWidthBasis,
+                          )..layout(maxWidth: width);
+
+                      final title = measure(course.name, titleStyle);
+                      final room = measure(course.room, roomStyle);
+                      var titleLines = title.computeLineMetrics().length;
+                      var roomLines = course.room.isEmpty
+                          ? 0
+                          : room.computeLineMetrics().length;
+                      if (title.height +
+                              (roomLines > 0 ? room.height + spacing : 0) >
+                          available) {
+                        title.maxLines = 1;
+                        title.layout(maxWidth: width);
+                        room.maxLines = 1;
+                        room.layout(maxWidth: width);
+                        final reserveRoom =
+                            roomLines > 0 &&
+                            title.height + room.height + spacing <= available;
+                        titleLines = _fittingLines(
+                          title,
+                          width,
+                          available - (reserveRoom ? room.height + spacing : 0),
+                        );
+                        roomLines = reserveRoom
+                            ? _fittingLines(
+                                room,
+                                width,
+                                available - title.height - spacing,
+                              )
+                            : 0;
+                      }
+                      title.dispose();
+                      room.dispose();
+                      return Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: horizontalPadding,
+                          vertical: verticalPadding,
                         ),
-                        if (roomLines > 0) ...[
-                          SizedBox(height: spacing),
-                          Text(
-                            course.room,
-                            textAlign: TextAlign.start,
-                            softWrap: true,
-                            maxLines: roomLines,
-                            overflow: TextOverflow.ellipsis,
-                            style: roomStyle,
-                          ),
-                        ],
-                      ],
-                    ),
-                  );
-                },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                course.name,
+                                textAlign: TextAlign.start,
+                                softWrap: true,
+                                maxLines: titleLines > 0 ? titleLines : 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: titleStyle,
+                              ),
+                            ),
+                            if (roomLines > 0) ...[
+                              SizedBox(height: spacing),
+                              Text(
+                                course.room,
+                                textAlign: TextAlign.start,
+                                softWrap: true,
+                                maxLines: roomLines,
+                                overflow: TextOverflow.ellipsis,
+                                style: roomStyle,
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
           ),

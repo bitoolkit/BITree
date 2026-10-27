@@ -322,23 +322,70 @@ class _TimetableGridState extends State<TimetableGrid> {
                                   top: block.start * rowHeight + 2,
                                   height:
                                       (block.end - block.start) * rowHeight - 4,
-                                  child: CalendarBlockTile(
-                                    items: block.items,
-                                    controller: widget.controller,
-                                    isToday: day == widget.todayColumn,
+                                  child: ValueListenableBuilder<DateTime>(
+                                    valueListenable: widget.currentTime,
+                                    builder: (context, now, _) {
+                                      double? progress;
+                                      if (block.items.length == 1 &&
+                                          block.items.single.course != null) {
+                                        final item = block.items.single;
+                                        final course = item.course!;
+                                        final elapsed = TimetableSelection(
+                                          date: item.startsAt,
+                                          startSection: course.startSection!,
+                                          endSection: course.endSection!,
+                                        ).progressAt(now);
+                                        if (elapsed != null) {
+                                          final height =
+                                              (block.end - block.start) *
+                                              rowHeight;
+                                          // Cards sit 2px inside the grid. Keep the fill
+                                          // frontier aligned with the time indicator.
+                                          progress =
+                                              ((elapsed * height - 2) /
+                                                      (height - 4))
+                                                  .clamp(0.0, 1.0);
+                                        }
+                                      }
+                                      return CalendarBlockTile(
+                                        items: block.items,
+                                        controller: widget.controller,
+                                        isToday: day == widget.todayColumn,
+                                        courseProgress: progress,
+                                      );
+                                    },
                                   ),
                                 ),
                             Positioned.fill(
                               child: RepaintBoundary(
                                 child: ValueListenableBuilder<DateTime>(
                                   valueListenable: widget.currentTime,
-                                  builder: (context, now, _) =>
-                                      CurrentTimeIndicator(
-                                        now: now,
-                                        monday: widget.monday,
-                                        columnWidth: columnWidth,
-                                        rowHeight: rowHeight,
-                                      ),
+                                  builder: (context, now, _) {
+                                    final ongoing = widget.layouts
+                                        .expand((blocks) => blocks)
+                                        .where(
+                                          (block) => block.items.length == 1,
+                                        )
+                                        .map((block) => block.items.single)
+                                        .where(
+                                          (item) =>
+                                              item.course != null &&
+                                              !now.isBefore(item.startsAt) &&
+                                              now.isBefore(item.endsAt!),
+                                        )
+                                        .firstOrNull;
+                                    // The ongoing course draws its own line below
+                                    // its text, alongside the elapsed fill.
+                                    if (ongoing != null) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    return CurrentTimeIndicator(
+                                      now: now,
+                                      monday: widget.monday,
+                                      columnWidth: columnWidth,
+                                      rowHeight: rowHeight,
+                                    );
+                                  },
                                 ),
                               ),
                             ),

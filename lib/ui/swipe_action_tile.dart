@@ -125,10 +125,7 @@ class _SwipeActionTileState extends State<SwipeActionTile> {
           secondaryBackground: right == null
               ? null
               : _background(widget.leftAction, Alignment.centerRight),
-          child: Material(
-            color: Theme.of(context).colorScheme.surface,
-            child: widget.child,
-          ),
+          child: Material(type: MaterialType.transparency, child: widget.child),
         ),
       );
     },

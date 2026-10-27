@@ -16,11 +16,13 @@ class AgendaListTile extends StatelessWidget {
     required this.controller,
     required this.entry,
     required this.now,
+    this.onTap,
   });
 
   final AppController controller;
   final AgendaEntry entry;
   final DateTime now;
+  final VoidCallback? onTap;
 
   Future<bool> _complete({bool haptic = false}) =>
       toggleAgendaDone(controller.agenda, entry, haptic: haptic);
@@ -72,10 +74,10 @@ class AgendaListTile extends StatelessWidget {
               )
             : null,
         child: Material(
-          color: scheme.surface,
+          type: MaterialType.transparency,
           child: InkWell(
             hoverColor: Colors.transparent,
-            onTap: () => showAgendaEntry(context, controller, entry),
+            onTap: onTap ?? () => showAgendaEntry(context, controller, entry),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
