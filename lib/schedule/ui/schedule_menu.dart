@@ -9,6 +9,7 @@ import '../../app/controller.dart';
 import '../../app/ui/widget_guide.dart';
 import '../../core/diagnostics.dart';
 import '../../ui/app_menu_anchor.dart';
+import '../../ui/app_notice.dart';
 import '../ics.dart';
 import '../model.dart';
 import 'week_range_dialog.dart';
@@ -30,11 +31,8 @@ class _ScheduleMenuState extends State<ScheduleMenu> {
     final skipped = schedule.courses
         .where((course) => !course.isScheduled)
         .length;
-    final messenger = ScaffoldMessenger.of(context);
     if (skipped == schedule.courses.length) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('没有可导出的课程，请先添加课程或设置上课时间。')),
-      );
+      showAppNotice(context, '没有可导出的课程，请先添加课程或设置上课时间。');
       return;
     }
     setState(() => _exporting = true);
@@ -50,10 +48,9 @@ class _ScheduleMenuState extends State<ScheduleMenu> {
         dialogTitle: '导出课表',
       );
       if (!mounted || saved == null) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(skipped == 0 ? '已导出课表' : '已导出课表，跳过 $skipped 门时间待定的课程'),
-        ),
+      showAppNotice(
+        context,
+        skipped == 0 ? '已导出课表' : '已导出课表，跳过 $skipped 门时间待定的课程',
       );
     } catch (failure, stack) {
       AppDiagnostics.instance.report('导出课表', failure, stack);

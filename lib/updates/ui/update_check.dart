@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/diagnostics.dart';
+import '../../ui/app_notice.dart';
 import '../release.dart';
 import '../version.dart';
 import 'update_dialog.dart';
@@ -50,8 +51,7 @@ Future<void> checkForUpdates(
 
     if (releases.isEmpty) {
       if (!silent) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('已是最新版本')));
+        showAppNotice(context, '已是最新版本');
       }
       return;
     }
