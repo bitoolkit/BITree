@@ -23,7 +23,7 @@ class SchoolImportButton extends StatelessWidget {
                   controller,
                   action: SchoolAction.importSchedule,
                 ),
-          child: const Text('导入课表'),
+          child: Text(SchoolAction.importSchedule.label),
         ),
         AppMenuItemButton(
           leadingIcon: const Icon(Icons.edit_note_rounded),
@@ -34,7 +34,7 @@ class SchoolImportButton extends StatelessWidget {
                   controller,
                   action: SchoolAction.importExams,
                 ),
-          child: const Text('获取考试安排'),
+          child: Text(SchoolAction.importExams.label),
         ),
         AppMenuItemButton(
           leadingIcon: const Icon(Icons.flag_outlined),
@@ -45,7 +45,7 @@ class SchoolImportButton extends StatelessWidget {
                   controller,
                   action: SchoolAction.importDeadlines,
                 ),
-          child: const Text('更新 DDL'),
+          child: Text(SchoolAction.importDeadlines.label),
         ),
         const Divider(),
         AppMenuItemButton(
@@ -60,7 +60,7 @@ class SchoolImportButton extends StatelessWidget {
         ),
       ],
       builder: (context, menu, isOpen) => IconButton(
-        tooltip: '导入',
+        tooltip: '同步',
         onPressed: busy ? null : () => isOpen ? menu.close() : menu.open(),
         icon: controller.school.busy
             ? const SizedBox.square(

@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/test_app.dart';
 
 void main() {
-  testWidgets('The shared import menu contains schedule and agenda imports', (
+  testWidgets('The shared menu contains schedule and agenda sync actions', (
     tester,
   ) async {
     final controller = TestAppController();
@@ -17,13 +17,13 @@ void main() {
         home: Scaffold(body: SchoolImportButton(controller: controller)),
       ),
     );
-    await tester.tap(find.byTooltip('导入'));
+    await tester.tap(find.byTooltip('同步'));
     await tester.pumpAndSettle();
-    expect(find.text('导入课表'), findsOneWidget);
-    expect(find.text('获取考试安排'), findsOneWidget);
-    expect(find.text('更新 DDL'), findsOneWidget);
-    expect(find.text('更新乐学 DDL'), findsNothing);
-    expect(find.text('更新新延河课堂 DDL'), findsNothing);
+    expect(find.text('同步课表'), findsOneWidget);
+    expect(find.text('同步考试安排'), findsOneWidget);
+    expect(find.text('同步 DDL'), findsOneWidget);
+    expect(find.text('同步乐学 DDL'), findsNothing);
+    expect(find.text('同步新延河课堂 DDL'), findsNothing);
     expect(find.byType(Divider), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

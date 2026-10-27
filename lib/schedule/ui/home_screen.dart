@@ -116,7 +116,7 @@ class HomeScreen extends StatelessWidget {
                                       action: SchoolAction.importSchedule,
                                     ),
                               icon: const Icon(Icons.input_rounded, size: 20),
-                              label: const Text('导入课表'),
+                              label: Text(SchoolAction.importSchedule.label),
                             ),
                             OutlinedButton.icon(
                               onPressed: controller.timetable.busy

@@ -94,7 +94,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
-                '导入课表后，可检查考试与课程的时间冲突。',
+                '同步课表后，可检查考试与课程的时间冲突。',
                 style: theme.textTheme.bodySmall,
               ),
             ),
@@ -143,7 +143,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
           if (exams.isEmpty)
             AcademicEmpty(
               title: !_showPast && selected.isNotEmpty ? '没有即将到来的考试' : '暂无考试安排',
-              label: '获取考试安排',
+              label: SchoolAction.importExams.label,
               onPressed: controller.school.busy
                   ? null
                   : () => openSchoolPage(
@@ -159,7 +159,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
               child: Text(_showPast ? '隐藏已结束考试' : '查看已结束考试'),
             ),
           const SizedBox(height: 16),
-          Text('考试与日程共用记录，更新、编辑和删除会同步显示在两处。', style: theme.textTheme.bodySmall),
+          Text('考试与日程共用记录，同步、编辑和删除会在两处同时生效。', style: theme.textTheme.bodySmall),
         ],
       );
     },

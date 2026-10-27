@@ -9,11 +9,11 @@ import 'school_verification_dialog.dart';
 
 enum SchoolAction {
   signIn('登录学校账号'),
-  importSchedule('导入课表'),
-  importExams('获取考试安排'),
-  importGrades('导入成绩'),
-  importStudyPlan('更新学分进度'),
-  importDeadlines('更新 DDL');
+  importSchedule('同步课表'),
+  importExams('同步考试安排'),
+  importGrades('同步成绩'),
+  importStudyPlan('同步学分进度'),
+  importDeadlines('同步 DDL');
 
   const SchoolAction(this.label);
   final String label;
@@ -72,13 +72,7 @@ Future<bool?> openSchoolPage(
     );
   }
   if (success == true && action != SchoolAction.signIn && context.mounted) {
-    showAppNotice(context, switch (action) {
-      SchoolAction.importSchedule => '已更新课表',
-      SchoolAction.importExams => '已更新考试安排',
-      SchoolAction.importGrades => '已更新成绩',
-      SchoolAction.importStudyPlan => '已更新学分进度',
-      _ => '已更新 DDL',
-    });
+    showAppNotice(context, '已${action.label}');
   }
   return success;
 }
@@ -244,19 +238,8 @@ class _SchoolScreenState extends State<_SchoolScreen> {
                 ],
                 Text(switch (_operation) {
                   SchoolAction.signIn => '登录中…',
-                  SchoolAction.importSchedule => '导入中…',
-                  SchoolAction.importExams ||
-                  SchoolAction.importGrades ||
-                  SchoolAction.importStudyPlan ||
-                  SchoolAction.importDeadlines => '获取中…',
-                  null => switch (widget.action) {
-                    SchoolAction.signIn => '登录',
-                    SchoolAction.importSchedule => '登录并导入',
-                    SchoolAction.importExams ||
-                    SchoolAction.importGrades ||
-                    SchoolAction.importStudyPlan ||
-                    SchoolAction.importDeadlines => '登录并获取',
-                  },
+                  null => _importing ? '登录并同步' : '登录',
+                  _ => '同步中…',
                 }),
               ],
             ),

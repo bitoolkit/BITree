@@ -176,7 +176,7 @@ class AcademicUpdatedAt extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: Text(
-        '更新于 ${dateText(time)} ${clockText(time)}',
+        '同步于 ${dateText(time)} ${clockText(time)}',
         style: Theme.of(context).textTheme.bodySmall,
       ),
     );
