@@ -41,7 +41,7 @@ flowchart LR
 
 ```sh
 dart format lib test
-flutter analyze --no-pub lib test
+flutter analyze --no-pub
 flutter test --no-pub
 ```
 
