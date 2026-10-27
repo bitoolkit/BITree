@@ -31,7 +31,8 @@ class StudyController extends ChangeNotifier {
   bool _disposed = false;
   ({String course, String lecture})? lastReading;
 
-  List<StudyCourse> get courses => List.unmodifiable(_courses);
+  List<StudyCourse> get courses =>
+      List.unmodifiable(_courses.where((course) => !course.isEmptyRemote));
   bool get loading => _loading;
 
   Future<void> load() async {
@@ -87,7 +88,9 @@ class StudyController extends ChangeNotifier {
             _courses[index]
               ..title = item.title
               ..teacher = item.teacher
-              ..term = item.term;
+              ..term = item.term
+              ..lectureCount =
+                  item.lectureCount ?? _courses[index].lectureCount;
           }
         }
         await store.writeCourses(_courses);
@@ -112,6 +115,7 @@ class StudyController extends ChangeNotifier {
       ..title = fresh.title
       ..teacher = fresh.teacher
       ..term = fresh.term
+      ..lectureCount = fresh.lectureCount
       ..lectures = fresh.lectures;
     await store.writeCourses(_courses);
     if (!_disposed) notifyListeners();

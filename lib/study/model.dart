@@ -8,6 +8,7 @@ class StudyCourse {
     this.term = '',
     this.remote = true,
     this.lectures = const [],
+    this.lectureCount,
     this.review = '',
   });
 
@@ -17,7 +18,11 @@ class StudyCourse {
   String term;
   final bool remote;
   List<StudyLecture> lectures;
+  int? lectureCount;
   String review;
+
+  bool get isEmptyRemote =>
+      remote && lectureCount == 0 && lectures.isEmpty && review.isEmpty;
 
   factory StudyCourse.fromJson(Map<String, dynamic> json) => StudyCourse(
     id: json['id'] as String,
@@ -26,6 +31,7 @@ class StudyCourse {
     term: json['term'] as String? ?? '',
     remote: json['remote'] as bool? ?? true,
     review: json['review'] as String? ?? '',
+    lectureCount: json['lectureCount'] as int?,
     lectures: [
       for (final item in json['lectures'] as List)
         StudyLecture.fromJson(item as Map<String, dynamic>),
@@ -39,6 +45,7 @@ class StudyCourse {
     'term': term,
     'remote': remote,
     'review': review,
+    'lectureCount': lectureCount,
     'lectures': lectures.map((item) => item.toJson()).toList(),
   };
 }

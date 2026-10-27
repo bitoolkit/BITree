@@ -198,6 +198,8 @@ class YanhektRepository {
             title: title(row['title']),
             teacher: row['realname'] as String? ?? '',
             term: row['term_name'] as String? ?? '',
+            lectureCount: ((row['progress'] as Map?)?['subjectNum'] as num?)
+                ?.toInt(),
           ),
       ];
     }
@@ -225,6 +227,8 @@ class YanhektRepository {
             title: title(row['Title']),
             teacher: row['Teacher'] as String? ?? '',
             term: row['TermName'] as String? ?? '',
+            lectureCount: ((row['progress'] as Map?)?['subjectNum'] as num?)
+                ?.toInt(),
           ),
       ]);
       if (rows.isEmpty || courses.length >= (result['total'] as num)) {
@@ -246,9 +250,11 @@ class YanhektRepository {
     );
     final data = result['data'] as Map<String, dynamic>;
     final lectures = <StudyLecture>[];
+    var lectureCount = 0;
     void visit(Object? node) {
       if (node is Map) {
         if (node.containsKey('sub_title')) {
+          lectureCount++;
           if ('${node['playback_status']}' == '1') {
             lectures.add(
               StudyLecture(
@@ -280,6 +286,7 @@ class YanhektRepository {
       teacher: data['realname'] as String? ?? '',
       term: data['term_name'] as String? ?? '',
       lectures: lectures,
+      lectureCount: lectureCount,
     );
   });
 

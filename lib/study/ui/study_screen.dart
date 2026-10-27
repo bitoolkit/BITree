@@ -5,10 +5,11 @@ import 'package:flutter/material.dart';
 import '../../app/controller.dart';
 import '../../ui/app_menu_anchor.dart';
 import '../../ui/app_page.dart';
+import '../library.dart';
 import '../model.dart';
 import 'study_common.dart';
 import 'study_course.dart';
-import 'study_reader.dart';
+import 'study_library.dart';
 import 'study_search.dart';
 import 'study_services.dart';
 import 'study_tasks.dart';
@@ -29,7 +30,18 @@ class StudyScreen extends StatelessWidget {
   void _open(BuildContext context, StudyCourse course) =>
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => StudyCourseScreen(app: controller, course: course),
+          builder: (_) => StudyCourseScreen(
+            app: controller,
+            courses:
+                groupStudyCourses(controller.study.courses)
+                    .where(
+                      (group) =>
+                          group.courses.any((item) => item.id == course.id),
+                    )
+                    .firstOrNull
+                    ?.courses ??
+                [course],
+          ),
         ),
       );
 
@@ -138,112 +150,9 @@ class StudyScreen extends StatelessWidget {
                   )
                 : RefreshIndicator(
                     onRefresh: () => _refresh(context),
-                    child: LayoutBuilder(
-                      builder: (context, size) {
-                        final columns = size.maxWidth >= 720 ? 2 : 1;
-                        final courses = controller.study.courses;
-                        final last = controller.study.lastReading;
-                        final resumeCourse = courses
-                            .where((item) => item.id == last?.course)
-                            .firstOrNull;
-                        final resumeLecture = resumeCourse?.lectures
-                            .where((item) => item.id == last?.lecture)
-                            .firstOrNull;
-                        return Column(
-                          children: [
-                            if (resumeCourse != null && resumeLecture != null)
-                              FutureBuilder<LectureMaterials>(
-                                future: controller.study.materials(
-                                  resumeCourse,
-                                  resumeLecture,
-                                ),
-                                builder: (context, snapshot) => ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 8,
-                                  ),
-                                  leading: const Icon(
-                                    Icons.play_circle_outline_rounded,
-                                  ),
-                                  title: Text(
-                                    resumeLecture.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  subtitle: Text(
-                                    '继续观看  ${studyTimestamp(snapshot.data?.position ?? Duration.zero)}',
-                                  ),
-                                  trailing: const Icon(
-                                    Icons.chevron_right_rounded,
-                                  ),
-                                  onTap: () => Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) => StudyReader(
-                                        app: controller,
-                                        course: resumeCourse,
-                                        lecture: resumeLecture,
-                                        initial: StudyMaterial.video,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            Expanded(
-                              child: GridView.builder(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  8,
-                                  16,
-                                  24,
-                                ),
-                                gridDelegate:
-                                    SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: columns,
-                                      mainAxisExtent:
-                                          100 +
-                                          (MediaQuery.textScalerOf(context)
-                                                      .scale(16) -
-                                                  16) *
-                                              3,
-                                      crossAxisSpacing: 24,
-                                      mainAxisSpacing: 8,
-                                    ),
-                                itemCount: courses.length,
-                                itemBuilder: (context, index) {
-                                  final course = courses[index];
-                                  return ListTile(
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                    ),
-                                    leading: Icon(
-                                      Icons.menu_book_outlined,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary,
-                                    ),
-                                    title: Text(
-                                      course.title,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    subtitle: Text(
-                                      [course.term, course.teacher]
-                                          .where((item) => item.isNotEmpty)
-                                          .join('  '),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    trailing: const Icon(
-                                      Icons.chevron_right_rounded,
-                                    ),
-                                    onTap: () => _open(context, course),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        );
-                      },
+                    child: StudyLibrary(
+                      app: controller,
+                      onOpen: (group) => _open(context, group.courses.first),
                     ),
                   ),
           ),

@@ -5,6 +5,7 @@ import 'package:bitree/core/async/cancelable_request.dart';
 import 'package:bitree/school/errors.dart';
 import 'package:bitree/school/network.dart';
 import 'package:bitree/school/storage.dart';
+import 'package:bitree/study/controller.dart';
 import 'package:bitree/study/yanhekt.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -96,6 +97,7 @@ void main() {
                   'Title': page == '1' ? '概率论 &amp; 数理统计' : '大学物理',
                   'Teacher': '张老师',
                   'TermName': '2026-2027-1',
+                  'progress': {'subjectNum': page == '1' ? 0 : 12},
                 },
               ],
             },
@@ -109,8 +111,56 @@ void main() {
       expect(courses.map((course) => course.id), ['1', '2']);
       expect(courses.first.title, '概率论 & 数理统计');
       expect(courses.last.title, '大学物理');
+      expect(courses.map((course) => course.lectureCount), [0, 12]);
       expect(pages, ['1', '2']);
       expect(network.clients.every((client) => client.closed), isTrue);
+    }, network),
+  );
+
+  test(
+    'Refreshing the library hides confirmed empty offerings and preserves local courses',
+    () => HttpOverrides.runWithHttpOverrides(() async {
+      final store = MemoryStudyStore();
+      final controller = StudyController(store: store, repository: repository);
+      addTearDown(controller.dispose);
+      final local = await controller.addLocalCourse('大学物理实验');
+      respond = (request) async {
+        if (request.uri.path.endsWith('/userapi/v1/infosimple')) {
+          return profile(request);
+        }
+        await reply(request, {
+          'params': {
+            'result': {
+              'total': 3,
+              'data': [
+                {
+                  'Id': 1,
+                  'Title': '大学物理实验',
+                  'progress': {'subjectNum': 0},
+                },
+                {
+                  'Id': 2,
+                  'Title': '大学物理',
+                  'progress': {'subjectNum': 12},
+                },
+                {'Id': 3, 'Title': '未加载课时的课程'},
+              ],
+            },
+          },
+        });
+      };
+      await controller.refresh(
+        (_) async => fail('Saved session should be reused'),
+      );
+      expect(controller.courses.map((course) => course.title), [
+        local.title,
+        '大学物理',
+        '未加载课时的课程',
+      ]);
+      final reloaded = StudyController(store: store, repository: repository);
+      addTearDown(reloaded.dispose);
+      await reloaded.load();
+      expect(reloaded.courses.map((course) => course.id), [local.id, '2', '3']);
     }, network),
   );
 

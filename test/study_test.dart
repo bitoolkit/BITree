@@ -328,7 +328,7 @@ void main() {
                   .copyWith(textScaler: TextScaler.linear(scale)),
               child: child!,
             ),
-            home: StudyCourseScreen(app: app, course: course),
+            home: StudyCourseScreen(app: app, courses: [course]),
           ),
         );
         expect(find.text('录播'), findsNWidgets(2));
