@@ -158,7 +158,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(StudyCourseScreen), findsOneWidget);
     expect(find.text('5 课时'), findsOneWidget);
-    for (var week = 1; week <= 5; week++) {
+    for (var week = 5; week >= 1; week--) {
+      await tester.scrollUntilVisible(
+        find.text('第$week次课'),
+        100,
+        scrollable: find.byType(Scrollable).last,
+      );
       expect(find.text('第$week次课'), findsOneWidget);
     }
     expect(find.text('7 课时'), findsNothing);
@@ -225,6 +230,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('李老师的微分笔记'), findsOneWidget);
         expect(find.text('张老师的极限笔记'), findsNothing);
+        await tester.tap(find.text('编辑全文'));
+        await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField).first, '李老师的新笔记');
         await tester.pageBack();
         await tester.pumpAndSettle();

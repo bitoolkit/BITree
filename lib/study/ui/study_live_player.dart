@@ -44,7 +44,7 @@ class _StudyLivePlayerState extends State<StudyLivePlayer>
   VideoController? _video;
   VideoController? _secondaryVideo;
   late StudyLectureStatus _status = widget.initialStatus;
-  String _source = 'classroom';
+  String _source = 'screen';
   bool _opening = false;
   bool _dual = false;
   bool _failed = false;
@@ -113,9 +113,7 @@ class _StudyLivePlayerState extends State<StudyLivePlayer>
           }),
         );
       }
-      _source = _sources.containsKey('classroom')
-          ? 'classroom'
-          : _sources.keys.first;
+      _source = _sources.containsKey('screen') ? 'screen' : _sources.keys.first;
       if (mounted) setState(() {});
       await _openMedia(_source);
       _cancellation.check();

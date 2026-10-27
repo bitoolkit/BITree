@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
 import '../../core/async/cancelable_request.dart';
+import '../library.dart';
 import '../model.dart';
 import 'study_common.dart';
 
@@ -81,7 +82,7 @@ class _StudySearchScreenState extends State<StudySearchScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('搜索课程')),
+    appBar: AppBar(title: const Text('添加课程')),
     body: Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
@@ -110,11 +111,14 @@ class _StudySearchScreenState extends State<StudySearchScreen> {
               child: _results.isEmpty
                   ? StudyEmpty(text: _searched ? '没有找到课程' : '搜索课程，或粘贴课程链接。')
                   : ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       children: [
                         for (final course in _results)
                           ListTile(
                             title: Text(course.title),
-                            subtitle: Text('${course.term}  ${course.teacher}'),
+                            subtitle: Text(
+                              '${studyTermLabel(course.term)} · ${course.teacher}',
+                            ),
                             trailing: const Icon(Icons.add_rounded),
                             onTap: _loading
                                 ? null

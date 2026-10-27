@@ -336,6 +336,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('第二节的笔记'), findsOneWidget);
         expect(find.text('第一节的笔记'), findsNothing);
+        await tester.tap(find.text('编辑全文'));
+        await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField).first, '修改后的第二节笔记');
         expect(tester.takeException(), isNull);
         await tester.pageBack();

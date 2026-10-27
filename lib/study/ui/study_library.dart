@@ -8,10 +8,20 @@ import 'study_reader.dart';
 import 'study_tasks.dart';
 
 class StudyLibrary extends StatelessWidget {
-  const StudyLibrary({super.key, required this.app, required this.onOpen});
+  const StudyLibrary({
+    super.key,
+    required this.app,
+    required this.onOpen,
+    required this.actions,
+    required this.footer,
+    required this.today,
+  });
 
   final AppController app;
   final ValueChanged<StudyCourseGroup> onOpen;
+  final Widget actions;
+  final Widget footer;
+  final Widget today;
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +44,12 @@ class StudyLibrary extends StatelessWidget {
       _ActiveTasks(app: app),
     ];
     final sections = <Widget>[
+      actions,
+      if (terms.isEmpty)
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: Text('添加延河课堂课程，或导入本地录播。'),
+        ),
       for (final (index, section) in terms.entries.indexed)
         ExpansionTile(
           key: PageStorageKey('study-term-${section.key}'),
@@ -69,7 +85,7 @@ class StudyLibrary extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, size) {
-        if (size.maxWidth >= 960 && course != null && lecture != null) {
+        if (size.maxWidth >= 960) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(
@@ -80,16 +96,21 @@ class StudyLibrary extends StatelessWidget {
                     key: const PageStorageKey('study-library'),
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.only(top: 8, bottom: 24),
-                    children: sections,
+                    children: [
+                      ...activity,
+                      ...sections,
+                      const SizedBox(height: 16),
+                      footer,
+                    ],
                   ),
                 ),
                 const SizedBox(width: 24),
                 SizedBox(
-                  width: 280,
+                  width: 270,
                   child: ListView(
                     primary: false,
                     padding: const EdgeInsets.only(top: 16, bottom: 24),
-                    children: activity,
+                    children: [today],
                   ),
                 ),
               ],
@@ -104,7 +125,14 @@ class StudyLibrary extends StatelessWidget {
               key: const PageStorageKey('study-library'),
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              children: [...activity, ...sections],
+              children: [
+                ...activity,
+                today,
+                const SizedBox(height: 24),
+                ...sections,
+                const SizedBox(height: 16),
+                footer,
+              ],
             ),
           ),
         );
@@ -193,47 +221,83 @@ class _ResumeLecture extends StatelessWidget {
     future: app.study.materials(course, lecture),
     builder: (context, snapshot) {
       final theme = Theme.of(context);
+      void open() => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => StudyReader(
+            app: app,
+            course: course,
+            lecture: lecture,
+            initial: StudyMaterial.video,
+          ),
+        ),
+      );
       return Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Material(
-          color: theme.colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(12),
+          color: theme.colorScheme.surfaceContainerLow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => StudyReader(
-                  app: app,
-                  course: course,
-                  lecture: lecture,
-                  initial: StudyMaterial.video,
-                ),
-              ),
-            ),
+            onTap: open,
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('继续观看', style: theme.textTheme.labelMedium),
-                        const SizedBox(height: 6),
-                        Text(course.title, style: theme.textTheme.titleMedium),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${lecture.title}  ${studyTimestamp(snapshot.data?.position ?? Duration.zero)}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall,
+              child: LayoutBuilder(
+                builder: (context, size) {
+                  final details = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '上次学到 ${studyTimestamp(snapshot.data?.position ?? Duration.zero)}',
+                        style: theme.textTheme.labelMedium,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(course.title, style: theme.textTheme.titleLarge),
+                      const SizedBox(height: 4),
+                      Text(
+                        lecture.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      if (snapshot.data case final material?
+                          when material.duration > Duration.zero) ...[
+                        const SizedBox(height: 12),
+                        LinearProgressIndicator(
+                          value:
+                              (material.position.inMilliseconds /
+                                      material.duration.inMilliseconds)
+                                  .clamp(0, 1),
+                          minHeight: 3,
                         ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Icon(Icons.play_circle_outline_rounded, size: 32),
-                ],
+                    ],
+                  );
+                  final button = FilledButton.icon(
+                    onPressed: open,
+                    icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                    label: const Text('继续观看'),
+                  );
+                  if (size.maxWidth < 500) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        details,
+                        const SizedBox(height: 16),
+                        Align(alignment: Alignment.centerLeft, child: button),
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: details),
+                      const SizedBox(width: 20),
+                      button,
+                    ],
+                  );
+                },
               ),
             ),
           ),

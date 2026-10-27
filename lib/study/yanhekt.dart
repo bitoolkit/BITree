@@ -35,6 +35,9 @@ class YanhektRepository {
         account = await _authenticate(session, verify, renew: true);
         return await operation(session, account.profile, account.token);
       }
+    } catch (_) {
+      cancellation.check();
+      rethrow;
     } finally {
       detach();
       session.close();

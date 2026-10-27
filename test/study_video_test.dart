@@ -120,7 +120,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
-        final mainRect = tester.getRect(find.byType(StudyVideo));
+        final mainRect = tester.getRect(find.byType(Video).first);
         final insetRect = tester.getRect(find.byTooltip('交换主画面'));
         expect(mainRect.width / mainRect.height, closeTo(16 / 9, .01));
         expect(insetRect.width, lessThan(mainRect.width / 2));
@@ -133,16 +133,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byTooltip('交换主画面'), findsNothing);
 
-        // Source switching and speed remain available through the common menus.
-        await tester.tap(find.byTooltip('切换画面'));
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.byWidgetPredicate(
-            (widget) =>
-                widget is CheckedPopupMenuItem<String> &&
-                widget.value == 'screen',
-          ),
-        );
+        // The normal player exposes the view directly; speed uses SDK controls.
+        await tester.tap(find.text('课件画面'));
         await tester.pumpAndSettle();
         expect(source, 'screen');
         await tester.tap(find.text('1.0×'));

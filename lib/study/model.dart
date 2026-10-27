@@ -10,6 +10,7 @@ class StudyCourse {
     this.lectures = const [],
     this._lectureCount,
     this.review = '',
+    this.reviewLectureIds = const [],
   });
 
   final String id;
@@ -20,6 +21,7 @@ class StudyCourse {
   List<StudyLecture> lectures;
   int? _lectureCount;
   String review;
+  List<String> reviewLectureIds;
 
   // Loaded lectures take precedence over the course-list API's summary.
   int? get lectureCount =>
@@ -36,6 +38,9 @@ class StudyCourse {
     term: json['term'] as String? ?? '',
     remote: json['remote'] as bool? ?? true,
     review: json['review'] as String? ?? '',
+    reviewLectureIds: List<String>.from(
+      json['reviewLectureIds'] as List? ?? [],
+    ),
     lectureCount: json['lectureCount'] as int?,
     lectures: [
       for (final item in json['lectures'] as List)
@@ -50,6 +55,7 @@ class StudyCourse {
     'term': term,
     'remote': remote,
     'review': review,
+    'reviewLectureIds': reviewLectureIds,
     'lectureCount': lectureCount,
     'lectures': lectures.map((item) => item.toJson()).toList(),
   };
@@ -169,6 +175,7 @@ class LectureMaterials {
     this.answer = '',
     this.question = '',
     this.position = Duration.zero,
+    this.duration = Duration.zero,
     this.slideScanPosition = Duration.zero,
     this.slidesComplete = false,
   });
@@ -181,6 +188,7 @@ class LectureMaterials {
   String answer;
   String question;
   Duration position;
+  Duration duration;
   Duration slideScanPosition;
   bool slidesComplete;
 
@@ -200,6 +208,7 @@ class LectureMaterials {
         answer: json['answer'] as String? ?? '',
         question: json['question'] as String? ?? '',
         position: Duration(milliseconds: json['position'] as int? ?? 0),
+        duration: Duration(milliseconds: json['duration'] as int? ?? 0),
         slideScanPosition: Duration(
           milliseconds: json['slideScanPosition'] as int? ?? 0,
         ),
@@ -215,12 +224,13 @@ class LectureMaterials {
     'answer': answer,
     'question': question,
     'position': position.inMilliseconds,
+    'duration': duration.inMilliseconds,
     'slideScanPosition': slideScanPosition.inMilliseconds,
     'slidesComplete': slidesComplete,
   };
 }
 
-enum StudyMaterial { video, slides, transcript, notes }
+enum StudyMaterial { video, slides, transcript, notes, question }
 
 String studyTimestamp(Duration position) {
   final seconds = position.inSeconds;

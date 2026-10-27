@@ -4,9 +4,11 @@ import 'dart:io';
 
 import 'package:bitree/core/async/cancelable_request.dart';
 import 'package:bitree/core/diagnostics.dart';
+import 'package:bitree/schedule/model.dart';
 import 'package:bitree/school/errors.dart';
 import 'package:bitree/school/network.dart';
 import 'package:bitree/school/storage.dart';
+import 'package:bitree/study/broadcasts.dart';
 import 'package:bitree/study/controller.dart';
 import 'package:bitree/study/legacy_yanhekt.dart';
 import 'package:bitree/study/media.dart';
@@ -15,8 +17,9 @@ import 'package:bitree/study/playback.dart';
 import 'package:bitree/study/tasks.dart';
 import 'package:bitree/study/ui/study_course.dart';
 import 'package:bitree/study/ui/study_live.dart';
+import 'package:bitree/study/ui/study_reader.dart';
+import 'package:bitree/study/ui/study_schedule.dart';
 import 'package:bitree/study/yanhekt.dart';
-import 'package:bitree/ui/app_menu_anchor.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -68,6 +71,7 @@ void main() {
           const MethodChannel('plugins.flutter.io/path_provider'),
           (_) async => logs.path,
         );
+    await AppDiagnostics.instance.recentLines();
   });
 
   tearDownAll(() async {
@@ -284,13 +288,8 @@ void main() {
             ),
           );
           await pumpHttp(tester, listed.future);
-          expect(find.text('旧版直播'), findsOneWidget);
+          expect(find.text('校内直播'), findsOneWidget);
           expect(find.text('旧版测试课程'), findsOneWidget);
-          await tester.tap(find.text('旧版直播'));
-          await tester.pumpAndSettle();
-          expect(find.text('延河课堂（新版）'), findsOneWidget);
-          await tester.tap(find.widgetWithText(AppMenuItemButton, '延河课堂（旧版）'));
-          await tester.pumpAndSettle();
           await tester.tap(find.text('旧版测试课程'));
           await tester.pump();
           await pumpHttp(tester, opened.future);
@@ -395,6 +394,215 @@ void main() {
       },
     },
   };
+
+  test(
+    'Combined classrooms retain source IDs, paginate and survive a source failure',
+    () => HttpOverrides.runWithHttpOverrides(() async {
+      final catalog = StudyBroadcastCatalog(
+        repository,
+        LegacyYanhektRepository(),
+      );
+      addTearDown(catalog.dispose);
+      var failTimetable = false;
+      var failPublic = false;
+      respond = (request) async {
+        if (request.uri.path.endsWith('/infosimple')) return profile(request);
+        if (request.uri.path.endsWith('/get-week-schedules')) {
+          return reply(
+            request,
+            failTimetable ? {'error': 'offline'} : today(),
+            status: failTimetable ? 503 : 200,
+          );
+        }
+        expect(request.uri.path, '/cbiz.yanhekt.cn/v2/live/list');
+        final page = request.uri.queryParameters['page'] ?? '1';
+        await reply(
+          request,
+          failPublic
+              ? {'error': 'offline'}
+              : {
+                  'code': 0,
+                  'data': {
+                    'data': [legacyLive(page == '1' ? '101' : '102')],
+                    'last_page': 2,
+                  },
+                },
+          status: failPublic ? 503 : 200,
+        );
+      };
+      final date = DateTime.utc(2026, 10, 27);
+      await catalog.refresh(date, (_) async => null, signedIn: true);
+      expect(catalog.items.length, 4);
+      expect(
+        catalog.items.map((item) => item.id),
+        containsAll(['course-17-101', 'live-101']),
+      );
+      expect(catalog.items.first.status, StudyLectureStatus.live);
+      expect(catalog.more, isTrue);
+      await catalog.loadMore();
+      expect(catalog.items.length, 5);
+      expect(catalog.more, isFalse);
+      failTimetable = true;
+      await catalog.refresh(date, (_) async => null, signedIn: true);
+      expect(catalog.failure, isNotNull);
+      expect(catalog.items.where((item) => item.timetable != null).length, 3);
+      expect(catalog.items.length, 4);
+      failTimetable = false;
+      failPublic = true;
+      await catalog.refresh(date, (_) async => null, signedIn: true);
+      expect(catalog.items.length, 4);
+      expect(catalog.loading, isFalse);
+      // Signing out drops private timetable data while retaining public access.
+      failPublic = false;
+      await catalog.refresh(date, (_) async => null, signedIn: false);
+      expect(catalog.items.where((item) => item.timetable != null), isEmpty);
+      expect(catalog.items.single.legacy!.id, '101');
+    }, network),
+  );
+
+  test(
+    'Cancelling a new Yanhekt media lookup stays a cancellation',
+    () => HttpOverrides.runWithHttpOverrides(() async {
+      final requested = Completer<void>();
+      respond = (request) async {
+        if (request.uri.path.endsWith('/infosimple')) return profile(request);
+        expect(request.uri.path, endsWith('/get-sub-info'));
+        requested.complete();
+      };
+      final cancel = CancellationToken();
+      final pending = repository.streams(
+        '17',
+        '101',
+        (_) async => null,
+        cancel,
+      );
+      final stopped = expectLater(pending, throwsA(isA<RequestCancelled>()));
+      await requested.future;
+      cancel.cancel();
+      await stopped;
+      expect(network.clients.every((client) => client.closed), isTrue);
+    }, network),
+  );
+
+  for (final historical in [true, false]) {
+    testWidgets(
+      'Timetable opens the exact past lecture or upcoming course: past=$historical',
+      (tester) async {
+        final timetableCourse = Course(
+          id: 'scheduled',
+          name: '大学物理 AⅡ',
+          teacher: '张老师',
+          weekday: 1,
+          startSection: 1,
+          endSection: 2,
+          weeks: [1],
+        );
+        final app = TestAppController(
+          schoolStorage: storage,
+          schedule: SemesterSchedule(
+            term: '2025-2026-1',
+            firstMonday: DateTime.utc(2025, 10, 27),
+            courses: [timetableCourse],
+          ),
+        );
+        await app.timetable.load();
+        await app.school.loadAccount();
+        (app.study.store as MemoryStudyStore).courses = [
+          StudyCourse(
+            id: '17',
+            title: timetableCourse.name,
+            teacher: timetableCourse.teacher,
+            term: '2025-2026-1',
+          ),
+        ];
+        await app.study.load();
+        final served = Completer<void>();
+        respond = (request) async {
+          if (request.uri.path.endsWith('/infosimple')) return profile(request);
+          if (request.uri.path.endsWith('/get-course-detail')) {
+            await reply(request, {
+              'code': 0,
+              'data': {
+                'id': '17',
+                'title': timetableCourse.name,
+                'realname': '张老师',
+                'term_name': '2025-2026-1',
+                'sub_list': {
+                  '2025': {
+                    '10': {
+                      '27': [
+                        for (final (id, hour) in [
+                          ('morning', 0),
+                          ('afternoon', 5),
+                        ])
+                          {
+                            'id': id,
+                            'sub_title': '$id课堂',
+                            'sub_status': '6',
+                            'class_begin':
+                                '${DateTime.utc(2025, 10, 27, hour).millisecondsSinceEpoch ~/ 1000}',
+                            'class_over':
+                                '${DateTime.utc(2025, 10, 27, hour + 1, 35).millisecondsSinceEpoch ~/ 1000}',
+                          },
+                      ],
+                    },
+                  },
+                },
+              },
+            });
+            if (!served.isCompleted) served.complete();
+          } else {
+            expect(request.uri.path, endsWith('/get-sub-info'));
+            // Keep the media lookup pending until the navigation assertion.
+            // Disposing the reader then cancels this real HTTP request.
+          }
+        };
+        await HttpOverrides.runWithHttpOverrides(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: bitreeTheme(Brightness.light),
+              home: Builder(
+                builder: (context) => Scaffold(
+                  body: TextButton(
+                    onPressed: () => openScheduledStudy(
+                      context,
+                      app,
+                      timetableCourse,
+                      date: DateTime.utc(historical ? 2025 : 2035, 10, 27),
+                    ),
+                    child: const Text('打开课表课程'),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.tap(find.text('打开课表课程'));
+          if (historical) {
+            for (
+              var attempt = 0;
+              attempt < 100 && find.byType(StudyReader).evaluate().isEmpty;
+              attempt++
+            ) {
+              await tester.pump(const Duration(milliseconds: 16));
+              await tester.runAsync(
+                () => Future<void>.delayed(const Duration(milliseconds: 20)),
+              );
+            }
+            final reader = tester.widget<StudyReader>(find.byType(StudyReader));
+            expect(reader.lecture.id, 'morning');
+            expect(reader.initial, StudyMaterial.video);
+          } else {
+            await pumpHttp(tester, served.future);
+            expect(find.byType(StudyCourseScreen), findsOneWidget);
+            expect(find.byType(StudyReader), findsNothing);
+          }
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpAndSettle();
+        }, network);
+      },
+    );
+  }
 
   test(
     'Course details preserve live, upcoming and ended sessions next to recordings',
@@ -659,6 +867,11 @@ void main() {
         } else if (request.uri.path.endsWith('/get-week-schedules')) {
           await reply(request, today());
           if (!dayServed.isCompleted) dayServed.complete();
+        } else if (request.uri.path == '/cbiz.yanhekt.cn/v2/live/list') {
+          await reply(request, {
+            'code': 0,
+            'data': {'data': [], 'last_page': 1},
+          });
         } else {
           expect(request.uri.path, endsWith('/get-sub-info'));
           await reply(request, {
@@ -699,23 +912,28 @@ void main() {
         );
         await pumpHttp(tester, detailServed.future);
         expect(find.text('观看直播'), findsOneWidget);
-        expect(find.text('录播'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('观看回放'),
+          120,
+          scrollable: find.byType(Scrollable).last,
+        );
+        expect(find.text('观看回放'), findsOneWidget);
         await tester.scrollUntilVisible(
           find.text('尚未开始'),
           160,
-          scrollable: find.byType(Scrollable).first,
+          scrollable: find.byType(Scrollable).last,
         );
         expect(find.text('尚未开始'), findsOneWidget);
         await tester.scrollUntilVisible(
           find.text('录播生成中'),
           -160,
-          scrollable: find.byType(Scrollable).first,
+          scrollable: find.byType(Scrollable).last,
         );
         expect(find.text('录播生成中'), findsOneWidget);
         await tester.scrollUntilVisible(
           find.text('观看直播'),
           -160,
-          scrollable: find.byType(Scrollable).first,
+          scrollable: find.byType(Scrollable).last,
         );
         await tester.pumpAndSettle();
         await tester.tap(find.text('观看直播'));
@@ -727,7 +945,13 @@ void main() {
         expect(find.text('1.0×'), findsNothing);
         await tester.pageBack();
         await tester.pumpAndSettle();
-        await tester.tap(find.text('笔记').first);
+        final liveNotes = find.descendant(
+          of: find.byKey(const ValueKey('17/101')),
+          matching: find.text('笔记'),
+        );
+        await tester.ensureVisible(liveNotes);
+        await tester.pumpAndSettle();
+        await tester.tap(liveNotes);
         await tester.pumpAndSettle();
         await tester.tap(find.text('字幕'));
         await tester.pumpAndSettle();
@@ -738,6 +962,8 @@ void main() {
         expect(find.text('直播结束后可提取课件'), findsOneWidget);
         expect(find.text('从课件录播提取'), findsNothing);
         await tester.tap(find.text('笔记'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('编辑全文'));
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField).first, '直播中的笔记');
         await tester.pageBack();
@@ -751,8 +977,8 @@ void main() {
           screen(Scaffold(body: StudyTodayLiveList(app: app))),
         );
         await pumpHttp(tester, dayServed.future);
-        expect(find.text('正在直播'), findsOneWidget);
-        expect(find.text('即将开始'), findsOneWidget);
+        expect(find.text('正在上课'), findsOneWidget);
+        expect(find.text('接下来的课'), findsOneWidget);
         expect(find.text('已结束 1'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());

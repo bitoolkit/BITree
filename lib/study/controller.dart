@@ -8,6 +8,8 @@ import '../core/diagnostics.dart';
 import '../school/errors.dart';
 import '../school/verification.dart';
 import 'bcut.dart';
+import 'broadcasts.dart';
+import 'legacy_yanhekt.dart';
 import 'llm.dart';
 import 'media.dart';
 import 'model.dart';
@@ -25,6 +27,10 @@ class StudyController extends ChangeNotifier {
   final YanhektRepository repository;
   final StudyModel model;
   final tasks = StudyTasks();
+  late final broadcasts = StudyBroadcastCatalog(
+    repository,
+    LegacyYanhektRepository(),
+  );
   final _reads = LatestRequest();
   final _materials = <String, Future<LectureMaterials>>{};
   List<StudyCourse> _courses = [];
@@ -72,6 +78,23 @@ class StudyController extends ChangeNotifier {
       await materials(course, lecture),
     );
     if (!_disposed) notifyListeners();
+  }
+
+  Future<void> addScreenshot(
+    StudyCourse course,
+    StudyLecture lecture,
+    Duration position,
+    Uint8List bytes,
+  ) async {
+    final directory = await store.lectureDirectory(course.id, lecture.id);
+    final image = await File(
+      '${directory.path}/capture-${DateTime.now().microsecondsSinceEpoch}.jpg',
+    ).writeAsBytes(bytes, flush: true);
+    final material = await materials(course, lecture);
+    material.notes =
+        '${material.notes.trimRight()}\n\n[${studyTimestamp(position)}]\n\n![课堂画面](${Uri.file(image.path)})'
+            .trimLeft();
+    await save(course, lecture);
   }
 
   Future<void> refresh(VerifySchoolLogin verify) async {
@@ -325,6 +348,7 @@ class StudyController extends ChangeNotifier {
     StudyLecture? lecture,
     StudyModelSettings settings, {
     String? question,
+    List<StudyLecture>? reviewLectures,
   }) {
     final kind = lecture == null
         ? 'review'
@@ -345,7 +369,9 @@ class StudyController extends ChangeNotifier {
       operation: (cancel, progress) async {
         task.output = '';
         final context = StringBuffer('${course.title}\n');
-        final selected = lecture == null ? course.lectures : [lecture];
+        final selected = lecture == null
+            ? reviewLectures ?? course.lectures
+            : [lecture];
         for (final item in selected) {
           final material = await materials(course, item);
           context.writeln('\n课时：${item.title}，编号：${item.id}');
@@ -385,6 +411,9 @@ class StudyController extends ChangeNotifier {
           if (task.output.isNotEmpty) {
             if (lecture == null) {
               course.review = task.output;
+              course.reviewLectureIds = selected
+                  .map((lecture) => lecture.id)
+                  .toList();
               await store.writeCourses(_courses);
             } else {
               final material = await materials(course, lecture);
@@ -407,6 +436,7 @@ class StudyController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _reads.cancel();
+    broadcasts.dispose();
     tasks.dispose();
     super.dispose();
   }

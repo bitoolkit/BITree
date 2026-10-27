@@ -52,164 +52,223 @@ class _StudyVideoState extends State<StudyVideo> {
       :busy,
       :onCollapse,
     ) = widget;
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: Video(
-        controller: controller,
-        onEnterFullscreen: () async {
-          setState(() => _fullscreen = true);
-          await defaultEnterNativeFullscreen();
-        },
-        onExitFullscreen: () async {
-          await defaultExitNativeFullscreen();
-          if (mounted) setState(() => _fullscreen = false);
-        },
-        controls: (state) {
-          final color = Theme.of(state.context).colorScheme.primary;
-          final actions = <Widget>[
-            if (live)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Text('直播中', style: TextStyle(color: Colors.white)),
-              ),
-            const Spacer(),
-            _PlaybackActions(
-              player: controller.player,
-              sources: sources,
-              source: source,
-              dual: secondary != null,
-              busy: busy,
-              live: live,
-              onView: onView,
-              onReconnect: onRetry,
-              onCollapse: onCollapse == null
-                  ? null
-                  : () async {
-                      if (isFullscreen(state.context)) {
-                        await state.exitFullscreen();
-                        await WidgetsBinding.instance.endOfFrame;
-                      }
-                      if (mounted) onCollapse();
-                    },
-            ),
-          ];
-          final desktop = MaterialDesktopVideoControlsThemeData(
-            displaySeekBar: !live,
-            visibleOnMount: true,
-            seekBarPositionColor: color,
-            seekBarThumbColor: color,
-            topButtonBar: actions,
-            bottomButtonBar: [
-              const MaterialDesktopPlayOrPauseButton(),
-              const MaterialDesktopVolumeButton(),
-              if (!live)
-                const Expanded(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: MaterialDesktopPositionIndicator(),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Video(
+            controller: controller,
+            onEnterFullscreen: () async {
+              setState(() => _fullscreen = true);
+              await defaultEnterNativeFullscreen();
+            },
+            onExitFullscreen: () async {
+              await defaultExitNativeFullscreen();
+              if (mounted) setState(() => _fullscreen = false);
+            },
+            controls: (state) {
+              final color = Theme.of(state.context).colorScheme.primary;
+              final actions = <Widget>[
+                if (live)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('直播中', style: TextStyle(color: Colors.white)),
+                  ),
+                const Spacer(),
+                _PlaybackActions(
+                  player: controller.player,
+                  sources: sources,
+                  source: source,
+                  dual: secondary != null,
+                  busy: busy,
+                  live: live,
+                  showViews: _fullscreen,
+                  onView: onView,
+                  onReconnect: onRetry,
+                  onCollapse: onCollapse == null
+                      ? null
+                      : () async {
+                          if (isFullscreen(state.context)) {
+                            await state.exitFullscreen();
+                            await WidgetsBinding.instance.endOfFrame;
+                          }
+                          if (mounted) onCollapse();
+                        },
+                ),
+              ];
+              final desktop = MaterialDesktopVideoControlsThemeData(
+                displaySeekBar: !live,
+                visibleOnMount: true,
+                seekBarPositionColor: color,
+                seekBarThumbColor: color,
+                topButtonBar: actions,
+                bottomButtonBar: [
+                  const MaterialDesktopPlayOrPauseButton(),
+                  const MaterialDesktopVolumeButton(),
+                  if (!live)
+                    const Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: MaterialDesktopPositionIndicator(),
+                        ),
+                      ),
+                    )
+                  else
+                    const Spacer(),
+                  const MaterialDesktopFullscreenButton(),
+                ],
+              );
+              MaterialVideoControlsThemeData mobile(bool fullscreen) =>
+                  (fullscreen
+                          ? kDefaultMaterialVideoControlsThemeDataFullscreen
+                          : kDefaultMaterialVideoControlsThemeData)
+                      .copyWith(
+                        displaySeekBar: !live,
+                        visibleOnMount: true,
+                        seekOnDoubleTap: !live,
+                        seekGesture: fullscreen && !live,
+                        primaryButtonBar: const [
+                          Spacer(),
+                          MaterialPlayOrPauseButton(iconSize: 48),
+                          Spacer(),
+                        ],
+                        topButtonBar: actions,
+                        seekBarPositionColor: color,
+                        seekBarThumbColor: color,
+                        bottomButtonBar: [
+                          if (!live)
+                            const Expanded(
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: MaterialPositionIndicator(),
+                                ),
+                              ),
+                            )
+                          else
+                            const Spacer(),
+                          const MaterialFullscreenButton(),
+                        ],
+                      );
+              return MaterialVideoControlsTheme(
+                normal: mobile(false),
+                fullscreen: mobile(true),
+                child: MaterialDesktopVideoControlsTheme(
+                  normal: desktop,
+                  fullscreen: desktop,
+                  child: LayoutBuilder(
+                    builder: (context, size) => Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // 2.0.1's controls themes do not notify when their data changes.
+                        // Remount the SDK controls when the selected view changes.
+                        ExcludeFocus(
+                          // Rebuilding the page's controls must not take keyboard
+                          // focus away from the fullscreen route.
+                          excluding: _fullscreen && !isFullscreen(context),
+                          child: KeyedSubtree(
+                            key: ValueKey((
+                              source,
+                              secondary != null,
+                              busy,
+                              live,
+                            )),
+                            child: AdaptiveVideoControls(state),
+                          ),
+                        ),
+                        if (secondary != null && !failed)
+                          Positioned(
+                            right: 12,
+                            bottom: 72,
+                            child: SizedBox(
+                              width: (size.maxWidth * .28).clamp(112.0, 240.0),
+                              child: _VideoInset(
+                                onSwap: busy
+                                    ? null
+                                    : () => onView(
+                                        source == 'screen'
+                                            ? 'classroom'
+                                            : 'screen',
+                                        true,
+                                      ),
+                                onClose: busy
+                                    ? null
+                                    : () => onView(source, false),
+                                child: _InsetVideo(controller: secondary),
+                              ),
+                            ),
+                          ),
+                        if (failed)
+                          ColoredBox(
+                            color: Colors.black87,
+                            child: Center(
+                              child: TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                ),
+                                onPressed: onRetry,
+                                icon: const Icon(Icons.refresh_rounded),
+                                label: const Text('播放中断，重新连接'),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                )
-              else
-                const Spacer(),
-              const MaterialDesktopFullscreenButton(),
-            ],
-          );
-          MaterialVideoControlsThemeData mobile(bool fullscreen) =>
-              (fullscreen
-                      ? kDefaultMaterialVideoControlsThemeDataFullscreen
-                      : kDefaultMaterialVideoControlsThemeData)
-                  .copyWith(
-                    displaySeekBar: !live,
-                    visibleOnMount: true,
-                    seekOnDoubleTap: !live,
-                    seekGesture: fullscreen && !live,
-                    primaryButtonBar: const [
-                      Spacer(),
-                      MaterialPlayOrPauseButton(iconSize: 48),
-                      Spacer(),
-                    ],
-                    topButtonBar: actions,
-                    seekBarPositionColor: color,
-                    seekBarThumbColor: color,
-                    bottomButtonBar: [
-                      if (!live)
-                        const Expanded(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: MaterialPositionIndicator(),
-                            ),
-                          ),
-                        )
-                      else
-                        const Spacer(),
-                      const MaterialFullscreenButton(),
-                    ],
-                  );
-          return MaterialVideoControlsTheme(
-            normal: mobile(false),
-            fullscreen: mobile(true),
-            child: MaterialDesktopVideoControlsTheme(
-              normal: desktop,
-              fullscreen: desktop,
-              child: LayoutBuilder(
-                builder: (context, size) => Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // 2.0.1's controls themes do not notify when their data changes.
-                    // Remount the SDK controls when the selected view changes.
-                    ExcludeFocus(
-                      // Rebuilding the page's controls must not take keyboard
-                      // focus away from the fullscreen route.
-                      excluding: _fullscreen && !isFullscreen(context),
-                      child: KeyedSubtree(
-                        key: ValueKey((source, secondary != null, busy, live)),
-                        child: AdaptiveVideoControls(state),
-                      ),
-                    ),
-                    if (secondary != null && !failed)
-                      Positioned(
-                        right: 12,
-                        bottom: 72,
-                        child: SizedBox(
-                          width: (size.maxWidth * .28).clamp(112.0, 240.0),
-                          child: _VideoInset(
-                            onSwap: busy
-                                ? null
-                                : () => onView(
-                                    source == 'screen' ? 'classroom' : 'screen',
-                                    true,
-                                  ),
-                            onClose: busy ? null : () => onView(source, false),
-                            child: _InsetVideo(controller: secondary),
-                          ),
-                        ),
-                      ),
-                    if (failed)
-                      ColoredBox(
-                        color: Colors.black87,
-                        child: Center(
-                          child: TextButton.icon(
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.white,
-                            ),
-                            onPressed: onRetry,
-                            icon: const Icon(Icons.refresh_rounded),
-                            label: const Text('播放中断，重新连接'),
-                          ),
-                        ),
-                      ),
-                  ],
                 ),
+              );
+            },
+          ),
+        ),
+        if (!_fullscreen && sources.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 4,
+                runSpacing: 0,
+                children: [
+                  for (final key in [
+                    'screen',
+                    'classroom',
+                  ].where(sources.contains))
+                    TextButton(
+                      onPressed: busy ? null : () => onView(key, false),
+                      style: TextButton.styleFrom(
+                        foregroundColor: source == key && secondary == null
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                        backgroundColor: source == key && secondary == null
+                            ? Theme.of(context).colorScheme.secondaryContainer
+                            : null,
+                      ),
+                      child: Text(key == 'screen' ? '课件画面' : '老师画面'),
+                    ),
+                  if (sources.length > 1)
+                    TextButton(
+                      onPressed: busy
+                          ? null
+                          : () => onView(source, secondary == null),
+                      style: TextButton.styleFrom(
+                        foregroundColor: secondary != null
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                        backgroundColor: secondary != null
+                            ? Theme.of(context).colorScheme.secondaryContainer
+                            : null,
+                      ),
+                      child: const Text('画中画'),
+                    ),
+                ],
               ),
             ),
-          );
-        },
-      ),
+          ),
+      ],
     );
   }
 }
@@ -323,6 +382,7 @@ class _PlaybackActions extends StatelessWidget {
     required this.onView,
     this.busy = false,
     this.live = false,
+    this.showViews = true,
     this.onReconnect,
     this.onCollapse,
   });
@@ -334,6 +394,7 @@ class _PlaybackActions extends StatelessWidget {
   final void Function(String source, bool dual) onView;
   final bool busy;
   final bool live;
+  final bool showViews;
   final VoidCallback? onReconnect;
   final VoidCallback? onCollapse;
 
@@ -402,7 +463,7 @@ class _PlaybackActions extends StatelessWidget {
             ),
           ),
         ),
-      if (sources.length > 1) ...[
+      if (showViews && sources.length > 1) ...[
         Builder(
           builder: (buttonContext) => IconButton(
             tooltip: '切换画面',

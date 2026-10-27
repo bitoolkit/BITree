@@ -31,22 +31,26 @@ class StudyReader extends StatefulWidget {
     required this.lecture,
     required this.initial,
     this.initialPosition,
+    this.courseAction,
   });
   final AppController app;
   final StudyCourse course;
   final StudyLecture lecture;
   final StudyMaterial initial;
   final Duration? initialPosition;
+  final Widget? courseAction;
   @override
   State<StudyReader> createState() => _StudyReaderState();
 }
 
-class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
+class _StudyReaderState extends State<StudyReader>
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final _cancellation = CancellationToken();
   final _position = ValueNotifier(Duration.zero);
   final _notes = TextEditingController();
   final _question = TextEditingController();
   final _search = TextEditingController();
+  final _noteDraft = TextEditingController();
   final _proxy = StudyMediaProxy();
   final _subscriptions = <StreamSubscription<dynamic>>[];
   final _sources = <String, String>{};
@@ -58,18 +62,25 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
   Timer? _saveTimer;
   late bool _livePlayback =
       widget.lecture.status != StudyLectureStatus.recorded;
-  late var _tab = widget.initial == StudyMaterial.video
-      ? (widget.lecture.status == StudyLectureStatus.live ? 2 : 0)
-      : switch (widget.initial) {
-          StudyMaterial.transcript => 0,
-          StudyMaterial.slides => 1,
-          _ => 2,
-        };
+  late final _tabs = TabController(
+    length: 4,
+    vsync: this,
+    initialIndex: widget.initial == StudyMaterial.video
+        ? (widget.lecture.status == StudyLectureStatus.live ? 2 : 0)
+        : switch (widget.initial) {
+            StudyMaterial.transcript => 1,
+            StudyMaterial.slides => 0,
+            StudyMaterial.question => 3,
+            _ => 2,
+          },
+  );
   bool _showPlayer = false;
   bool _opening = false;
   bool _playbackFailed = false;
   bool _loadFailed = false;
   bool _asking = false;
+  bool _searchingTranscript = false;
+  bool _editingNotes = false;
   bool _dual = false;
   String _source = 'screen';
   int _slide = 0;
@@ -79,6 +90,7 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _tabs.addListener(_materialChanged);
     widget.app.study.addListener(_materialChanged);
     unawaited(_load());
   }
@@ -148,6 +160,9 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
       studyVerify(context),
       _cancellation,
     );
+    if (streams.duration > Duration.zero) {
+      _material!.duration = streams.duration;
+    }
     _livePlayback = streams.status == StudyLectureStatus.live;
     for (final entry in streams.urls.entries) {
       _sources[entry.key] = (await _proxy.open(
@@ -179,6 +194,11 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
         MediaKit.ensureInitialized();
         _player = Player();
         _video = VideoController(_player!);
+        _subscriptions.add(
+          _player!.stream.duration.listen((value) {
+            if (value > Duration.zero) _material!.duration = value;
+          }),
+        );
         _subscriptions.add(
           _player!.stream.position.listen((value) {
             _position.value = value;
@@ -304,11 +324,7 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
   }
 
   Future<StudyModelSettings?> _settings() async {
-    var settings = await studyOperation(
-      context,
-      '读取模型设置',
-      widget.app.study.model.readSettings,
-    );
+    var settings = await widget.app.study.model.readSettings();
     if (settings == null && mounted) {
       final saved = await Navigator.of(context).push<bool>(
         MaterialPageRoute(
@@ -324,19 +340,21 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
     if (_asking || _material == null) return;
     setState(() => _asking = true);
     try {
-      if (_material!.transcript.isEmpty && _material!.notes.isEmpty) {
-        showAppNotice(context, '请先获取字幕或填写笔记');
-        return;
-      }
-      final settings = await _settings();
-      if (settings == null || !mounted) return;
-      await _save();
-      widget.app.study.generate(
-        widget.course,
-        widget.lecture,
-        settings,
-        question: question,
-      );
+      await studyOperation(context, '准备学习资料', () async {
+        if (_material!.transcript.isEmpty && _material!.notes.isEmpty) {
+          showAppNotice(context, '请先获取字幕或填写笔记');
+          return;
+        }
+        final settings = await _settings();
+        if (settings == null || !mounted) return;
+        await _save();
+        widget.app.study.generate(
+          widget.course,
+          widget.lecture,
+          settings,
+          question: question,
+        );
+      });
     } finally {
       if (mounted) setState(() => _asking = false);
     }
@@ -419,6 +437,8 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
     _notes.dispose();
     _question.dispose();
     _search.dispose();
+    _noteDraft.dispose();
+    _tabs.dispose();
     _position.dispose();
     super.dispose();
   }
@@ -427,43 +447,11 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: Text(
-        widget.lecture.title,
+        widget.course.title,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      actions: [
-        AppMenuAnchor(
-          menuChildren: [
-            AppMenuItemButton(
-              onPressed: _material == null || _livePlayback
-                  ? null
-                  : () => showStudyOrganize(
-                      context,
-                      widget.app,
-                      widget.course,
-                      lecture: widget.lecture,
-                    ),
-              leadingIcon: const Icon(Icons.download_outlined),
-              child: const Text('保存资料'),
-            ),
-            AppMenuItemButton(
-              onPressed: _material == null ? null : _importTranscript,
-              leadingIcon: const Icon(Icons.subtitles_outlined),
-              child: const Text('导入字幕'),
-            ),
-            AppMenuItemButton(
-              onPressed: _material == null ? null : _bcut,
-              leadingIcon: const Icon(Icons.mic_none_rounded),
-              child: const Text('必剪转写'),
-            ),
-          ],
-          builder: (context, menu, open) => IconButton(
-            tooltip: '更多选项',
-            onPressed: () => open ? menu.close() : menu.open(),
-            icon: const Icon(Icons.more_horiz_rounded),
-          ),
-        ),
-      ],
+      actions: [if (widget.courseAction != null) widget.courseAction!],
     ),
     body: _material == null
         ? Center(
@@ -481,12 +469,12 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
             child: Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1600),
+                constraints: BoxConstraints(maxWidth: _showPlayer ? 1440 : 840),
                 child: LayoutBuilder(
                   builder: (context, size) {
                     final wide =
                         _showPlayer &&
-                        (size.maxWidth >= 1000 ||
+                        (size.maxWidth >= 900 ||
                             size.maxWidth >= 720 &&
                                 size.maxWidth > size.maxHeight * 1.35);
                     final materials = Column(
@@ -498,7 +486,7 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
                               Icons.play_circle_outline_rounded,
                             ),
                             title: Text(
-                              widget.course.title,
+                              studyLectureTitle(widget.lecture),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -513,10 +501,14 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(child: _playerPanel()),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              child: _playerWithActions(),
+                            ),
+                          ),
                           const SizedBox(width: 16),
                           SizedBox(
-                            width: (size.maxWidth * .32).clamp(280, 400),
+                            width: (size.maxWidth * .30).clamp(280, 360),
                             child: materials,
                           ),
                         ],
@@ -527,9 +519,11 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
                         if (_showPlayer)
                           ConstrainedBox(
                             constraints: BoxConstraints(
-                              maxHeight: size.maxHeight * .46,
+                              maxHeight: size.maxHeight * .65,
                             ),
-                            child: _playerPanel(),
+                            child: SingleChildScrollView(
+                              child: _playerWithActions(),
+                            ),
                           ),
                         Expanded(child: materials),
                       ],
@@ -540,6 +534,114 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
             ),
           ),
   );
+
+  Widget _playerWithActions() => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            widget.lecture.title,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+      ),
+      _playerPanel(),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            TextButton.icon(
+              onPressed: _outline,
+              icon: const Icon(Icons.video_library_outlined, size: 18),
+              label: const Text('课时目录'),
+            ),
+            TextButton.icon(
+              onPressed: () => _tabs.animateTo(2),
+              icon: const Icon(Icons.edit_note_rounded, size: 18),
+              label: const Text('记笔记'),
+            ),
+            if (_player != null)
+              TextButton.icon(
+                onPressed: _player == null ? null : _capture,
+                icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                label: const Text('截图'),
+              ),
+            if (!_livePlayback)
+              TextButton.icon(
+                onPressed: () => showStudyOrganize(
+                  context,
+                  widget.app,
+                  widget.course,
+                  lecture: widget.lecture,
+                ),
+                icon: const Icon(Icons.download_outlined, size: 18),
+                label: const Text('保存资料'),
+              ),
+          ],
+        ),
+      ),
+    ],
+  );
+
+  Future<void> _capture() async {
+    await studyOperation(context, '保存课堂截图', () async {
+      await _save();
+      final bytes = await _player!.screenshot();
+      if (bytes == null) throw StateError('暂时无法截取画面');
+      await widget.app.study.addScreenshot(
+        widget.course,
+        widget.lecture,
+        _position.value,
+        bytes,
+      );
+      if (!mounted) return;
+      _notes.text = _material!.notes;
+      _tabs.animateTo(2);
+    });
+  }
+
+  Future<void> _outline() async {
+    final lectures = widget.course.lectures;
+    final lecture = await showDialog<StudyLecture>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('课时目录'),
+        children: [
+          for (final item in lectures)
+            ListTile(
+              selected: item.id == widget.lecture.id,
+              title: Text(item.title),
+              subtitle: Text('${lectureDate(item)} · ${item.status.label}'),
+              trailing: item.id == widget.lecture.id
+                  ? const Icon(Icons.check_rounded)
+                  : null,
+              onTap: () => Navigator.pop(context, item),
+            ),
+        ],
+      ),
+    );
+    if (lecture == null || lecture.id == widget.lecture.id || !mounted) return;
+    await _save();
+    if (!mounted) return;
+    await Navigator.of(context).pushReplacement<void, void>(
+      MaterialPageRoute(
+        builder: (_) => StudyReader(
+          app: widget.app,
+          course: widget.course,
+          lecture: lecture,
+          initial: lecture.status.canPlay
+              ? StudyMaterial.video
+              : StudyMaterial.notes,
+        ),
+      ),
+    );
+  }
 
   Widget _playerPanel() {
     if (_livePlayback) {
@@ -594,38 +696,20 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
           ),
   );
 
-  Widget _materialTabs() => Row(
-    children: [
-      for (final (index, label) in ['字幕', '课件', '笔记', '问答'].indexed)
-        Expanded(
-          child: TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: _tab == index
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            onPressed: () => setState(() => _tab = index),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(label),
-                const SizedBox(height: 4),
-                Container(
-                  height: 2,
-                  color: _tab == index
-                      ? Theme.of(context).colorScheme.primary
-                      : Colors.transparent,
-                ),
-              ],
-            ),
-          ),
-        ),
+  Widget _materialTabs() => TabBar(
+    controller: _tabs,
+    labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+    tabs: const [
+      Tab(text: '课件'),
+      Tab(text: '字幕'),
+      Tab(text: '笔记'),
+      Tab(text: '问答'),
     ],
   );
 
-  Widget _materialPanel() => switch (_tab) {
-    0 => _transcriptPanel(),
-    1 => _slidesPanel(),
+  Widget _materialPanel() => switch (_tabs.index) {
+    0 => _slidesPanel(),
+    1 => _transcriptPanel(),
     2 => _notesPanel(),
     _ => _questionPanel(),
   };
@@ -658,72 +742,149 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
               onPressed: _importTranscript,
               child: const Text('导入字幕'),
             ),
+            TextButton(onPressed: _bcut, child: const Text('必剪转写')),
           ],
         ),
       );
     }
-    final query = _search.text.trim();
+    final query = _searchingTranscript ? _search.text.trim() : '';
     final rows = transcript.where((item) => item.text.contains(query)).toList();
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: TextField(
-            controller: _search,
-            decoration: InputDecoration(
-              labelText: '搜索字幕',
-              prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: IconButton(
-                tooltip: '导出字幕',
-                icon: const Icon(Icons.file_download_outlined),
-                onPressed: () => studyOperation(
-                  context,
-                  '导出字幕',
-                  () => _export(
-                    '字幕.txt',
-                    utf8.encode(
-                      transcript
-                          .map(
-                            (row) =>
-                                '[${studyTimestamp(row.start)}] ${row.text}',
-                          )
-                          .join('\n'),
+          child: _searchingTranscript
+              ? TextField(
+                  controller: _search,
+                  decoration: InputDecoration(
+                    labelText: '搜索字幕',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: IconButton(
+                      tooltip: '收起搜索',
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () =>
+                          setState(() => _searchingTranscript = false),
                     ),
                   ),
+                  onChanged: (_) => setState(() {}),
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '课堂字幕',
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '搜索字幕',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () =>
+                          setState(() => _searchingTranscript = true),
+                      icon: const Icon(Icons.search_rounded, size: 18),
+                    ),
+                    AppMenuAnchor(
+                      menuChildren: [
+                        AppMenuItemButton(
+                          onPressed: _importTranscript,
+                          child: const Text('导入字幕'),
+                        ),
+                        AppMenuItemButton(
+                          onPressed: _bcut,
+                          child: const Text('必剪转写'),
+                        ),
+                      ],
+                      builder: (context, menu, open) => IconButton(
+                        tooltip: '字幕选项',
+                        onPressed: () => open ? menu.close() : menu.open(),
+                        icon: const Icon(Icons.more_horiz_rounded, size: 18),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '导出字幕',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.file_download_outlined, size: 18),
+                      onPressed: () => studyOperation(
+                        context,
+                        '导出字幕',
+                        () => _export(
+                          '字幕.txt',
+                          utf8.encode(
+                            transcript
+                                .map(
+                                  (row) =>
+                                      '[${studyTimestamp(row.start)}] ${row.text}',
+                                )
+                                .join('\n'),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
         ),
         Expanded(
           child: ValueListenableBuilder(
             valueListenable: _position,
             builder: (context, position, _) => ListView.builder(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
               itemCount: rows.length,
               itemBuilder: (context, index) {
                 final row = rows[index];
                 final current = position >= row.start && position < row.end;
-                return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
+                final theme = Theme.of(context);
+                return Semantics(
                   selected: current,
-                  selectedTileColor: Theme.of(context)
-                      .colorScheme
-                      .primaryContainer
-                      .withValues(alpha: .35),
-                  leading: Text(
-                    studyTimestamp(row.start),
-                    style: Theme.of(context).textTheme.bodySmall,
+                  child: Material(
+                    color: current
+                        ? theme.colorScheme.primaryContainer.withValues(
+                            alpha: .35,
+                          )
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(4),
+                    child: InkWell(
+                      onTap: _livePlayback ? null : () => _seek(row.start),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 6,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: MediaQuery.textScalerOf(context).scale(42),
+                              child: Text(
+                                studyTimestamp(row.start),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  height: 1.45,
+                                  color: current
+                                      ? theme.colorScheme.primary
+                                      : theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                row.text.replaceAll(RegExp(r'\s*\n\s*'), ' '),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 13,
+                                  height: 1.45,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                  title: Text(
-                    row.text,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  onTap: _livePlayback ? null : () => _seek(row.start),
                 );
               },
             ),
@@ -852,37 +1013,34 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
   Widget _notesPanel() => ListView(
     padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
     children: [
-      TextField(
-        controller: _notes,
-        minLines: 6,
-        maxLines: null,
-        decoration: const InputDecoration(
-          labelText: '随堂笔记',
-          alignLabelWithHint: true,
+      if (_editingNotes)
+        TextField(
+          controller: _notes,
+          minLines: 6,
+          maxLines: null,
+          decoration: const InputDecoration(
+            labelText: '随堂笔记',
+            alignLabelWithHint: true,
+          ),
+          onChanged: (_) => _saveSoon(),
         ),
-        onChanged: (_) => _saveSoon(),
-      ),
+      if (!_editingNotes && _notes.text.isNotEmpty)
+        StudyMarkdown(text: _notes.text, onSeek: _seek),
+      if (!_editingNotes && _notes.text.isEmpty)
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Text('本节还没有笔记'),
+        ),
       Wrap(
         spacing: 8,
         children: [
           TextButton.icon(
-            onPressed: () {
-              final insert = '[${studyTimestamp(_position.value)}] ';
-              final selected = _notes.selection;
-              final start = selected.isValid
-                  ? selected.start
-                  : _notes.text.length;
-              final end = selected.isValid ? selected.end : start;
-              _notes.value = TextEditingValue(
-                text: _notes.text.replaceRange(start, end, insert),
-                selection: TextSelection.collapsed(
-                  offset: start + insert.length,
-                ),
-              );
-              _saveSoon();
-            },
-            icon: const Icon(Icons.more_time_rounded, size: 18),
-            label: const Text('插入时间'),
+            onPressed: () => setState(() => _editingNotes = !_editingNotes),
+            icon: Icon(
+              _editingNotes ? Icons.check_rounded : Icons.edit_outlined,
+              size: 18,
+            ),
+            label: Text(_editingNotes ? '完成编辑' : '编辑全文'),
           ),
           TextButton.icon(
             onPressed: () => studyOperation(
@@ -897,6 +1055,33 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
             label: const Text('导出笔记'),
           ),
         ],
+      ),
+      const Divider(height: 24),
+      ValueListenableBuilder(
+        valueListenable: _position,
+        builder: (context, position, _) => Text(
+          '${studyTimestamp(position)} 的笔记',
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+      ),
+      const SizedBox(height: 8),
+      TextField(
+        controller: _noteDraft,
+        minLines: 3,
+        maxLines: 6,
+        decoration: const InputDecoration(
+          labelText: '新笔记',
+          hintText: '记下理解、疑问或例题思路',
+        ),
+      ),
+      const SizedBox(height: 8),
+      ValueListenableBuilder(
+        valueListenable: _noteDraft,
+        builder: (context, value, _) => FilledButton.icon(
+          onPressed: value.text.trim().isEmpty ? null : _addNote,
+          icon: const Icon(Icons.add_rounded, size: 18),
+          label: const Text('添加笔记'),
+        ),
       ),
       const Divider(height: 24),
       ListenableBuilder(
@@ -917,6 +1102,17 @@ class _StudyReaderState extends State<StudyReader> with WidgetsBindingObserver {
       ),
     ],
   );
+
+  Future<void> _addNote() async {
+    final text = _noteDraft.text.trim();
+    if (text.isEmpty) return;
+    final previous = _notes.text.trimRight();
+    _notes.text =
+        '${previous.isEmpty ? '' : '$previous\n\n'}[${studyTimestamp(_position.value)}] $text';
+    _noteDraft.clear();
+    setState(() {});
+    await _save();
+  }
 
   Widget _questionPanel() => ListView(
     padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),

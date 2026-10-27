@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
@@ -71,6 +73,9 @@ class StudyMarkdown extends StatelessWidget {
     return MarkdownBody(
       data: linked,
       selectable: true,
+      imageBuilder: (uri, title, alt) => uri.scheme == 'file'
+          ? Image.file(File.fromUri(uri), semanticLabel: alt)
+          : Image.network(uri.toString(), semanticLabel: alt),
       onTapLink: (_, href, _) {
         final url = Uri.tryParse(href ?? '');
         if (url == null) return;
@@ -90,9 +95,12 @@ class StudyMarkdown extends StatelessWidget {
 }
 
 String lectureDate(StudyLecture lecture) {
-  final date = lecture.startsAt?.toLocal();
+  final date = lecture.startsAt?.toUtc().add(const Duration(hours: 8));
   return date == null ? '' : '${date.month}月${date.day}日';
 }
+
+String studyLectureTitle(StudyLecture lecture) =>
+    lecture.title.replaceFirst(RegExp(r'^\d{4}[-/]\d{1,2}[-/]\d{1,2}\s*'), '');
 
 VerifySchoolLogin studyVerify(BuildContext context) {
   final navigator = Navigator.of(context, rootNavigator: true);
