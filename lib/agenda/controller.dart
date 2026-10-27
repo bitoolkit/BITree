@@ -97,8 +97,37 @@ class AgendaController extends ChangeNotifier {
   int countDeadlines(DeadlineClearScope scope) =>
       _entries.where(scope.includes).length;
 
-  Future<bool> clearDeadlines(DeadlineClearScope scope) =>
-      _write(_entries.where((entry) => !scope.includes(entry)).toList());
+  Set<String> deadlineIdsIn(Iterable<DeadlineClearScope> scopes) {
+    final selected = scopes.toSet();
+    return {
+      for (final entry in _entries)
+        if (selected.any((scope) => scope.includes(entry))) entry.id,
+    };
+  }
+
+  int countDeadlinesIn(Iterable<DeadlineClearScope> scopes) =>
+      deadlineIdsIn(scopes).length;
+
+  /// Delete selected origins in one write, never partially one group at a time.
+  /// The dialog supplies the exact set it displayed before the final click.
+  Future<bool> clearDeadlines(
+    Iterable<DeadlineClearScope> scopes, {
+    Set<String>? expectedIds,
+  }) async {
+    final ids = deadlineIdsIn(scopes);
+    if (expectedIds != null && !setEquals(ids, expectedIds)) {
+      AppDiagnostics.instance.notice('待删除的 DDL 已变化，请检查后重新确认。');
+      return false;
+    }
+    if (ids.isEmpty) {
+      return false;
+    }
+    return _write(
+      _entries
+          .where((entry) => !entry.isDeadline || !ids.contains(entry.id))
+          .toList(),
+    );
+  }
 
   /// Refresh this semester's generated records, keeping edits and tombstones.
   /// Returns the matched generated count, or null when persistence fails.
