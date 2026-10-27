@@ -89,7 +89,9 @@ void main() {
         );
         await tester.tap(find.text('课程详情'));
         await tester.pumpAndSettle();
-        expect(find.text('课程学习').hitTestable(), findsOneWidget);
+        final studyEntry = find.widgetWithText(TextButton, '课程学习');
+        expect(studyEntry.hitTestable(), findsOneWidget);
+        expect(tester.getSize(studyEntry).width, lessThan(size.width * .65));
         expect(find.byType(StudyCourseScreen), findsNothing);
         expect(find.text('跨片区换楼'), findsOneWidget);
         expect(find.text(next.name), findsOneWidget);

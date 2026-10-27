@@ -203,7 +203,19 @@ class _CourseDetails extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _CopyableCourseName(name: course.name),
-              const SizedBox(height: 10),
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.only(right: 8),
+                ),
+                onPressed: controller.timetable.busy ? null : onStudy,
+                icon: Icon(
+                  progress != null
+                      ? Icons.live_tv_rounded
+                      : Icons.menu_book_rounded,
+                  size: 18,
+                ),
+                label: Text(progress != null ? '观看直播' : '课程学习'),
+              ),
               detail(
                 Icons.schedule_outlined,
                 course.timeLabel,
@@ -253,39 +265,27 @@ class _CourseDetails extends StatelessWidget {
         ),
         actions: Padding(
           padding: appSheetActionPadding,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: Row(
             children: [
-              OutlinedButton.icon(
-                onPressed: controller.timetable.busy ? null : onStudy,
-                icon: const Icon(Icons.menu_book_rounded, size: 18),
-                label: const Text('课程学习'),
+              Expanded(
+                child: FilledButton(
+                  onPressed: controller.timetable.busy ? null : onEdit,
+                  child: const Text('编辑课程'),
+                ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: controller.timetable.busy ? null : onEdit,
-                      child: const Text('编辑课程'),
-                    ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: theme.colorScheme.error,
+                  side: BorderSide(
+                    color: theme.colorScheme.error.withValues(alpha: 0.4),
                   ),
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: theme.colorScheme.error,
-                      side: BorderSide(
-                        color: theme.colorScheme.error.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    onPressed: controller.timetable.busy
-                        ? null
-                        : () => _deleteCourse(context, controller, course),
-                    icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                    label: const Text('删除'),
-                  ),
-                ],
+                ),
+                onPressed: controller.timetable.busy
+                    ? null
+                    : () => _deleteCourse(context, controller, course),
+                icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                label: const Text('删除'),
               ),
             ],
           ),
