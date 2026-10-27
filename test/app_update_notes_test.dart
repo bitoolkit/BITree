@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:bitree/updates/release.dart';
+import 'package:bitree/updates/repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/http.dart';
+import 'support/test_app.dart';
 
 Map<String, dynamic> _release({required bool development}) => {
   'tag_name': development ? 'v0.3.0-dev' : 'v0.3.0',
@@ -247,6 +249,175 @@ void main() {
       },
     );
   }
+
+  group('Local update results', () {
+    late MemoryPreferences preferences;
+
+    setUp(() {
+      preferences = MemoryPreferences();
+      stable = _release(development: false);
+      changes['v0.2.0...v0.3.0'] = _commits(1);
+      changes['v0.2.0...3333333'] = _commits(2);
+    });
+
+    Future<List<AppRelease>> check({
+      String installed = 'v0.2.0',
+      DateTime? builtAt,
+      bool automatic = true,
+    }) => HttpOverrides.runWithHttpOverrides(
+      () =>
+          UpdateRepository(preferences)
+              .check(installed, builtAt: builtAt, automatic: automatic),
+      network,
+    );
+
+    test(
+      'Automatic checks prompt only for stable and reuse results after restart',
+      () async {
+        final original = (await check()).single;
+        expect(original.isDevelopment, isFalse);
+        final saved =
+            jsonDecode((await preferences.getString('updates.cache'))!) as Map;
+        expect(saved['releases'], hasLength(2));
+        requests.clear();
+        final cached = (await check()).single;
+        expect(cached.version, original.version);
+        expect(cached.notes, original.notes);
+        expect(cached.url, original.url);
+        expect(cached.downloadUrl, original.downloadUrl);
+        expect(requests, isEmpty);
+      },
+    );
+
+    test('Development updates are cached silently and remain available to manual checks', () async {
+      stable = null;
+      expect(await check(), isEmpty);
+      final saved =
+          jsonDecode((await preferences.getString('updates.cache'))!) as Map;
+      expect((saved['releases'] as List).single['isDevelopment'], isTrue);
+      expect(
+        await preferences.getString('updates.dev.notifiedVersion'),
+        isNull,
+      );
+      requests.clear();
+      final release = (await check(automatic: false)).single;
+      expect(release.isDevelopment, isTrue);
+      expect(requests, isNotEmpty);
+    });
+
+    test(
+      'No-update results are also reused without another network request',
+      () async {
+        stable = null;
+        development = null;
+        expect(await check(), isEmpty);
+        expect(requests, isNotEmpty);
+        requests.clear();
+        expect(await check(), isEmpty);
+        expect(requests, isEmpty);
+      },
+    );
+
+    test('Notified stable versions stay quiet, while manual checks refresh both channels', () async {
+      final shown = await check();
+      await UpdateRepository(preferences).markNotified(shown);
+      requests.clear();
+      expect(await check(), isEmpty);
+      expect(requests, isEmpty);
+      final manual = await check(automatic: false);
+      expect(manual.map((release) => release.isDevelopment), [false, true]);
+      expect(requests, isNotEmpty);
+    });
+
+    test(
+      'Cached reads keep the original expiry and refresh after 24 hours',
+      () async {
+        await check();
+        final saved = jsonDecode(
+          (await preferences.getString('updates.cache'))!,
+        ) as Map<String, dynamic>;
+        final original = DateTime.now()
+            .subtract(const Duration(hours: 23))
+            .millisecondsSinceEpoch;
+        saved['checkedAt'] = original;
+        await preferences.setString('updates.cache', jsonEncode(saved));
+        requests.clear();
+        expect(await check(), hasLength(1));
+        expect(requests, isEmpty);
+        expect(
+          (jsonDecode((await preferences.getString('updates.cache'))!)
+              as Map)['checkedAt'],
+          original,
+        );
+        saved['checkedAt'] = DateTime.now()
+            .subtract(const Duration(hours: 25))
+            .millisecondsSinceEpoch;
+        await preferences.setString('updates.cache', jsonEncode(saved));
+        await check();
+        expect(requests, isNotEmpty);
+      },
+    );
+
+    test(
+      'Changing the installed version starts a new changelog comparison',
+      () async {
+        await check();
+        requests.clear();
+        changes['v0.1.0...v0.3.0'] = _commits(3);
+        changes['v0.1.0...3333333'] = _commits(4);
+        final result = await check(installed: 'v0.1.0');
+        expect(result.single.notes, contains('变更 3'));
+        expect(requests, isNotEmpty);
+      },
+    );
+
+    test(
+      'A rebuilt installed package invalidates the previous result',
+      () async {
+        await check(builtAt: DateTime.utc(2026, 10, 26));
+        requests.clear();
+        await check(builtAt: DateTime.utc(2026, 10, 26, 1));
+        expect(requests, isNotEmpty);
+      },
+    );
+
+    test(
+      'Cached downloads from another architecture are never reused',
+      () async {
+        await check();
+        final saved = jsonDecode(
+          (await preferences.getString('updates.cache'))!,
+        ) as Map<String, dynamic>;
+        saved['abi'] = 'another-device-architecture';
+        await preferences.setString('updates.cache', jsonEncode(saved));
+        requests.clear();
+        await check();
+        expect(requests, isNotEmpty);
+      },
+    );
+
+    test(
+      'An unreadable cache is replaced by a successful network result',
+      () async {
+        await preferences.setString('updates.cache', '{');
+        expect(await check(), hasLength(1));
+        final saved =
+            jsonDecode((await preferences.getString('updates.cache'))!) as Map;
+        expect(saved['installed'], 'v0.2.0');
+        expect(saved['releases'], hasLength(2));
+      },
+    );
+
+    test('Failed checks are not cached as no-update results', () async {
+      discoveryStatus = HttpStatus.serviceUnavailable;
+      await expectLater(check(), throwsA(isA<HttpException>()));
+      expect(await preferences.getString('updates.cache'), isNull);
+      discoveryStatus = HttpStatus.ok;
+      requests.clear();
+      expect(await check(), hasLength(1));
+      expect(requests, isNotEmpty);
+    });
+  });
 
   test('Release discovery errors still reach the update caller', () async {
     discoveryStatus = HttpStatus.serviceUnavailable;

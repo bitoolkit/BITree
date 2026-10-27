@@ -63,7 +63,7 @@ class MemoryAcademicStore extends AcademicStore {
       accounts[account] = record;
 }
 
-class _Preferences extends Fake implements SharedPreferencesAsync {
+class MemoryPreferences extends Fake implements SharedPreferencesAsync {
   final _values = <String, String>{};
   @override
   Future<String?> getString(String key) async => _values[key];
@@ -117,7 +117,7 @@ class TestAppController extends AppController {
          store: MemoryScheduleStore(schedules: schedules, selected: schedule),
          school: SchoolService(),
          schoolStorage: schoolStorage ?? MemorySchoolStorage(),
-         preferences: _Preferences(),
+         preferences: MemoryPreferences(),
          agenda: agenda ?? AgendaController(MemoryAgendaStore(entries)),
          academics: AcademicController(MemoryAcademicStore()),
        ) {

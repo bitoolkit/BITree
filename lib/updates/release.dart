@@ -53,11 +53,27 @@ class AppRelease {
     );
   }
 
+  factory AppRelease.fromJson(Map<String, dynamic> json) => AppRelease(
+    version: json['version'] as String,
+    url: Uri.parse(json['url'] as String),
+    downloadUrl: Uri.parse(json['downloadUrl'] as String),
+    notes: json['notes'] as String,
+    isDevelopment: json['isDevelopment'] as bool,
+  );
+
   final String version;
   final Uri url;
   final Uri downloadUrl;
   final String notes;
   final bool isDevelopment;
+
+  Map<String, dynamic> toJson() => {
+    'version': version,
+    'url': url.toString(),
+    'downloadUrl': downloadUrl.toString(),
+    'notes': notes,
+    'isDevelopment': isDevelopment,
+  };
 }
 
 Future<List<AppRelease>> availableAppReleases(
