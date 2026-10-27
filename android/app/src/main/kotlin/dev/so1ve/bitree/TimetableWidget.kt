@@ -47,12 +47,12 @@ open class TimetableWidget : AppWidgetProvider() {
         fun updateAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             val providers = listOf(
-                TimetableWidget::class.java to R.layout.timetable_widget,
-                WideTimetableWidget::class.java to R.layout.timetable_widget_wide,
+                TimetableWidget::class.java to 1,
+                WideTimetableWidget::class.java to 2,
             )
-            val widgets = providers.flatMap { (provider, layout) ->
+            val widgets = providers.flatMap { (provider, columns) ->
                 manager.getAppWidgetIds(ComponentName(context, provider))
-                    .map { id -> id to layout }
+                    .map { id -> id to columns }
             }
             val alarm = context.getSystemService(AlarmManager::class.java)
             val refresh = PendingIntent.getBroadcast(
@@ -73,12 +73,13 @@ open class TimetableWidget : AppWidgetProvider() {
                 Intent(context, MainActivity::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-            widgets.forEach { (id, layout) ->
-                val views = RemoteViews(context.packageName, layout)
+            widgets.forEach { (id, columns) ->
+                val views = RemoteViews(context.packageName, R.layout.timetable_widget)
                 views.setTextViewText(R.id.widget_date, content.heading)
                 views.setTextViewText(R.id.widget_empty, content.emptyMessage)
                 views.setEmptyView(R.id.widget_courses, R.id.widget_empty)
                 views.setOnClickPendingIntent(R.id.widget_root, open)
+                // Collection views consume taps; forward them to the same app launch.
                 views.setPendingIntentTemplate(R.id.widget_courses, open)
 
                 views.setViewVisibility(
@@ -92,7 +93,6 @@ open class TimetableWidget : AppWidgetProvider() {
                     )
                 }
 
-                val columns = if (layout == R.layout.timetable_widget_wide) 2 else 1
                 val widthPx = widgetWidthPx(context, manager, id)
                 val items = entryItems(context, content.entries, widthPx, columns)
 
@@ -131,8 +131,8 @@ open class TimetableWidget : AppWidgetProvider() {
             val outerPadding = resources.getDimension(R.dimen.widget_padding)
             val columnSpacing = resources.getDimension(R.dimen.widget_column_spacing)
             val cardPadding = resources.getDimension(R.dimen.widget_course_padding)
-            val gridWidth = widthPx - 2 * outerPadding
-            val columnWidth = (gridWidth - (columns - 1) * columnSpacing) / columns
+            val contentWidth = widthPx - 2 * outerPadding
+            val columnWidth = (contentWidth - (columns - 1) * columnSpacing) / columns
             val textWidth = columnWidth - 2 * cardPadding
             val paint = TextPaint().apply {
                 textSize = resources.getDimension(R.dimen.widget_course_details_size)
@@ -140,14 +140,27 @@ open class TimetableWidget : AppWidgetProvider() {
 
             val items = RemoteViewsCompat.RemoteCollectionItems.Builder()
                 .setViewTypeCount(1)
-            entries.forEachIndexed { index, entry ->
-                val details = "${entry.startTimeLabel} ${entry.location}".trimEnd()
-                val label = if (paint.measureText(details) <= textWidth) {
-                    details
-                } else {
-                    entry.startTimeLabel
+            entries.chunked(columns).forEachIndexed { index, entriesInRow ->
+                val row = RemoteViews(context.packageName, R.layout.widget_row)
+                row.removeAllViews(R.id.widget_first_column)
+                row.removeAllViews(R.id.widget_second_column)
+                val secondColumn = if (columns == 2) View.VISIBLE else View.GONE
+                row.setViewVisibility(R.id.widget_second_column, secondColumn)
+                row.setViewVisibility(R.id.widget_column_gap, secondColumn)
+                entriesInRow.forEachIndexed { column, entry ->
+                    val details = "${entry.startTimeLabel} ${entry.location}".trimEnd()
+                    val label = if (paint.measureText(details) <= textWidth) {
+                        details
+                    } else {
+                        entry.startTimeLabel
+                    }
+                    row.addView(
+                        if (column == 0) R.id.widget_first_column else R.id.widget_second_column,
+                        entryView(context, entry, label),
+                    )
                 }
-                items.addItem(index.toLong(), entryView(context, entry, label))
+                row.setOnClickFillInIntent(R.id.widget_row, Intent())
+                items.addItem(index.toLong(), row)
             }
 
             return items.build()
@@ -184,7 +197,6 @@ open class TimetableWidget : AppWidgetProvider() {
                     listOf(entry.kind.label, entry.title, entry.timeLabel, entry.location)
                         .filter { it.isNotEmpty() }.joinToString("，"),
                 )
-                setOnClickFillInIntent(R.id.widget_course, Intent())
             }
         }
     }

@@ -16,14 +16,12 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:layout_marginTop="6dp">
-        <GridView
+        <ListView
             android:id="@+id/widget_courses"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:numColumns="1"
-            android:stretchMode="columnWidth"
-            android:horizontalSpacing="@dimen/widget_column_spacing"
-            android:verticalSpacing="4dp"
+            android:divider="@null"
+            android:dividerHeight="0dp"
             android:scrollbars="vertical"
             android:scrollbarStyle="insideOverlay"
             android:scrollbarSize="2dp"
