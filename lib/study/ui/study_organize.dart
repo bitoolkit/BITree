@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/controller.dart';
 import '../model.dart';
 import 'study_common.dart';
+import 'study_layout.dart';
 import 'study_tasks.dart';
 
 Future<void> showStudyOrganize(
@@ -158,39 +159,32 @@ class _StudyOrganizeScreenState extends State<StudyOrganizeScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('整理课程资料')),
+    appBar: StudyAppBar('整理课程资料', subtitle: widget.course.title),
     body: SafeArea(
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1100),
-          child: LayoutBuilder(
-            builder: (context, size) => SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    widget.course.title,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
+      child: StudyContent(
+        child: LayoutBuilder(
+          builder: (context, size) => SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (size.maxWidth >= 850)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _selection(context)),
+                      const SizedBox(width: 36),
+                      SizedBox(
+                        width: 270,
+                        child: StudyAside(child: _options(context)),
+                      ),
+                    ],
+                  )
+                else ...[
+                  _selection(context),
                   const SizedBox(height: 24),
-                  if (size.maxWidth >= 850)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: _selection(context)),
-                        const SizedBox(width: 40),
-                        SizedBox(width: 280, child: _options(context)),
-                      ],
-                    )
-                  else ...[
-                    _selection(context),
-                    const Divider(height: 40),
-                    _options(context),
-                  ],
+                  StudyAside(below: true, child: _options(context)),
                 ],
-              ),
+              ],
             ),
           ),
         ),

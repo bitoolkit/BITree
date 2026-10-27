@@ -4,6 +4,7 @@ import '../../app/controller.dart';
 import '../model.dart';
 import '../tasks.dart';
 import 'study_common.dart';
+import 'study_layout.dart';
 import 'study_reader.dart';
 import 'study_review.dart';
 
@@ -15,54 +16,85 @@ class StudyTaskScreen extends StatelessWidget {
   Widget build(BuildContext context) => DefaultTabController(
     length: 2,
     child: Scaffold(
-      appBar: AppBar(title: const Text('处理任务')),
+      appBar: const StudyAppBar('处理任务'),
       body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1000),
-            child: ListenableBuilder(
-              listenable: app.study.tasks,
-              builder: (context, _) {
-                final pending = app.study.tasks.items
-                    .where((task) => task.status != StudyTaskStatus.completed)
-                    .toList();
-                final completed = app.study.tasks.items
-                    .where((task) => task.status == StudyTaskStatus.completed)
-                    .toList();
-                return Column(
-                  children: [
-                    TabBar(
-                      isScrollable: true,
-                      tabAlignment: TabAlignment.start,
-                      tabs: [
-                        Tab(text: '进行中 ${pending.length}'),
-                        Tab(text: '已完成 ${completed.length}'),
-                      ],
-                    ),
-                    Expanded(
-                      child: TabBarView(
-                        children: [
-                          for (final tasks in [pending, completed])
-                            tasks.isEmpty
-                                ? const Center(
-                                    child: StudyEmpty(text: '暂无处理任务'),
-                                  )
-                                : ListView.separated(
-                                    padding: const EdgeInsets.all(24),
-                                    itemCount: tasks.length,
-                                    separatorBuilder: (_, _) =>
-                                        const Divider(height: 32),
-                                    itemBuilder: (_, index) =>
-                                        _TaskRow(app: app, task: tasks[index]),
+        child: StudyContent(
+          child: ListenableBuilder(
+            listenable: app.study.tasks,
+            builder: (context, _) {
+              final pending = app.study.tasks.items
+                  .where((task) => task.status != StudyTaskStatus.completed)
+                  .toList();
+              final completed = app.study.tasks.items
+                  .where((task) => task.status == StudyTaskStatus.completed)
+                  .toList();
+              final information = Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('资料归属', style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 12),
+                  const Text('完成后的课件、字幕和录播会保存在对应课程、课时中。'),
+                  const SizedBox(height: 16),
+                  const Text('可以离开此页。应用保持运行时，任务会继续处理。'),
+                ],
+              );
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 20),
+                  TabBar(
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    tabs: [
+                      Tab(text: '进行中 ${pending.length}'),
+                      Tab(text: '已完成 ${completed.length}'),
+                    ],
+                  ),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, size) {
+                        final list = TabBarView(
+                          children: [
+                            for (final tasks in [pending, completed])
+                              ListView(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 24,
+                                ),
+                                children: [
+                                  if (tasks.isEmpty)
+                                    const StudyEmpty(text: '暂无处理任务'),
+                                  for (final task in tasks) ...[
+                                    _TaskRow(app: app, task: task),
+                                    const Divider(height: 32),
+                                  ],
+                                  if (size.maxWidth < 850)
+                                    StudyAside(below: true, child: information),
+                                ],
+                              ),
+                          ],
+                        );
+                        return size.maxWidth >= 850
+                            ? Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(child: list),
+                                  const SizedBox(width: 36),
+                                  SizedBox(
+                                    width: 270,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 24),
+                                      child: StudyAside(child: information),
+                                    ),
                                   ),
-                        ],
-                      ),
+                                ],
+                              )
+                            : list;
+                      },
                     ),
-                  ],
-                );
-              },
-            ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),

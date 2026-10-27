@@ -18,6 +18,7 @@ class StudyVideo extends StatefulWidget {
     this.onRetry,
     this.busy = false,
     this.onCollapse,
+    this.viewActions,
   });
 
   final VideoController controller;
@@ -30,6 +31,7 @@ class StudyVideo extends StatefulWidget {
   final VoidCallback? onRetry;
   final bool busy;
   final VoidCallback? onCollapse;
+  final Widget? viewActions;
 
   @override
   State<StudyVideo> createState() => _StudyVideoState();
@@ -225,47 +227,93 @@ class _StudyVideoState extends State<StudyVideo> {
           ),
         ),
         if (!_fullscreen && sources.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Wrap(
-                spacing: 4,
-                runSpacing: 0,
-                children: [
-                  for (final key in [
-                    'screen',
-                    'classroom',
-                  ].where(sources.contains))
-                    TextButton(
-                      onPressed: busy ? null : () => onView(key, false),
-                      style: TextButton.styleFrom(
-                        foregroundColor: source == key && secondary == null
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                        backgroundColor: source == key && secondary == null
-                            ? Theme.of(context).colorScheme.secondaryContainer
-                            : null,
-                      ),
-                      child: Text(key == 'screen' ? '课件画面' : '老师画面'),
-                    ),
-                  if (sources.length > 1)
-                    TextButton(
-                      onPressed: busy
-                          ? null
-                          : () => onView(source, secondary == null),
-                      style: TextButton.styleFrom(
-                        foregroundColor: secondary != null
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                        backgroundColor: secondary != null
-                            ? Theme.of(context).colorScheme.secondaryContainer
-                            : null,
-                      ),
-                      child: const Text('画中画'),
-                    ),
-                ],
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
               ),
+            ),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 14,
+              runSpacing: 8,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainer,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: Wrap(
+                      spacing: 3,
+                      children: [
+                        for (final key in [
+                          'screen',
+                          'classroom',
+                        ].where(sources.contains))
+                          TextButton(
+                            onPressed: busy ? null : () => onView(key, false),
+                            style: TextButton.styleFrom(
+                              minimumSize: const Size(0, 34),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              textStyle: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(fontSize: 12),
+                              foregroundColor:
+                                  source == key && secondary == null
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                              backgroundColor:
+                                  source == key && secondary == null
+                                  ? Theme.of(context)
+                                        .colorScheme
+                                        .surfaceContainerLow
+                                  : null,
+                            ),
+                            child: Text(key == 'screen' ? '课件画面' : '老师画面'),
+                          ),
+                        if (sources.length > 1)
+                          TextButton(
+                            onPressed: busy
+                                ? null
+                                : () => onView(source, secondary == null),
+                            style: TextButton.styleFrom(
+                              minimumSize: const Size(0, 34),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              textStyle: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(fontSize: 12),
+                              foregroundColor: secondary != null
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                              backgroundColor: secondary != null
+                                  ? Theme.of(context)
+                                        .colorScheme
+                                        .surfaceContainerLow
+                                  : null,
+                            ),
+                            child: const Text('画中画'),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (widget.viewActions != null) widget.viewActions!,
+              ],
             ),
           ),
       ],

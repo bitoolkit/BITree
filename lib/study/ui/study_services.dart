@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../llm.dart';
 import 'study_common.dart';
+import 'study_layout.dart';
 
 class StudyServices extends StatefulWidget {
   const StudyServices({super.key, required this.model});
@@ -83,8 +84,6 @@ class _StudyServicesState extends State<StudyServices> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('模型服务（可选）', style: theme.textTheme.titleLarge),
-          const SizedBox(height: 12),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('启用模型服务'),
@@ -119,24 +118,39 @@ class _StudyServicesState extends State<StudyServices> {
             },
           ),
           const SizedBox(height: 20),
-          TextFormField(
-            controller: _model,
-            enabled: _enabled && !_saving,
-            decoration: const InputDecoration(labelText: '模型名称'),
-            autocorrect: false,
-            validator: (value) =>
-                _enabled && (value == null || value.trim().isEmpty)
-                ? '请输入模型名称'
-                : null,
-          ),
-          const SizedBox(height: 20),
-          TextFormField(
-            controller: _key,
-            enabled: _enabled && !_saving,
-            decoration: const InputDecoration(labelText: 'API Key（本地服务可留空）'),
-            obscureText: true,
-            autocorrect: false,
-            enableSuggestions: false,
+          LayoutBuilder(
+            builder: (context, size) {
+              final model = TextFormField(
+                controller: _model,
+                enabled: _enabled && !_saving,
+                decoration: const InputDecoration(labelText: '模型名称'),
+                autocorrect: false,
+                validator: (value) =>
+                    _enabled && (value == null || value.trim().isEmpty)
+                    ? '请输入模型名称'
+                    : null,
+              );
+              final key = TextFormField(
+                controller: _key,
+                enabled: _enabled && !_saving,
+                decoration: const InputDecoration(
+                  labelText: 'API Key（本地服务可留空）',
+                ),
+                obscureText: true,
+                autocorrect: false,
+                enableSuggestions: false,
+              );
+              return size.maxWidth >= 600
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: model),
+                        const SizedBox(width: 16),
+                        Expanded(child: key),
+                      ],
+                    )
+                  : Column(children: [model, const SizedBox(height: 20), key]);
+            },
           ),
           const SizedBox(height: 24),
           FilledButton(
@@ -163,7 +177,7 @@ class _StudyServicesState extends State<StudyServices> {
       ],
     );
     return Scaffold(
-      appBar: AppBar(title: const Text('学习服务')),
+      appBar: const StudyAppBar('学习服务'),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _loadFailed
@@ -176,25 +190,27 @@ class _StudyServicesState extends State<StudyServices> {
           : SafeArea(
               child: Align(
                 alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1050),
+                child: StudyContent(
+                  maxWidth: 1200,
                   child: LayoutBuilder(
                     builder: (context, size) => ListView(
-                      padding: const EdgeInsets.all(24),
                       children: [
                         if (size.maxWidth >= 850)
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(child: fields),
-                              const SizedBox(width: 64),
-                              SizedBox(width: 260, child: information),
+                              const SizedBox(width: 36),
+                              SizedBox(
+                                width: 270,
+                                child: StudyAside(child: information),
+                              ),
                             ],
                           )
                         else ...[
                           fields,
-                          const Divider(height: 48),
-                          information,
+                          const SizedBox(height: 28),
+                          StudyAside(below: true, child: information),
                         ],
                       ],
                     ),

@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:markdown/markdown.dart' as md;
 
 import '../../app/controller.dart';
 import '../../ui/app_menu_anchor.dart';
@@ -11,8 +13,26 @@ import '../../ui/app_notice.dart';
 import '../model.dart';
 import '../tasks.dart';
 import 'study_common.dart';
+import 'study_layout.dart';
 import 'study_reader.dart';
 import 'study_services.dart';
+
+class _ReviewHeadingBuilder extends MarkdownElementBuilder {
+  _ReviewHeadingBuilder(this.keys);
+  final List<GlobalKey> keys;
+  int _index = 0;
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) => Text(
+    element.textContent,
+    key: keys[(_index++) % keys.length],
+    style: preferredStyle,
+  );
+}
 
 class StudyReviewScreen extends StatefulWidget {
   const StudyReviewScreen({super.key, required this.app, required this.course});
@@ -24,6 +44,8 @@ class StudyReviewScreen extends StatefulWidget {
 
 class _StudyReviewScreenState extends State<StudyReviewScreen> {
   bool _loading = false;
+  final _headingKeys = <GlobalKey>[];
+  int _heading = 0;
   late int _count = switch (widget.course.reviewLectureIds.length) {
     1 => 1,
     0 => 3,
@@ -98,12 +120,12 @@ class _StudyReviewScreenState extends State<StudyReviewScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('复习提纲')),
+    appBar: StudyAppBar('复习提纲', subtitle: widget.course.title),
     body: SafeArea(
       child: Align(
         alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1100),
+        child: StudyContent(
+          maxWidth: 1280,
           child: ListenableBuilder(
             listenable: widget.app.study.tasks,
             builder: (context, _) {
@@ -133,9 +155,57 @@ class _StudyReviewScreenState extends State<StudyReviewScreen> {
                               ),
                         )
                         .toList();
+              final headings = <String>[];
+              void visit(md.Node node) {
+                if (node is! md.Element) return;
+                if (RegExp(r'^h[1-6]$').hasMatch(node.tag)) {
+                  headings.add(node.textContent);
+                }
+                for (final child in node.children ?? <md.Node>[]) {
+                  visit(child);
+                }
+              }
+
+              for (final node in md.Document().parseLines(text.split('\n'))) {
+                visit(node);
+              }
+              while (_headingKeys.length < headings.length) {
+                _headingKeys.add(GlobalKey());
+              }
+              final headingBuilder = _ReviewHeadingBuilder(
+                _headingKeys.take(headings.length).toList(),
+              );
               final sources = Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (headings.isNotEmpty) ...[
+                    Text('目录', style: theme.textTheme.titleSmall),
+                    const SizedBox(height: 12),
+                    for (final (index, title) in headings.indexed)
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          alignment: Alignment.centerLeft,
+                          backgroundColor: index == _heading
+                              ? theme.colorScheme.primaryContainer
+                              : null,
+                        ),
+                        onPressed: () {
+                          setState(() => _heading = index);
+                          final target = _headingKeys[index].currentContext;
+                          if (target != null) {
+                            Scrollable.ensureVisible(
+                              target,
+                              duration: MediaQuery.disableAnimationsOf(context)
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 220),
+                              alignment: .1,
+                            );
+                          }
+                        },
+                        child: Text(title),
+                      ),
+                    const Divider(height: 32),
+                  ],
                   Text('来源课时', style: theme.textTheme.titleSmall),
                   const SizedBox(height: 12),
                   for (final lecture in sourceLectures)
@@ -171,6 +241,10 @@ class _StudyReviewScreenState extends State<StudyReviewScreen> {
                 ),
                 child: StudyMarkdown(
                   text: text,
+                  builders: {
+                    for (var level = 1; level <= 6; level++)
+                      'h$level': headingBuilder,
+                  },
                   onLecture: (id, position) {
                     final lecture = widget.course.lectures
                         .where((lecture) => lecture.id == id)
@@ -181,13 +255,7 @@ class _StudyReviewScreenState extends State<StudyReviewScreen> {
               );
               return LayoutBuilder(
                 builder: (context, size) => ListView(
-                  padding: const EdgeInsets.all(24),
                   children: [
-                    Text(
-                      widget.course.title,
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 20),
                     Wrap(
                       spacing: 16,
                       runSpacing: 8,
@@ -267,7 +335,7 @@ class _StudyReviewScreenState extends State<StudyReviewScreen> {
                         children: [
                           SizedBox(width: 190, child: sources),
                           const SizedBox(width: 32),
-                          Expanded(child: document),
+                          Expanded(child: StudyAside(child: document)),
                         ],
                       )
                     else ...[

@@ -7,10 +7,12 @@ import '../../core/async/cancelable_request.dart';
 import '../library.dart';
 import '../model.dart';
 import 'study_common.dart';
+import 'study_layout.dart';
 
 class StudySearchScreen extends StatefulWidget {
-  const StudySearchScreen({super.key, required this.app});
+  const StudySearchScreen({super.key, required this.app, this.onLocal});
   final AppController app;
+  final VoidCallback? onLocal;
   @override
   State<StudySearchScreen> createState() => _StudySearchScreenState();
 }
@@ -80,76 +82,135 @@ class _StudySearchScreenState extends State<StudySearchScreen> {
     }
   }
 
+  Future<void> _add(StudyCourse course) async {
+    setState(() => _loading = true);
+    final result = await studyOperation(
+      context,
+      '添加课程',
+      () => widget.app.study.refreshCourse(
+        course.id,
+        studyVerify(context),
+        CancellationToken(),
+      ),
+    );
+    if (mounted && result != null) Navigator.pop(context, result);
+    if (mounted) setState(() => _loading = false);
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('添加课程')),
-    body: Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 880),
+    appBar: const StudyAppBar('添加课程'),
+    body: SafeArea(
+      child: StudyContent(
+        maxWidth: 1200,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: TextField(
-                controller: _query,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: '课程、教师或延河课堂链接',
-                  suffixIcon: IconButton(
-                    tooltip: '搜索',
-                    onPressed: _loading ? null : _find,
-                    icon: const Icon(Icons.search_rounded),
-                  ),
+            TextField(
+              controller: _query,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: '课程、教师或延河课堂链接',
+                suffixIcon: IconButton(
+                  tooltip: '搜索',
+                  onPressed: _loading ? null : _find,
+                  icon: const Icon(Icons.search_rounded),
                 ),
-                textInputAction: TextInputAction.search,
-                onSubmitted: (_) => _find(),
               ),
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _find(),
             ),
+            const SizedBox(height: 24),
             if (_loading) const LinearProgressIndicator(minHeight: 2),
             Expanded(
-              child: _results.isEmpty
-                  ? StudyEmpty(text: _searched ? '没有找到课程' : '搜索课程，或粘贴课程链接。')
-                  : ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      children: [
-                        for (final course in _results)
-                          ListTile(
-                            title: Text(course.title),
-                            subtitle: Text(
-                              '${studyTermLabel(course.term)} · ${course.teacher}',
-                            ),
-                            trailing: const Icon(Icons.add_rounded),
-                            onTap: _loading
-                                ? null
-                                : () async {
-                                    setState(() => _loading = true);
-                                    final result = await studyOperation(
-                                      context,
-                                      '添加课程',
-                                      () => widget.app.study.refreshCourse(
-                                        course.id,
-                                        studyVerify(context),
-                                        CancellationToken(),
-                                      ),
-                                    );
-                                    if (context.mounted && result != null) {
-                                      Navigator.pop(context, result);
-                                    }
-                                    if (mounted) {
-                                      setState(() => _loading = false);
-                                    }
-                                  },
+              child: LayoutBuilder(
+                builder: (context, size) {
+                  final local = Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        '本地录播',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text('先选择或创建课程，再导入录播。'),
+                      if (widget.onLocal != null) ...[
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          onPressed: widget.onLocal,
+                          icon: const Icon(
+                            Icons.folder_open_outlined,
+                            size: 18,
                           ),
-                        if (_more)
-                          TextButton(
-                            onPressed: _loading
-                                ? null
-                                : () => _find(more: true),
-                            child: const Text('加载更多'),
-                          ),
+                          label: const Text('创建本地课程'),
+                        ),
                       ],
-                    ),
+                      const Divider(height: 32),
+                      Text(
+                        '同名课程合并展示，进入课程后可切换教学班。',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  );
+                  final list = ListView(
+                    children: [
+                      Text(
+                        '搜索结果 · ${_results.length} 门',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 12),
+                      if (_results.isEmpty && !_loading)
+                        StudyEmpty(
+                          text: _searched ? '没有找到课程' : '搜索课程，或粘贴课程链接。',
+                        ),
+                      for (final course in _results) ...[
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                          ),
+                          leading: StudyCourseMark(course.title),
+                          title: Text(course.title),
+                          subtitle: Text(
+                            '${course.teacher}\n${studyTermLabel(course.term)}',
+                          ),
+                          trailing:
+                              widget.app.study.courses.any(
+                                (item) => item.id == course.id,
+                              )
+                              ? const Text('已添加 ✓')
+                              : const Icon(Icons.add_rounded),
+                          onTap: _loading ? null : () => _add(course),
+                        ),
+                        const Divider(height: 1),
+                      ],
+                      if (_more)
+                        TextButton(
+                          onPressed: _loading ? null : () => _find(more: true),
+                          child: const Text('加载更多'),
+                        ),
+                      if (size.maxWidth < 850) ...[
+                        const SizedBox(height: 28),
+                        StudyAside(below: true, child: local),
+                      ],
+                    ],
+                  );
+                  return size.maxWidth >= 850
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: list),
+                            const SizedBox(width: 36),
+                            SizedBox(
+                              width: 270,
+                              child: SingleChildScrollView(
+                                child: StudyAside(child: local),
+                              ),
+                            ),
+                          ],
+                        )
+                      : list;
+                },
+              ),
             ),
           ],
         ),

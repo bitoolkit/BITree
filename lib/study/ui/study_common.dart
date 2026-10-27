@@ -57,10 +57,12 @@ class StudyMarkdown extends StatelessWidget {
     required this.text,
     this.onSeek,
     this.onLecture,
+    this.builders = const {},
   });
   final String text;
   final ValueChanged<Duration>? onSeek;
   final void Function(String, Duration)? onLecture;
+  final Map<String, MarkdownElementBuilder> builders;
   @override
   Widget build(BuildContext context) {
     final linked = onSeek == null
@@ -71,6 +73,7 @@ class StudyMarkdown extends StatelessWidget {
                 '[${match[1]}:${match[2]}](study-time:${int.parse(match[1]!) * 60 + int.parse(match[2]!)})',
           );
     return MarkdownBody(
+      builders: builders,
       data: linked,
       selectable: true,
       imageBuilder: (uri, title, alt) => uri.scheme == 'file'
@@ -101,6 +104,11 @@ String lectureDate(StudyLecture lecture) {
 
 String studyLectureTitle(StudyLecture lecture) =>
     lecture.title.replaceFirst(RegExp(r'^\d{4}[-/]\d{1,2}[-/]\d{1,2}\s*'), '');
+
+String studyClock(DateTime value) {
+  final date = value.toUtc().add(const Duration(hours: 8));
+  return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+}
 
 VerifySchoolLogin studyVerify(BuildContext context) {
   final navigator = Navigator.of(context, rootNavigator: true);

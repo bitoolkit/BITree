@@ -1065,15 +1065,25 @@ void main() {
         expect(find.text('从课件录播提取'), findsNothing);
         await tester.tap(find.text('笔记'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('编辑全文'));
+        final draft = find.byWidgetPredicate(
+          (widget) =>
+              widget is TextField && widget.decoration?.labelText == '新笔记',
+        );
+        await tester.ensureVisible(draft);
+        await tester.enterText(draft, '直播中的笔记');
         await tester.pumpAndSettle();
-        await tester.enterText(find.byType(TextField).first, '直播中的笔记');
+        await tester.ensureVisible(find.text('添加笔记'));
+        await tester.tap(find.text('添加笔记'));
+        await tester.pumpAndSettle();
         await tester.pageBack();
         await tester.pumpAndSettle();
         final lecture = course.lectures.firstWhere(
           (lecture) => lecture.id == '101',
         );
-        expect((await app.study.materials(course, lecture)).notes, '直播中的笔记');
+        expect(
+          (await app.study.materials(course, lecture)).notes,
+          '[00:00] 直播中的笔记',
+        );
         expect(app.study.lastReading, isNull);
         await tester.pumpWidget(
           screen(Scaffold(body: StudyTodayLiveList(app: app))),

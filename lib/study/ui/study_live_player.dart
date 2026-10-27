@@ -20,6 +20,7 @@ class StudyLivePlayer extends StatefulWidget {
     this.initialStatus = StudyLectureStatus.live,
     this.onRecording,
     this.onCollapse,
+    this.viewActions,
     this.endedAction,
   });
 
@@ -27,6 +28,7 @@ class StudyLivePlayer extends StatefulWidget {
   final StudyLectureStatus initialStatus;
   final VoidCallback? onRecording;
   final VoidCallback? onCollapse;
+  final Widget? viewActions;
   final Widget? endedAction;
 
   @override
@@ -222,6 +224,7 @@ class _StudyLivePlayerState extends State<StudyLivePlayer>
             busy: _opening,
             onView: _switchSource,
             onCollapse: widget.onCollapse,
+            viewActions: widget.viewActions,
           ),
       ],
     ),

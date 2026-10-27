@@ -11,13 +11,9 @@ import '../broadcasts.dart';
 import '../model.dart';
 import 'study_common.dart';
 import 'study_course.dart';
+import 'study_layout.dart';
 import 'study_legacy_live.dart';
 import 'study_reader.dart';
-
-String studyClock(DateTime value) {
-  final date = value.toUtc().add(const Duration(hours: 8));
-  return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-}
 
 bool isPersonalClassroom(AppController app, StudyClassroom item) {
   if (item.timetable != null) return true;
@@ -82,27 +78,26 @@ class _StudyLiveScreenState extends State<StudyLiveScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('课堂直播')),
+    appBar: const StudyAppBar('课堂直播'),
     body: SafeArea(
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
+      child: StudyContent(
+        child: DefaultTabController(
+          length: 2,
+          initialIndex: _personal ? 0 : 1,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: SegmentedButton<bool>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: true, label: Text('我的课堂')),
-                    ButtonSegment(value: false, label: Text('校内直播')),
-                  ],
-                  selected: {_personal},
-                  onSelectionChanged: (value) =>
-                      setState(() => _personal = value.single),
-                ),
+              const SizedBox(height: 16),
+              TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                onTap: (index) => setState(() => _personal = index == 0),
+                tabs: const [
+                  Tab(text: '我的课堂'),
+                  Tab(text: '校内直播'),
+                ],
               ),
+              const SizedBox(height: 12),
               Expanded(
                 child: StudyTodayLiveList(
                   app: widget.app,
@@ -242,7 +237,7 @@ class _StudyTodayLiveListState extends State<StudyTodayLiveList> {
               onRefresh: _refresh,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
                   if (items.isEmpty && !catalog.loading)
                     StudyEmpty(
@@ -271,10 +266,17 @@ class _StudyTodayLiveListState extends State<StudyTodayLiveList> {
                     for (final item in items.where(
                       (item) => item.status == status,
                     ))
-                      StudyClassroomTile(
-                        item: item,
-                        onTap: _opening ? null : () => _open(item),
-                      ),
+                      if (status == StudyLectureStatus.live &&
+                          widget.personalOnly)
+                        StudyLiveFeature(
+                          item: item,
+                          onTap: _opening ? null : () => _open(item),
+                        )
+                      else
+                        StudyClassroomTile(
+                          item: item,
+                          onTap: _opening ? null : () => _open(item),
+                        ),
                   ],
                   if (ended.isNotEmpty)
                     ExpansionTile(
@@ -312,6 +314,77 @@ class _StudyTodayLiveListState extends State<StudyTodayLiveList> {
       );
     },
   );
+}
+
+class StudyLiveFeature extends StatelessWidget {
+  const StudyLiveFeature({super.key, required this.item, required this.onTap});
+  final StudyClassroom item;
+  final VoidCallback? onTap;
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '● 正在上课',
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.error,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(item.title, style: theme.textTheme.titleLarge),
+        const SizedBox(height: 8),
+        Text(
+          [
+            '${studyClock(item.startsAt)}–${studyClock(item.endsAt)}',
+            if (item.location.isNotEmpty) item.location,
+          ].join(' · '),
+          style: theme.textTheme.bodySmall,
+        ),
+        if (item.teacher.isNotEmpty)
+          Text(item.teacher, style: theme.textTheme.bodySmall),
+        const SizedBox(height: 16),
+        OutlinedButton.icon(
+          onPressed: onTap,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: theme.colorScheme.error,
+            side: BorderSide(color: theme.colorScheme.error),
+          ),
+          icon: const Icon(Icons.play_arrow_rounded, size: 18),
+          label: const Text('进入直播'),
+        ),
+      ],
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: LayoutBuilder(
+        builder: (context, size) => Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (size.maxWidth >= 550) ...[
+              Container(
+                width: 180,
+                height: 150,
+                color: theme.colorScheme.surfaceContainerHighest,
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.live_tv_rounded, size: 36),
+                    const SizedBox(height: 14),
+                    Text(item.location),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 25),
+            ],
+            Expanded(child: details),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class StudyClassroomTile extends StatelessWidget {

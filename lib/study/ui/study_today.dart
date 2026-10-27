@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
+import '../../schedule/model.dart';
 import '../model.dart';
+import 'study_common.dart';
 import 'study_live.dart';
 
 class StudyTodayOverview extends StatelessWidget {
@@ -9,9 +11,11 @@ class StudyTodayOverview extends StatelessWidget {
     super.key,
     required this.app,
     required this.onLive,
+    this.onTimetable,
   });
   final AppController app;
   final VoidCallback onLive;
+  final VoidCallback? onTimetable;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -35,10 +39,9 @@ class StudyTodayOverview extends StatelessWidget {
           Row(
             children: [
               Expanded(child: Text('今日课堂', style: theme.textTheme.titleMedium)),
-              IconButton(
-                tooltip: '课堂直播',
-                onPressed: onLive,
-                icon: const Icon(Icons.arrow_forward_rounded, size: 20),
+              Text(
+                '${campusNow().month}月${campusNow().day}日',
+                style: theme.textTheme.bodySmall,
               ),
             ],
           ),
@@ -54,12 +57,70 @@ class StudyTodayOverview extends StatelessWidget {
             ),
           ] else
             for (final item in items) ...[
-              StudyClassroomTile(
-                item: item,
-                onTap: () => openStudyClassroom(context, app, item),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.status == StudyLectureStatus.live
+                          ? '● 正在上课'
+                          : '下一节 · ${studyClock(item.startsAt)}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: item.status == StudyLectureStatus.live
+                            ? theme.colorScheme.error
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(item.title, style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${studyClock(item.startsAt)}–${studyClock(item.endsAt)}${item.location.isEmpty ? '' : ' · ${item.location}'}',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 8),
+                    item.status == StudyLectureStatus.live
+                        ? OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: theme.colorScheme.error,
+                              side: BorderSide(
+                                color: theme.colorScheme.error.withValues(
+                                  alpha: .3,
+                                ),
+                              ),
+                              backgroundColor: theme.colorScheme.errorContainer
+                                  .withValues(alpha: .18),
+                            ),
+                            onPressed: () =>
+                                openStudyClassroom(context, app, item),
+                            icon: const Icon(Icons.live_tv_rounded, size: 17),
+                            label: const Text('观看直播'),
+                          )
+                        : TextButton(
+                            onPressed: () =>
+                                openStudyClassroom(context, app, item),
+                            child: const Text('课程资料 ›'),
+                          ),
+                  ],
+                ),
               ),
               const Divider(height: 1),
             ],
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              if (onTimetable != null)
+                TextButton.icon(
+                  onPressed: onTimetable,
+                  icon: const Icon(Icons.calendar_month_outlined, size: 16),
+                  label: const Text('查看课表'),
+                ),
+              TextButton(onPressed: onLive, child: const Text('课堂直播 ↗')),
+            ],
+          ),
         ],
       );
     },

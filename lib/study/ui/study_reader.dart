@@ -18,6 +18,7 @@ import '../media.dart';
 import '../model.dart';
 import '../tasks.dart';
 import 'study_common.dart';
+import 'study_layout.dart';
 import 'study_live_player.dart';
 import 'study_organize.dart';
 import 'study_services.dart';
@@ -81,7 +82,6 @@ class _StudyReaderState extends State<StudyReader>
   bool _editingNotes = false;
   bool _dual = false;
   String _source = 'screen';
-  int _slide = 0;
   DateTime _lastSync = DateTime.fromMillisecondsSinceEpoch(0);
 
   @override
@@ -449,6 +449,21 @@ class _StudyReaderState extends State<StudyReader>
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(22),
+        child: Padding(
+          padding: const EdgeInsets.only(left: 56, right: 20, bottom: 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${lectureDate(widget.lecture)} · ${studyLectureTitle(widget.lecture)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ),
+      ),
     ),
     body: _material == null
         ? Center(
@@ -467,65 +482,72 @@ class _StudyReaderState extends State<StudyReader>
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: _showPlayer ? 1440 : 840),
-                child: LayoutBuilder(
-                  builder: (context, size) {
-                    final wide =
-                        _showPlayer &&
-                        (size.maxWidth >= 900 ||
-                            size.maxWidth >= 720 &&
-                                size.maxWidth > size.maxHeight * 1.35);
-                    final materials = Column(
-                      children: [
-                        if (!wide && !_showPlayer)
-                          ListTile(
-                            dense: true,
-                            leading: const Icon(
-                              Icons.play_circle_outline_rounded,
-                            ),
-                            title: Text(
-                              studyLectureTitle(widget.lecture),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: Text(_livePlayback ? '观看直播' : '观看录播'),
-                            onTap: () => _openPlayer(),
-                          ),
-                        _materialTabs(),
-                        Expanded(child: _materialPanel()),
-                      ],
-                    );
-                    if (wide) {
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                child: StudyContent(
+                  maxWidth: 1440,
+                  child: LayoutBuilder(
+                    builder: (context, size) {
+                      final wide =
+                          _showPlayer &&
+                          (size.maxWidth >= 900 ||
+                              size.maxWidth >= 720 &&
+                                  size.maxWidth > size.maxHeight * 1.35);
+                      final materials = Column(
                         children: [
-                          Expanded(
-                            child: SingleChildScrollView(
-                              child: _playerWithActions(),
+                          if (!wide && !_showPlayer)
+                            ListTile(
+                              dense: true,
+                              leading: const Icon(
+                                Icons.play_circle_outline_rounded,
+                              ),
+                              title: Text(
+                                studyLectureTitle(widget.lecture),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: Text(_livePlayback ? '观看直播' : '观看录播'),
+                              onTap: () => _openPlayer(),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          SizedBox(
-                            width: (size.maxWidth * .30).clamp(280, 360),
-                            child: materials,
+                          _materialTabs(),
+                          Expanded(child: _materialPanel()),
+                        ],
+                      );
+                      if (wide) {
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: SingleChildScrollView(
+                                child: _playerWithActions(),
+                              ),
+                            ),
+                            const SizedBox(width: 24),
+                            SizedBox(
+                              width: 290,
+                              child: StudyAside(child: materials),
+                            ),
+                          ],
+                        );
+                      }
+                      return Column(
+                        children: [
+                          if (_showPlayer)
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight: size.maxHeight * .65,
+                              ),
+                              child: SingleChildScrollView(
+                                child: _playerWithActions(),
+                              ),
+                            ),
+                          Expanded(
+                            child: _showPlayer
+                                ? StudyAside(below: true, child: materials)
+                                : materials,
                           ),
                         ],
                       );
-                    }
-                    return Column(
-                      children: [
-                        if (_showPlayer)
-                          ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxHeight: size.maxHeight * .65,
-                            ),
-                            child: SingleChildScrollView(
-                              child: _playerWithActions(),
-                            ),
-                          ),
-                        Expanded(child: materials),
-                      ],
-                    );
-                  },
+                    },
+                  ),
                 ),
               ),
             ),
@@ -534,41 +556,32 @@ class _StudyReaderState extends State<StudyReader>
 
   Widget _playerWithActions() => Column(
     mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            widget.lecture.title,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
-      ),
       _playerPanel(),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
+      LayoutBuilder(
+        builder: (context, size) {
+          final actions = <Widget>[
             TextButton.icon(
               onPressed: _outline,
               icon: const Icon(Icons.video_library_outlined, size: 18),
               label: const Text('课时目录'),
             ),
-            TextButton.icon(
-              onPressed: () => _tabs.animateTo(2),
-              icon: const Icon(Icons.edit_note_rounded, size: 18),
-              label: const Text('记笔记'),
-            ),
-            if (_player != null)
+            if (!_livePlayback) ...[
               TextButton.icon(
-                onPressed: _player == null ? null : _capture,
-                icon: const Icon(Icons.photo_camera_outlined, size: 18),
-                label: const Text('截图'),
+                onPressed: _adjacent(-1) == null
+                    ? null
+                    : () => _openLesson(_adjacent(-1)!),
+                icon: const Icon(Icons.chevron_left_rounded, size: 17),
+                label: const Text('上一节'),
               ),
+              TextButton(
+                onPressed: _adjacent(1) == null
+                    ? null
+                    : () => _openLesson(_adjacent(1)!),
+                child: const Text('下一节 ›'),
+              ),
+            ],
             if (!_livePlayback)
               TextButton.icon(
                 onPressed: () => showStudyOrganize(
@@ -580,8 +593,19 @@ class _StudyReaderState extends State<StudyReader>
                 icon: const Icon(Icons.download_outlined, size: 18),
                 label: const Text('保存资料'),
               ),
-          ],
-        ),
+          ];
+          return size.maxWidth < 650 ||
+                  MediaQuery.textScalerOf(context).scale(14) > 19
+              ? Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: actions,
+                )
+              : Row(
+                  children: [actions.first, const Spacer(), ...actions.skip(1)],
+                );
+        },
       ),
     ],
   );
@@ -624,6 +648,29 @@ class _StudyReaderState extends State<StudyReader>
       ),
     );
     if (lecture == null || lecture.id == widget.lecture.id || !mounted) return;
+    await _openLesson(lecture);
+  }
+
+  StudyLecture? _adjacent(int delta) {
+    final lectures =
+        widget.course.lectures
+            .where((lecture) => lecture.status.canPlay)
+            .toList()
+          ..sort(
+            (a, b) => (a.startsAt ?? DateTime(0)).compareTo(
+              b.startsAt ?? DateTime(0),
+            ),
+          );
+    final index = lectures.indexWhere(
+      (lecture) => lecture.id == widget.lecture.id,
+    );
+    final next = index + delta;
+    return index >= 0 && next >= 0 && next < lectures.length
+        ? lectures[next]
+        : null;
+  }
+
+  Future<void> _openLesson(StudyLecture lecture) async {
     await _save();
     if (!mounted) return;
     await Navigator.of(context).pushReplacement<void, void>(
@@ -656,13 +703,14 @@ class _StudyReaderState extends State<StudyReader>
           unawaited(_openPlayer());
         },
         onCollapse: () => setState(() => _showPlayer = false),
+        viewActions: _viewActions(),
       );
     }
     return _recordedPlayerPanel();
   }
 
   Widget _recordedPlayerPanel() => Padding(
-    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+    padding: const EdgeInsets.only(bottom: 8),
     child: _video == null
         ? AspectRatio(
             aspectRatio: 16 / 9,
@@ -685,12 +733,30 @@ class _StudyReaderState extends State<StudyReader>
             source: _source,
             busy: _opening,
             onView: _switchSource,
+            viewActions: _viewActions(),
             onCollapse: () {
               unawaited(_player?.pause());
               unawaited(_secondary?.pause());
               setState(() => _showPlayer = false);
             },
           ),
+  );
+
+  Widget _viewActions() => Wrap(
+    spacing: 12,
+    children: [
+      if (_player != null)
+        TextButton.icon(
+          onPressed: _capture,
+          icon: const Icon(Icons.photo_camera_outlined, size: 17),
+          label: const Text('截图'),
+        ),
+      TextButton.icon(
+        onPressed: () => _tabs.animateTo(2),
+        icon: const Icon(Icons.edit_note_rounded, size: 17),
+        label: const Text('记笔记'),
+      ),
+    ],
   );
 
   Widget _materialTabs() => TabBar(
@@ -894,150 +960,186 @@ class _StudyReaderState extends State<StudyReader>
   Widget _slidesPanel() {
     final slides = _material!.slides.where((slide) => !slide.hidden).toList();
     if (slides.isEmpty) {
-      if (_livePlayback) return const StudyEmpty(text: '直播结束后可提取课件');
       return StudyEmpty(
-        text: '还没有课件',
-        action: FilledButton(
-          onPressed: () {
-            widget.app.study.extractSlides(
-              widget.course,
-              widget.lecture,
-              studyVerify(context),
-            );
-            showAppNotice(context, '已加入课件提取任务');
-          },
-          child: const Text('从课件录播提取'),
-        ),
+        text: _livePlayback ? '直播结束后可提取课件' : '还没有课件',
+        action: _livePlayback
+            ? null
+            : TextButton(
+                onPressed: () => showStudyOrganize(
+                  context,
+                  widget.app,
+                  widget.course,
+                  lecture: widget.lecture,
+                ),
+                child: const Text('从课件录播提取'),
+              ),
       );
     }
-    _slide = _slide.clamp(0, slides.length - 1);
-    final slide = slides[_slide];
     return Column(
       children: [
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: InteractiveViewer(
-              child: Center(
-                child: Image.file(File(slide.file), fit: BoxFit.contain),
-              ),
-            ),
-          ),
-        ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Wrap(
-            spacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            alignment: WrapAlignment.center,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
             children: [
-              IconButton(
-                tooltip: '上一页',
-                onPressed: _slide > 0 ? () => setState(() => _slide--) : null,
-                icon: const Icon(Icons.chevron_left_rounded),
-              ),
-              Text('${_slide + 1} / ${slides.length}'),
-              IconButton(
-                tooltip: '下一页',
-                onPressed: _slide + 1 < slides.length
-                    ? () => setState(() => _slide++)
-                    : null,
-                icon: const Icon(Icons.chevron_right_rounded),
-              ),
-              TextButton(
-                onPressed: () => _seek(slide.position),
-                child: Text('${studyTimestamp(slide.position)} 看讲解'),
+              Expanded(
+                child: Text(
+                  '本节课件 · ${slides.length} 页',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
               ),
               IconButton(
-                tooltip: '移除此页',
-                icon: const Icon(Icons.hide_image_outlined),
-                onPressed: () async {
-                  slide.hidden = true;
-                  await widget.app.study.save(widget.course, widget.lecture);
-                  if (mounted) {
-                    showAppNotice(
-                      context,
-                      '已移除课件页',
-                      action: (
-                        label: '撤销',
-                        onPressed: () {
-                          slide.hidden = false;
-                          unawaited(
-                            widget.app.study.save(
-                              widget.course,
-                              widget.lecture,
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  }
-                },
+                tooltip: '导出 PDF',
+                icon: const Icon(Icons.file_download_outlined, size: 18),
+                onPressed: () => studyOperation(context, '导出课件', () async {
+                  final bytes = await studySlidesPdf(
+                    slides.map((slide) => slide.file).toList(),
+                  );
+                  if (mounted) await _export('课件.pdf', bytes);
+                }),
               ),
             ],
           ),
         ),
-        Wrap(
-          spacing: 12,
-          alignment: WrapAlignment.center,
-          children: [
-            TextButton.icon(
-              icon: const Icon(Icons.picture_as_pdf_outlined),
-              label: const Text('导出 PDF'),
-              onPressed: () => studyOperation(context, '导出课件', () async {
-                final bytes = await studySlidesPdf(
-                  slides.map((item) => item.file).toList(),
-                );
-                if (mounted) await _export('课件.pdf', bytes);
-              }),
-            ),
-            if (_material!.slides.any((slide) => slide.hidden))
-              TextButton(
-                onPressed: () async {
-                  for (final item in _material!.slides) {
-                    item.hidden = false;
-                  }
-                  await widget.app.study.save(widget.course, widget.lecture);
-                },
-                child: const Text('恢复移除的页面'),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, size) => GridView.builder(
+              padding: const EdgeInsets.only(bottom: 12),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: size.maxWidth < 420
+                    ? 2
+                    : (size.maxWidth / 180).floor().clamp(2, 5),
+                mainAxisSpacing: 14,
+                crossAxisSpacing: 12,
+                childAspectRatio:
+                    MediaQuery.textScalerOf(context).scale(12) > 16 ? .8 : 1.05,
               ),
-          ],
+              itemCount: slides.length,
+              itemBuilder: (context, index) {
+                final slide = slides[index];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: Material(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerLow,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(5),
+                          side: BorderSide(
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: () => _seek(slide.position),
+                          child: Image.file(
+                            File(slide.file),
+                            cacheWidth: 500,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${(index + 1).toString().padLeft(2, '0')} · ${studyTimestamp(slide.position)}',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(fontSize: 11),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: '预览第${index + 1}页',
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(
+                            Icons.open_in_full_rounded,
+                            size: 15,
+                          ),
+                          onPressed: () => _previewSlide(slide, index + 1),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
         ),
+        if (_material!.slides.any((slide) => slide.hidden))
+          TextButton(
+            onPressed: () async {
+              for (final slide in _material!.slides) {
+                slide.hidden = false;
+              }
+              await widget.app.study.save(widget.course, widget.lecture);
+            },
+            child: const Text('恢复移除的页面'),
+          ),
       ],
     );
   }
 
-  Widget _notesPanel() => ListView(
-    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-    children: [
-      if (_editingNotes)
-        TextField(
-          controller: _notes,
-          minLines: 6,
-          maxLines: null,
-          decoration: const InputDecoration(
-            labelText: '随堂笔记',
-            alignLabelWithHint: true,
+  Future<void> _previewSlide(StudySlide slide, int number) => showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('第 $number 页'),
+      content: SizedBox(
+        width: 700,
+        child: AspectRatio(
+          aspectRatio: 16 / 10,
+          child: InteractiveViewer(
+            child: Image.file(File(slide.file), fit: BoxFit.contain),
           ),
-          onChanged: (_) => _saveSoon(),
         ),
-      if (!_editingNotes && _notes.text.isNotEmpty)
-        StudyMarkdown(text: _notes.text, onSeek: _seek),
-      if (!_editingNotes && _notes.text.isEmpty)
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 12),
-          child: Text('本节还没有笔记'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => studyOperation(context, '移除课件页', () async {
+            slide.hidden = true;
+            await widget.app.study.save(widget.course, widget.lecture);
+            if (dialogContext.mounted) Navigator.pop(dialogContext);
+            if (mounted) {
+              showAppNotice(
+                context,
+                '已移除课件页',
+                action: (
+                  label: '撤销',
+                  onPressed: () {
+                    slide.hidden = false;
+                    unawaited(
+                      widget.app.study.save(widget.course, widget.lecture),
+                    );
+                  },
+                ),
+              );
+            }
+          }),
+          child: const Text('移除此页'),
         ),
-      Wrap(
-        spacing: 8,
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('关闭'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.pop(dialogContext);
+            _seek(slide.position);
+          },
+          child: const Text('看讲解'),
+        ),
+      ],
+    ),
+  );
+
+  Widget _notesPanel() => ListView(
+    padding: const EdgeInsets.symmetric(vertical: 14),
+    children: [
+      Row(
         children: [
-          TextButton.icon(
-            onPressed: () => setState(() => _editingNotes = !_editingNotes),
-            icon: Icon(
-              _editingNotes ? Icons.check_rounded : Icons.edit_outlined,
-              size: 18,
-            ),
-            label: Text(_editingNotes ? '完成编辑' : '编辑全文'),
+          Expanded(
+            child: Text('本节笔记', style: Theme.of(context).textTheme.titleSmall),
           ),
           TextButton.icon(
             onPressed: () => studyOperation(
@@ -1048,12 +1150,43 @@ class _StudyReaderState extends State<StudyReader>
                 utf8.encode('${_notes.text}\n\n${_material!.summary}'),
               ),
             ),
-            icon: const Icon(Icons.file_download_outlined, size: 18),
-            label: const Text('导出笔记'),
+            icon: const Icon(Icons.file_download_outlined, size: 17),
+            label: const Text('导出'),
           ),
         ],
       ),
-      const Divider(height: 24),
+      const SizedBox(height: 8),
+      if (_editingNotes)
+        TextField(
+          controller: _notes,
+          minLines: 6,
+          maxLines: null,
+          decoration: const InputDecoration(
+            labelText: '随堂笔记',
+            alignLabelWithHint: true,
+          ),
+          onChanged: (_) => _saveSoon(),
+        )
+      else if (_notes.text.isNotEmpty)
+        StudyNotes(text: _notes.text, onSeek: _seek)
+      else
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Text('本节还没有笔记'),
+        ),
+      if (_notes.text.isNotEmpty || _editingNotes)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => setState(() => _editingNotes = !_editingNotes),
+            icon: Icon(
+              _editingNotes ? Icons.check_rounded : Icons.edit_outlined,
+              size: 16,
+            ),
+            label: Text(_editingNotes ? '完成编辑' : '编辑全文'),
+          ),
+        ),
+      const Divider(height: 28),
       ValueListenableBuilder(
         valueListenable: _position,
         builder: (context, position, _) => Text(
@@ -1076,11 +1209,11 @@ class _StudyReaderState extends State<StudyReader>
         valueListenable: _noteDraft,
         builder: (context, value, _) => FilledButton.icon(
           onPressed: value.text.trim().isEmpty ? null : _addNote,
-          icon: const Icon(Icons.add_rounded, size: 18),
+          icon: const Icon(Icons.add_rounded, size: 17),
           label: const Text('添加笔记'),
         ),
       ),
-      const Divider(height: 24),
+      const Divider(height: 28),
       ListenableBuilder(
         listenable: widget.app.study.tasks,
         builder: (context, _) {
@@ -1112,18 +1245,29 @@ class _StudyReaderState extends State<StudyReader>
   }
 
   Widget _questionPanel() => ListView(
-    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+    padding: const EdgeInsets.symmetric(vertical: 14),
     children: [
       TextField(
         controller: _question,
         minLines: 2,
         maxLines: 6,
         decoration: const InputDecoration(
-          labelText: '询问这节课的内容',
+          labelText: '问本节课',
           alignLabelWithHint: true,
         ),
       ),
       const SizedBox(height: 8),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<bool>(
+              builder: (_) => StudyServices(model: widget.app.study.model),
+            ),
+          ),
+          child: const Text('学习服务'),
+        ),
+      ),
       ListenableBuilder(
         listenable: widget.app.study.tasks,
         builder: (context, _) {

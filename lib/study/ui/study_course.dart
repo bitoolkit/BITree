@@ -11,6 +11,7 @@ import '../library.dart';
 import '../model.dart';
 import 'study_common.dart';
 import 'study_course_materials.dart';
+import 'study_layout.dart';
 import 'study_organize.dart';
 import 'study_reader.dart';
 import 'study_review.dart';
@@ -215,195 +216,212 @@ class _StudyCourseScreenState extends State<StudyCourseScreen> {
     final recordings = lectures
         .where((item) => item.$2.status == StudyLectureStatus.recorded)
         .toList();
-    final theme = Theme.of(context);
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        appBar: AppBar(title: Text(_courses.first.title)),
+        appBar: AppBar(title: const Text('学习', style: TextStyle(fontSize: 14))),
         body: SafeArea(
           child: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1100),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Wrap(
-                        spacing: 12,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
+              constraints: const BoxConstraints(maxWidth: 1380),
+              child: StudyContent(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    StudyHeading(
+                      _courses.first.title,
+                      subtitle: [
+                        if (_courses.first.term.isNotEmpty)
+                          studyTermLabel(_courses.first.term),
+                        if (teachers.length == 1 && teachers.single.isNotEmpty)
+                          teachers.single,
+                        '${lectures.length} 课时',
+                      ].join(' · '),
+                      leading: StudyCourseMark(
+                        _courses.first.title,
+                        large: true,
+                      ),
+                    ),
+                    if (teachers.length > 1)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(61, 4, 0, 8),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Wrap(
+                            spacing: 12,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              if (teachers.length > 1)
+                                AppMenuAnchor(
+                                  menuChildren: [
+                                    for (final teacher in [null, ...teachers])
+                                      AppMenuItemButton(
+                                        trailingIcon: teacher == _teacher
+                                            ? const Icon(
+                                                Icons.check_rounded,
+                                                size: 18,
+                                              )
+                                            : const SizedBox(width: 18),
+                                        onPressed: () =>
+                                            setState(() => _teacher = teacher),
+                                        child: Text(
+                                          teacher == null
+                                              ? '全部教师'
+                                              : teacher.isEmpty
+                                              ? '未标注教师'
+                                              : teacher,
+                                        ),
+                                      ),
+                                  ],
+                                  builder: (context, menu, open) =>
+                                      AppMenuTrigger(
+                                        label: _teacher == null
+                                            ? '全部教师'
+                                            : _teacher!.isEmpty
+                                            ? '未标注教师'
+                                            : _teacher!,
+                                        semanticsLabel: '筛选授课教师',
+                                        isOpen: open,
+                                        onPressed: () =>
+                                            open ? menu.close() : menu.open(),
+                                      ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    const TabBar(
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      tabs: [
+                        Tab(text: '课时'),
+                        Tab(text: '课件与字幕'),
+                        Tab(text: '课程笔记'),
+                      ],
+                    ),
+                    if (_loading) const LinearProgressIndicator(minHeight: 2),
+                    Expanded(
+                      child: TabBarView(
                         children: [
-                          if (_courses.first.term.isNotEmpty)
-                            Text(
-                              studyTermLabel(_courses.first.term),
-                              style: theme.textTheme.bodySmall,
-                            ),
-                          if (teachers.length > 1)
-                            AppMenuAnchor(
-                              menuChildren: [
-                                for (final teacher in [null, ...teachers])
-                                  AppMenuItemButton(
-                                    trailingIcon: teacher == _teacher
-                                        ? const Icon(
-                                            Icons.check_rounded,
-                                            size: 18,
-                                          )
-                                        : const SizedBox(width: 18),
-                                    onPressed: () =>
-                                        setState(() => _teacher = teacher),
-                                    child: Text(
-                                      teacher == null
-                                          ? '全部教师'
-                                          : teacher.isEmpty
-                                          ? '未标注教师'
-                                          : teacher,
-                                    ),
+                          Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  8,
+                                  16,
+                                  0,
+                                ),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Wrap(
+                                    spacing: 8,
+                                    children: [
+                                      if (_courses.any(
+                                        (course) => course.remote,
+                                      ))
+                                        TextButton.icon(
+                                          onPressed: _loading ? null : _refresh,
+                                          icon: const Icon(
+                                            Icons.sync_rounded,
+                                            size: 17,
+                                          ),
+                                          label: const Text('更新课时'),
+                                        ),
+                                      TextButton.icon(
+                                        onPressed: _selected.isEmpty
+                                            ? null
+                                            : _import,
+                                        icon: const Icon(
+                                          Icons.video_file_outlined,
+                                          size: 17,
+                                        ),
+                                        label: const Text('导入本地录播'),
+                                      ),
+                                    ],
                                   ),
-                              ],
-                              builder: (context, menu, open) => AppMenuTrigger(
-                                label: _teacher == null
-                                    ? '全部教师'
-                                    : _teacher!.isEmpty
-                                    ? '未标注教师'
-                                    : _teacher!,
-                                semanticsLabel: '筛选授课教师',
-                                isOpen: open,
-                                onPressed: () =>
-                                    open ? menu.close() : menu.open(),
+                                ),
                               ),
-                            )
-                          else if (teachers.firstOrNull?.isNotEmpty == true)
-                            Text(
-                              teachers.single,
-                              style: theme.textTheme.bodySmall,
+                              Expanded(
+                                child: lectures.isEmpty
+                                    ? StudyEmpty(
+                                        text: _loading ? '正在读取课时' : '暂无课时',
+                                        action: _loading
+                                            ? null
+                                            : OutlinedButton(
+                                                onPressed: _courses.first.remote
+                                                    ? _refresh
+                                                    : _import,
+                                                child: Text(
+                                                  _courses.first.remote
+                                                      ? '重新获取'
+                                                      : '导入录播',
+                                                ),
+                                              ),
+                                      )
+                                    : ListView.separated(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          0,
+                                          8,
+                                          0,
+                                          24,
+                                        ),
+                                        itemCount: lectures.length,
+                                        separatorBuilder: (_, _) =>
+                                            const Divider(height: 1),
+                                        itemBuilder: (context, index) {
+                                          final (course, lecture) =
+                                              lectures[index];
+                                          final resume =
+                                              widget.app.study.lastReading;
+                                          return _LectureRow(
+                                            key: ValueKey(
+                                              '${course.id}/${lecture.id}',
+                                            ),
+                                            course: course,
+                                            lecture: lecture,
+                                            showTeacher:
+                                                teachers.length > 1 &&
+                                                _teacher == null,
+                                            resume:
+                                                resume?.course == course.id &&
+                                                resume?.lecture == lecture.id,
+                                            onOpen: (kind) =>
+                                                _open(course, lecture, kind),
+                                          );
+                                        },
+                                      ),
+                              ),
+                            ],
+                          ),
+                          Builder(
+                            builder: (materialContext) => StudyCourseMaterials(
+                              app: widget.app,
+                              entries: recordings,
+                              onOpen: _open,
+                              onOrganize: recordings.isEmpty ? null : _organize,
+                              onReview: _selected.isEmpty ? null : _review,
+                              onNotes: () =>
+                                  DefaultTabController.of(materialContext)
+                                      .animateTo(2),
                             ),
-                          Text(
-                            '${lectures.length} 课时',
-                            style: theme.textTheme.bodySmall,
+                          ),
+                          StudyCourseMaterials(
+                            app: widget.app,
+                            entries: lectures,
+                            notesOnly: true,
+                            onOpen: _open,
+                            onOrganize: recordings.isEmpty ? null : _organize,
+                            onReview: _selected.isEmpty ? null : _review,
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  const TabBar(
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    tabs: [
-                      Tab(text: '课时'),
-                      Tab(text: '课件与字幕'),
-                      Tab(text: '课程笔记'),
-                    ],
-                  ),
-                  if (_loading) const LinearProgressIndicator(minHeight: 2),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        Column(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Wrap(
-                                  spacing: 8,
-                                  children: [
-                                    if (_courses.any((course) => course.remote))
-                                      TextButton.icon(
-                                        onPressed: _loading ? null : _refresh,
-                                        icon: const Icon(
-                                          Icons.sync_rounded,
-                                          size: 17,
-                                        ),
-                                        label: const Text('更新课时'),
-                                      ),
-                                    TextButton.icon(
-                                      onPressed: _selected.isEmpty
-                                          ? null
-                                          : _import,
-                                      icon: const Icon(
-                                        Icons.video_file_outlined,
-                                        size: 17,
-                                      ),
-                                      label: const Text('导入本地录播'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: lectures.isEmpty
-                                  ? StudyEmpty(
-                                      text: _loading ? '正在读取课时' : '暂无课时',
-                                      action: _loading
-                                          ? null
-                                          : OutlinedButton(
-                                              onPressed: _courses.first.remote
-                                                  ? _refresh
-                                                  : _import,
-                                              child: Text(
-                                                _courses.first.remote
-                                                    ? '重新获取'
-                                                    : '导入录播',
-                                              ),
-                                            ),
-                                    )
-                                  : ListView.separated(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        24,
-                                        8,
-                                        24,
-                                        24,
-                                      ),
-                                      itemCount: lectures.length,
-                                      separatorBuilder: (_, _) =>
-                                          const Divider(height: 1),
-                                      itemBuilder: (context, index) {
-                                        final (course, lecture) =
-                                            lectures[index];
-                                        final resume =
-                                            widget.app.study.lastReading;
-                                        return _LectureRow(
-                                          key: ValueKey(
-                                            '${course.id}/${lecture.id}',
-                                          ),
-                                          course: course,
-                                          lecture: lecture,
-                                          showTeacher:
-                                              teachers.length > 1 &&
-                                              _teacher == null,
-                                          resume:
-                                              resume?.course == course.id &&
-                                              resume?.lecture == lecture.id,
-                                          onOpen: (kind) =>
-                                              _open(course, lecture, kind),
-                                        );
-                                      },
-                                    ),
-                            ),
-                          ],
-                        ),
-                        StudyCourseMaterials(
-                          app: widget.app,
-                          entries: recordings,
-                          onOpen: _open,
-                          onOrganize: recordings.isEmpty ? null : _organize,
-                          onReview: _selected.isEmpty ? null : _review,
-                        ),
-                        StudyCourseMaterials(
-                          app: widget.app,
-                          entries: lectures,
-                          notesOnly: true,
-                          onOpen: _open,
-                          onOrganize: recordings.isEmpty ? null : _organize,
-                          onReview: _selected.isEmpty ? null : _review,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -433,40 +451,57 @@ class _LectureRow extends StatelessWidget {
     final theme = Theme.of(context);
     final date = lecture.startsAt?.toUtc().add(const Duration(hours: 8));
     final live = lecture.status == StudyLectureStatus.live;
-    final play = lecture.status.canPlay
-        ? FilledButton.tonalIcon(
+    final label = live
+        ? '观看直播'
+        : resume
+        ? '继续观看'
+        : '观看回放';
+    final icon = Icon(
+      live ? Icons.live_tv_rounded : Icons.play_arrow_rounded,
+      size: 18,
+    );
+    final play = !lecture.status.canPlay
+        ? Text(lecture.status.label, style: theme.textTheme.bodySmall)
+        : resume && !live
+        ? FilledButton.icon(
             onPressed: () => onOpen(StudyMaterial.video),
-            style: resume
-                ? FilledButton.styleFrom(
-                    backgroundColor: theme.colorScheme.primary,
-                    foregroundColor: theme.colorScheme.onPrimary,
+            icon: icon,
+            label: Text(label),
+          )
+        : OutlinedButton.icon(
+            onPressed: () => onOpen(StudyMaterial.video),
+            icon: icon,
+            label: Text(label),
+            style: live
+                ? OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.error,
+                    side: BorderSide(color: theme.colorScheme.error),
                   )
                 : null,
-            icon: Icon(
-              live ? Icons.live_tv_rounded : Icons.play_arrow_rounded,
-              size: 18,
-            ),
-            label: Text(
-              live
-                  ? '观看直播'
-                  : resume
-                  ? '继续观看'
-                  : '观看回放',
-            ),
-          )
-        : Text(lecture.status.label, style: theme.textTheme.bodySmall);
+          );
     return LayoutBuilder(
       builder: (context, size) {
         final narrow =
             size.maxWidth < 550 ||
             MediaQuery.textScalerOf(context).scale(14) > 19;
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 15),
+        return Container(
+          padding: EdgeInsets.symmetric(
+            vertical: 15,
+            horizontal: live ? 16 : 0,
+          ),
+          decoration: live
+              ? BoxDecoration(
+                  color: theme.colorScheme.errorContainer.withValues(
+                    alpha: .16,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                )
+              : null,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: 48,
+                width: 54,
                 child: Column(
                   children: [
                     Text(
@@ -503,7 +538,14 @@ class _LectureRow extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: 3),
                         child: Text(
-                          lecture.status.label,
+                          [
+                            if (lecture.startsAt case final start?)
+                              studyClock(start) +
+                                  (lecture.endsAt == null
+                                      ? ''
+                                      : '–${studyClock(lecture.endsAt!)}'),
+                            lecture.status.label,
+                          ].join(' · '),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: live
                                 ? theme.colorScheme.error

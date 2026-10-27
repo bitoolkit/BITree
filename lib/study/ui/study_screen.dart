@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
 import '../../schedule/model.dart';
-import '../../ui/app_page.dart';
 import '../library.dart';
 import '../model.dart';
 import 'study_common.dart';
 import 'study_course.dart';
+import 'study_layout.dart';
 import 'study_library.dart';
 import 'study_live.dart';
 import 'study_search.dart';
@@ -17,8 +17,9 @@ import 'study_tasks.dart';
 import 'study_today.dart';
 
 class StudyScreen extends StatefulWidget {
-  const StudyScreen({super.key, required this.controller});
+  const StudyScreen({super.key, required this.controller, this.onTimetable});
   final AppController controller;
+  final VoidCallback? onTimetable;
   @override
   State<StudyScreen> createState() => _StudyScreenState();
 }
@@ -70,7 +71,15 @@ class _StudyScreenState extends State<StudyScreen> {
 
   Future<void> _search() async {
     final course = await Navigator.of(context).push<StudyCourse>(
-      MaterialPageRoute(builder: (_) => StudySearchScreen(app: app)),
+      MaterialPageRoute(
+        builder: (_) => StudySearchScreen(
+          app: app,
+          onLocal: () {
+            Navigator.of(context).pop();
+            unawaited(_createLocal());
+          },
+        ),
+      ),
     );
     if (course != null && mounted) _open(course);
   }
@@ -129,6 +138,11 @@ class _StudyScreenState extends State<StudyScreen> {
         icon: const Icon(Icons.add_rounded, size: 18),
         label: const Text('添加课程'),
       ),
+      TextButton.icon(
+        onPressed: _createLocal,
+        icon: const Icon(Icons.folder_open_outlined, size: 18),
+        label: const Text('本地资料'),
+      ),
     ],
   );
 
@@ -136,11 +150,6 @@ class _StudyScreenState extends State<StudyScreen> {
     spacing: 12,
     runSpacing: 4,
     children: [
-      TextButton.icon(
-        onPressed: _createLocal,
-        icon: const Icon(Icons.folder_open_outlined, size: 18),
-        label: const Text('本地课程'),
-      ),
       TextButton.icon(
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => StudyTaskScreen(app: app)),
@@ -163,24 +172,47 @@ class _StudyScreenState extends State<StudyScreen> {
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: app.study,
-    builder: (context, _) => AppPage(
-      title: const Text('学习'),
-      child: Column(
-        children: [
-          if (app.study.loading) const LinearProgressIndicator(minHeight: 2),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _refresh,
-              child: StudyLibrary(
-                app: app,
-                onOpen: (group) => _open(group.courses.first),
-                actions: _actions(),
-                footer: _footer(),
-                today: StudyTodayOverview(app: app, onLive: _live),
+    builder: (context, _) => SafeArea(
+      bottom: false,
+      child: StudyContent(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            StudyHeading(
+              '学习',
+              subtitle:
+                  app.study.courses
+                          .where((course) => course.remote)
+                          .firstOrNull
+                          ?.term ==
+                      null
+                  ? null
+                  : studyTermLabel(
+                      app.study.courses
+                          .firstWhere((course) => course.remote)
+                          .term,
+                    ),
+            ),
+            const SizedBox(height: 24),
+            if (app.study.loading) const LinearProgressIndicator(minHeight: 2),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _refresh,
+                child: StudyLibrary(
+                  app: app,
+                  onOpen: (group) => _open(group.courses.first),
+                  actions: _actions(),
+                  footer: _footer(),
+                  today: StudyTodayOverview(
+                    app: app,
+                    onLive: _live,
+                    onTimetable: widget.onTimetable,
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );

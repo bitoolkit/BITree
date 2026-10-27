@@ -3,6 +3,7 @@ import 'package:bitree/study/model.dart';
 import 'package:bitree/study/ui/study_course.dart';
 import 'package:bitree/study/ui/study_screen.dart';
 import 'package:bitree/ui/app_menu_anchor.dart';
+import 'package:bitree/ui/app_menu_trigger.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -146,18 +147,18 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('5 课时'), findsOneWidget);
+    expect(find.textContaining('5 课时'), findsOneWidget);
     expect(find.text('7 课时'), findsNothing);
 
     // A later library refresh can report a different summary total again.
     store.courses.single.lectureCount = 7;
     await app.study.load();
     await tester.pumpAndSettle();
-    expect(find.text('5 课时'), findsOneWidget);
-    await tester.tap(find.widgetWithText(InkWell, '金旭亮'));
+    expect(find.textContaining('5 课时'), findsOneWidget);
+    await tester.tap(find.widgetWithText(InkWell, 'JAVA语言程序设计'));
     await tester.pumpAndSettle();
     expect(find.byType(StudyCourseScreen), findsOneWidget);
-    expect(find.text('5 课时'), findsOneWidget);
+    expect(find.textContaining('5 课时'), findsOneWidget);
     for (var week = 5; week >= 1; week--) {
       await tester.scrollUntilVisible(
         find.text('第$week次课'),
@@ -169,7 +170,7 @@ void main() {
     expect(find.text('7 课时'), findsNothing);
     await tester.pageBack();
     await tester.pumpAndSettle();
-    expect(find.text('5 课时'), findsOneWidget);
+    expect(find.textContaining('5 课时'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();
@@ -212,8 +213,13 @@ void main() {
         expect(find.text('继续观看'), findsOneWidget);
         expect(find.text('大学物理实验 Ⅱ'), findsNothing);
         expect(find.text('2026-2027 秋季学期'), findsOneWidget);
-        final math = find.widgetWithText(InkWell, '张老师、李老师  2 个教学班');
-        await tester.ensureVisible(math);
+        final math = find.widgetWithText(InkWell, '数学分析');
+        await tester.scrollUntilVisible(
+          math,
+          150,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
         await tester.tap(math);
         await tester.pumpAndSettle();
         expect(find.byType(StudyCourseScreen), findsOneWidget);
@@ -246,7 +252,14 @@ void main() {
         expect(tester.takeException(), isNull);
         await tester.pageBack();
         await tester.pumpAndSettle();
-        final oldTerm = find.text('2025-2026 春季学期');
+        final termMenu = find.byType(AppMenuTrigger);
+        await tester.ensureVisible(termMenu);
+        await tester.tap(termMenu);
+        await tester.pumpAndSettle();
+        final oldTerm = find.widgetWithText(
+          AppMenuItemButton,
+          '2025-2026 春季学期',
+        );
         await tester.ensureVisible(oldTerm);
         await tester.tap(oldTerm);
         await tester.pumpAndSettle();

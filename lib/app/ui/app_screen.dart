@@ -97,7 +97,10 @@ class _AppScreenState extends State<AppScreen> {
                 now: now,
                 active: _tab == 1,
               ),
-              StudyScreen(controller: widget.controller),
+              StudyScreen(
+                controller: widget.controller,
+                onTimetable: () => setState(() => _tab = 0),
+              ),
               ToolsScreen(controller: widget.controller),
               SettingsScreen(
                 controller: widget.controller,
