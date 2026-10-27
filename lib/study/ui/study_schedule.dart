@@ -17,6 +17,7 @@ Future<void> openScheduledStudy(
   AppController app,
   Course course, {
   DateTime? date,
+  bool watchLive = false,
 }) {
   final schedule = app.timetable.schedule;
   final occurrence =
@@ -31,6 +32,7 @@ Future<void> openScheduledStudy(
       builder: (_) => _ScheduledStudy(
         app: app,
         course: course,
+        watchLive: watchLive,
         selection: occurrence == null || course.startSection == null
             ? null
             : TimetableSelection(
@@ -47,10 +49,12 @@ class _ScheduledStudy extends StatefulWidget {
   const _ScheduledStudy({
     required this.app,
     required this.course,
+    required this.watchLive,
     required this.selection,
   });
   final AppController app;
   final Course course;
+  final bool watchLive;
   final TimetableSelection? selection;
   @override
   State<_ScheduledStudy> createState() => _ScheduledStudyState();
@@ -110,10 +114,6 @@ class _ScheduledStudyState extends State<_ScheduledStudy> {
       Widget? destination;
       final now = campusNow();
       final selection = widget.selection;
-      final live =
-          selection != null &&
-          !now.isBefore(selection.startsAt) &&
-          now.isBefore(selection.endsAt);
       if (courses.length == 1) {
         var course = courses.single;
         if (widget.app.school.username != null) {
@@ -128,7 +128,7 @@ class _ScheduledStudyState extends State<_ScheduledStudy> {
             .where((lecture) => _overlaps(lecture.startsAt, lecture.endsAt))
             .toList();
         if (lectures.length == 1 &&
-            (live
+            (widget.watchLive
                 ? lectures.single.status.canPlay
                 : selection != null &&
                       now.isAfter(selection.endsAt) &&
@@ -147,7 +147,9 @@ class _ScheduledStudyState extends State<_ScheduledStudy> {
       }
       // Public classroom broadcasts use a separate playback ID. Only use one
       // when the actual timetable occurrence matches, rather than its name alone.
-      if (live && (destination == null || destination is StudyCourseScreen)) {
+      if (widget.watchLive &&
+          selection != null &&
+          (destination == null || destination is StudyCourseScreen)) {
         await widget.app.study.broadcasts.refresh(
           selection.date,
           verify,

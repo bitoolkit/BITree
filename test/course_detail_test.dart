@@ -4,6 +4,7 @@ import 'package:bitree/schedule/ui/course_detail.dart';
 import 'package:bitree/schedule/ui/course_tile.dart';
 import 'package:bitree/study/model.dart';
 import 'package:bitree/study/ui/study_course.dart';
+import 'package:bitree/ui/campus_time_builder.dart';
 import 'package:bitree/ui/sheet_layout.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
@@ -99,6 +100,59 @@ void main() {
         expect(find.text('明天课程'), findsNothing);
         expect(find.text('DDL不能混入课程'), findsNothing);
         expect(find.text('重叠课程'), findsNothing);
+        // Exercise the clock boundary without changing the app's time API.
+        final clockFinder = find.byType(CampusTimeBuilder);
+        final clock = tester.widget<CampusTimeBuilder>(clockFinder);
+        final overlay = Overlay.of(tester.element(clockFinder));
+        var now = date.add(const Duration(hours: 10));
+        const scope = ValueKey('course-time-preview');
+        final preview = OverlayEntry(
+          builder: (context) => Positioned.fill(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 560,
+                  maxHeight: size.height - 48,
+                ),
+                child: Material(
+                  child: KeyedSubtree(
+                    key: scope,
+                    child: clock.builder(context, now),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        overlay.insert(preview);
+        await tester.pumpAndSettle();
+        final liveStudy = find.descendant(
+          of: find.byKey(scope),
+          matching: find.widgetWithText(TextButton, '课程学习'),
+        );
+        final liveWatch = find.descendant(
+          of: find.byKey(scope),
+          matching: find.widgetWithText(TextButton, '观看直播'),
+        );
+        expect(liveStudy.hitTestable(), findsOneWidget);
+        expect(liveWatch.hitTestable(), findsOneWidget);
+        expect(
+          tester.getRect(liveStudy).right,
+          lessThanOrEqualTo(tester.getRect(liveWatch).left),
+        );
+        expect(
+          tester.getRect(liveStudy).top,
+          closeTo(tester.getRect(liveWatch).top, .1),
+        );
+        now = date.add(const Duration(hours: 11, minutes: 30));
+        preview.markNeedsBuild();
+        await tester.pumpAndSettle();
+        expect(liveStudy, findsOneWidget);
+        expect(liveWatch, findsNothing);
+        preview.remove();
+        preview.dispose();
+        await tester.pumpAndSettle();
         await tester.ensureVisible(find.text(next.name));
         await tester.tap(find.text(next.name));
         await tester.pumpAndSettle();

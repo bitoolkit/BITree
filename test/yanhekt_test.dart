@@ -19,6 +19,7 @@ import 'package:bitree/study/tasks.dart';
 import 'package:bitree/study/ui/study_course.dart';
 import 'package:bitree/study/ui/study_live.dart';
 import 'package:bitree/study/ui/study_reader.dart';
+import 'package:bitree/study/ui/study_schedule.dart';
 import 'package:bitree/study/yanhekt.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
@@ -37,11 +38,12 @@ Future<void> pumpHttp(WidgetTester tester, Future<void> served) async {
   var completed = false;
   unawaited(served.then((_) => completed = true));
   for (var attempt = 0; attempt < 100; attempt++) {
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 20)),
     );
     if (completed &&
+        !tester.binding.hasScheduledFrame &&
         find.byType(LinearProgressIndicator).evaluate().isEmpty &&
         find.byType(CircularProgressIndicator).evaluate().isEmpty) {
       break;
@@ -483,6 +485,97 @@ void main() {
       expect(network.clients.every((client) => client.closed), isTrue);
     }, network),
   );
+
+  for (final watchLive in [false, true]) {
+    testWidgets(
+      'A live offering keeps study and live routes separate: watchLive=$watchLive',
+      (tester) async {
+        final timetableCourse = Course(
+          id: 'scheduled',
+          name: '大学物理 AⅡ',
+          teacher: '张老师',
+          weekday: 2,
+          startSection: 1,
+          endSection: 2,
+          weeks: [1],
+        );
+        final app = TestAppController(
+          schoolStorage: storage,
+          schedule: SemesterSchedule(
+            term: '2026-2027-1',
+            firstMonday: DateTime.utc(2026, 10, 26),
+            courses: [timetableCourse],
+          ),
+        );
+        await app.timetable.load();
+        await app.school.loadAccount();
+        (app.study.store as MemoryStudyStore).courses = [
+          StudyCourse(
+            id: '17',
+            title: timetableCourse.name,
+            teacher: '张老师',
+            term: '2026-2027-1',
+          ),
+        ];
+        await app.study.load();
+        final served = Completer<void>();
+        respond = (request) async {
+          if (request.uri.path.endsWith('/infosimple')) return profile(request);
+          if (request.uri.path.endsWith('/get-course-detail')) {
+            await reply(request, courseDetail());
+            if (!served.isCompleted) served.complete();
+          } else {
+            expect(request.uri.path, endsWith('/get-sub-info'));
+            // Navigation is asserted before a native decoder starts.
+          }
+        };
+        await HttpOverrides.runWithHttpOverrides(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: bitreeTheme(Brightness.light),
+              home: Builder(
+                builder: (context) => Scaffold(
+                  body: TextButton(
+                    onPressed: () => openScheduledStudy(
+                      context,
+                      app,
+                      timetableCourse,
+                      date: DateTime.utc(2026, 10, 27),
+                      watchLive: watchLive,
+                    ),
+                    child: Text(watchLive ? '观看直播' : '课程学习'),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.tap(find.text(watchLive ? '观看直播' : '课程学习'));
+          if (watchLive) {
+            for (
+              var attempt = 0;
+              attempt < 100 && find.byType(StudyReader).evaluate().isEmpty;
+              attempt++
+            ) {
+              await tester.pump(const Duration(milliseconds: 16));
+              await tester.runAsync(
+                () => Future<void>.delayed(const Duration(milliseconds: 20)),
+              );
+            }
+            final reader = tester.widget<StudyReader>(find.byType(StudyReader));
+            expect(reader.lecture.id, '101');
+            expect(reader.lecture.status, StudyLectureStatus.live);
+          } else {
+            await pumpHttp(tester, served.future);
+            expect(find.byType(StudyCourseScreen), findsOneWidget);
+            expect(find.byType(StudyReader), findsNothing);
+          }
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpAndSettle();
+        }, network);
+      },
+    );
+  }
 
   for (final historical in [true, false]) {
     testWidgets(
