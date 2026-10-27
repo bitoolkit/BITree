@@ -59,69 +59,82 @@ class YanhektRepository {
     final detach = cancellation.onCancel(session.close);
     try {
       cancellation.check();
-      String? token;
-      Future<void> readToken() async {
-        final cookies = await _storage.cookiesFor(SchoolNetwork.campus, origin);
-        final raw = cookies
-            .where((cookie) => cookie.name == '_token')
-            .firstOrNull
-            ?.value;
-        token = raw == null
-            ? null
-            : RegExp(r'eyJ[\w-]+\.[\w-]+\.[\w-]+')
-                  .firstMatch(Uri.decodeComponent(raw))?[0];
+      var account = await _authenticate(session, verify);
+      try {
+        return await operation(session, account.profile, account.token);
+      } on SessionExpired {
+        account = await _authenticate(session, verify, renew: true);
+        return await operation(session, account.profile, account.token);
       }
-
-      await readToken();
-      SchoolResponse? profile;
-      if (token != null) {
-        profile = await session.request(
-          origin.resolve('/userapi/v1/infosimple'),
-          headers: {'Authorization': 'Bearer $token'},
-          checkStatus: false,
-        );
-      }
-      if (profile == null ||
-          profile.status != 200 ||
-          profile.json['code'] != 200) {
-        final query = {
-          'r': 'auth/login',
-          'auType': '',
-          'tenant_code': '21',
-          'forward': '${origin.origin}/course',
-        };
-        final entry = origin.resolve('/casapi/index.php');
-        await session.request(
-          entry.replace(queryParameters: query),
-          followRedirects: false,
-        );
-        final redirect = await session.request(
-          entry.replace(queryParameters: {...query, 'auType': 'cas'}),
-          followRedirects: false,
-        );
-        final service = Uri.parse(
-          redirect.location!.queryParameters['service']!,
-        );
-        await SchoolLogin(session, verify).signInTo(service);
-        await readToken();
-        if (token == null) throw const SessionExpired();
-        profile = await session.request(
-          origin.resolve('/userapi/v1/infosimple'),
-          headers: {'Authorization': 'Bearer $token'},
-        );
-      }
-      return await operation(
-        session,
-        profile.json['params'] as Map<String, dynamic>,
-        token!,
-      );
     } finally {
       detach();
       session.close();
     }
   }
 
-  Future<Map<String, dynamic>> _get(
+  Future<String?> _token() async {
+    final cookies = await _storage.cookiesFor(SchoolNetwork.campus, origin);
+    final raw = cookies
+        .where((cookie) => cookie.name == '_token')
+        .firstOrNull
+        ?.value;
+    return raw == null
+        ? null
+        : RegExp(r'eyJ[\w-]+\.[\w-]+\.[\w-]+')
+              .firstMatch(Uri.decodeComponent(raw))?[0];
+  }
+
+  Future<Map<String, dynamic>?> _profile(
+    SchoolSession session,
+    String token,
+  ) async {
+    final response = await session.request(
+      origin.resolve('/userapi/v1/infosimple'),
+      headers: {'Authorization': 'Bearer $token'},
+      checkStatus: false,
+    );
+    if (response.status != 200) return null;
+    final body = response.json;
+    if (body['code'] != 200) return null;
+    return body['params'] as Map<String, dynamic>;
+  }
+
+  Future<({Map<String, dynamic> profile, String token})> _authenticate(
+    SchoolSession session,
+    VerifySchoolLogin verify, {
+    bool renew = false,
+  }) async {
+    var token = await _token();
+    if (!renew && token != null) {
+      final profile = await _profile(session, token);
+      if (profile != null) return (profile: profile, token: token);
+    }
+
+    final query = {
+      'r': 'auth/login',
+      'auType': '',
+      'tenant_code': '21',
+      'forward': '${origin.origin}/course',
+    };
+    final entry = origin.resolve('/casapi/index.php');
+    await session.request(
+      entry.replace(queryParameters: query),
+      followRedirects: false,
+    );
+    final redirect = await session.request(
+      entry.replace(queryParameters: {...query, 'auType': 'cas'}),
+      followRedirects: false,
+    );
+    final service = Uri.parse(redirect.location!.queryParameters['service']!);
+    await SchoolLogin(session, verify).signInTo(service);
+    token = await _token();
+    if (token == null) throw const SessionExpired();
+    final profile = await _profile(session, token);
+    if (profile == null) throw const SessionExpired();
+    return (profile: profile, token: token);
+  }
+
+  Future<Map<String, dynamic>> _json(
     SchoolSession session,
     String token,
     String path, [
@@ -135,12 +148,28 @@ class YanhektRepository {
         'Referer': '${origin.origin}/',
         ...headers,
       },
+      stopAtLogin: true,
     );
-    final json = response.json;
-    if (![0, 200, 10002].contains(json['code'])) {
+    return response.json;
+  }
+
+  Future<Map<String, dynamic>> _courseApi(
+    SchoolSession session,
+    String token,
+    String path, [
+    Map<String, String> query = const {},
+    Map<String, String> headers = const {},
+  ]) async {
+    final json = await _json(session, token, path, query, headers);
+    if (![0, 10002].contains(json['code'])) {
       if ([401, 403].contains(json['code'])) throw const SessionExpired();
+      final message = [json['msg'], json['message']]
+          .whereType<String>()
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .firstOrNull;
       throw SchoolRequestError(
-        '${json['msg'] ?? json['message'] ?? '延河课堂请求失败'}',
+        message ?? '延河课堂请求失败（错误码 ${json['code']}），请稍后重试。',
       );
     }
     return json;
@@ -155,7 +184,7 @@ class YanhektRepository {
     String title(Object? text) => parseFragment('$text').text ?? '';
     if (search != null) {
       final tenant = '${profile['tenant_id']}';
-      final body = await _get(
+      final body = await _courseApi(
         session,
         token,
         '/courseapi/v3/multi-search/get-course-list',
@@ -176,7 +205,8 @@ class YanhektRepository {
     var currentPage = 1;
     while (true) {
       cancellation.check();
-      final body = await _get(
+      // Passport returns params.result; it does not use the course API's code.
+      final body = await _json(
         session,
         token,
         '/vlabpassportapi/v1/account-profile/course',
@@ -208,7 +238,7 @@ class YanhektRepository {
     VerifySchoolLogin verify,
     CancellationToken cancellation,
   ) => _read(verify, cancellation, (session, profile, token) async {
-    final result = await _get(
+    final result = await _courseApi(
       session,
       token,
       '/courseapi/v3/multi-search/get-course-detail',
@@ -259,7 +289,7 @@ class YanhektRepository {
     VerifySchoolLogin verify,
     CancellationToken cancellation,
   ) => _read(verify, cancellation, (session, profile, token) async {
-    final body = await _get(
+    final body = await _courseApi(
       session,
       token,
       '/courseapi/v3/portal-home-setting/get-sub-info',
@@ -294,7 +324,7 @@ class YanhektRepository {
     VerifySchoolLogin verify,
     CancellationToken cancellation,
   ) => _read(verify, cancellation, (session, profile, token) async {
-    final body = await _get(
+    final body = await _courseApi(
       session,
       token,
       '/courseapi/v3/web-socket/search-trans-result',
