@@ -7,6 +7,7 @@ import '../../ui/design.dart';
 import '../../ui/sheet_layout.dart';
 import '../../ui/theme.dart';
 import '../../wencui/place.dart';
+import '../../wencui/ui/location_card.dart';
 import '../../wencui/ui/wencui_map_screen.dart';
 import '../model.dart';
 import 'course_editor.dart';
@@ -32,7 +33,7 @@ Future<void> showCourse(
                 MaterialPageRoute(
                   builder: (_) => WencuiMapScreen(
                     controller: controller,
-                    initialRoom: course.room,
+                    initialCourse: course,
                   ),
                 ),
               );
@@ -135,15 +136,15 @@ class _CourseDetails extends StatelessWidget {
                 secondary: course.timeLabel,
               ),
               detail(Icons.date_range_outlined, weeksLabel(course.weeks)),
-              detail(
-                Icons.place_outlined,
-                location.isEmpty ? '教室待定' : location,
-              ),
-              if (onMap != null)
-                TextButton.icon(
-                  onPressed: onMap,
-                  icon: const Icon(Icons.map_outlined, size: 18),
-                  label: const Text('在文萃地图中查看'),
+              if (onMap case final openMap?)
+                WencuiLocationCard(
+                  place: WencuiPlace.parse(course.room, campus: course.campus)!,
+                  onTap: openMap,
+                )
+              else
+                detail(
+                  Icons.place_outlined,
+                  location.isEmpty ? '教室待定' : location,
                 ),
               if (course.teacher.isNotEmpty)
                 detail(Icons.person_outline, course.teacher),
