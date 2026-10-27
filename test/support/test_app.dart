@@ -7,8 +7,10 @@ import 'package:bitree/agenda/store.dart';
 import 'package:bitree/app/controller.dart';
 import 'package:bitree/schedule/model.dart';
 import 'package:bitree/schedule/store.dart';
+import 'package:bitree/school/network.dart';
 import 'package:bitree/school/service.dart';
 import 'package:bitree/school/storage.dart';
+import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -73,13 +75,33 @@ class _Preferences extends Fake implements SharedPreferencesAsync {
 class MemorySchoolStorage extends SchoolStorage {
   MemorySchoolStorage({this.credentials});
   SchoolCredentials? credentials;
+  final _cookies = <SchoolNetwork, CookieJar>{};
+
+  CookieJar _cookiesFor(SchoolNetwork network) =>
+      _cookies.putIfAbsent(network, CookieJar.new);
+
+  @override
+  Future<List<Cookie>> cookiesFor(SchoolNetwork network, Uri source) =>
+      _cookiesFor(network).loadForRequest(source);
+  @override
+  Future<void> saveCookies(
+    SchoolNetwork network,
+    Uri source,
+    List<Cookie> cookies,
+  ) => _cookiesFor(network).saveFromResponse(source, cookies);
+  @override
+  Future<void> clearSession(SchoolNetwork network) async =>
+      _cookies.remove(network);
   @override
   Future<SchoolCredentials?> readCredentials() async => credentials;
   @override
   Future<void> saveCredentials(SchoolCredentials credentials) async =>
       this.credentials = credentials;
   @override
-  Future<void> clear() async => credentials = null;
+  Future<void> clear() async {
+    credentials = null;
+    _cookies.clear();
+  }
 }
 
 /// Uses production controllers; only persistence and platform boundaries are in memory.

@@ -48,11 +48,11 @@ class SchoolLogin {
     final account = await _credentials(credentials);
     await _prepareNetwork(account);
 
-    // The public entry supplies the CAS service; the VPN proxy rewrites it.
+    // The entry supplies the CAS service; the proxy needs its gateway cookie.
     final preflight = await session.request(
-      SchoolNetwork.teachingLogin,
+      session.network.route(SchoolNetwork.teachingLogin),
       followRedirects: false,
-      anonymous: true,
+      anonymous: session.network == SchoolNetwork.campus,
     );
     final service = preflight.location!.queryParameters['service']!;
     final callback = await _authenticate(account, Uri.parse(service));
@@ -285,9 +285,12 @@ class SchoolLogin {
     }
     if (response.status == 429) throw const SchoolRequestError('登录过于频繁，请稍后重试。');
     if (response.status >= 500) {
-      throw SchoolRequestError(
-        '认证请求失败（${response.status}）：'
-        '${response.url.host}${response.url.path}',
+      throw SchoolConnectionError(
+        response.url,
+        SchoolRequestError(
+          '认证请求失败（${response.status}）：'
+          '${response.url.host}${response.url.path}',
+        ),
       );
     }
     throw SchoolRequestError(message.isEmpty ? '学校未完成登录，请重试。' : message);

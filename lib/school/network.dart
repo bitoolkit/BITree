@@ -2,6 +2,8 @@ enum SchoolNetwork {
   campus,
   webvpn;
 
+  String get label => this == campus ? '校内直连' : 'WebVPN';
+
   static final _campusApp = Uri.https('jxzxehallapp.bit.edu.cn');
   static const _vpnHosts = {
     'jxzxehallapp.bit.edu.cn': '77726476706e69737468656265737421faef5b842238695c720999bcd6572a216b231105adc27d',
