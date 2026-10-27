@@ -7,6 +7,7 @@ import 'package:html/parser.dart';
 
 import '../agenda/deadline_source.dart';
 import '../core/async/cancelable_request.dart';
+import '../core/diagnostics.dart';
 import 'crypto.dart';
 import 'errors.dart';
 import 'network.dart';
@@ -33,14 +34,11 @@ class SchoolLogin {
     DeadlineSource source, {
     SchoolCredentials? credentials,
   }) async {
-    var service = source.loginPage;
-    if (source == DeadlineSource.eclass) {
-      final response = await session.request(service);
-      if (!isSchoolLogin(response.url)) return response;
-      service = Uri.parse(response.url.queryParameters['service']!);
-    }
+    final response = await session.request(source.loginPage);
+    if (!isSchoolLogin(response.url)) return response;
+    final service = Uri.parse(response.url.queryParameters['service']!);
     final account = await _credentials(credentials);
-    final callback = await _authenticate(account, service);
+    final callback = await _authenticate(account, service, loginPage: response);
     return _openCallback(callback);
   }
 
@@ -110,13 +108,19 @@ class SchoolLogin {
     headers: {'Referer': _referer.toString()},
   );
 
-  Future<Uri> _authenticate(SchoolCredentials credentials, Uri service) async {
-    final pageResponse = await _request(
-      _sso
-          .resolve('/cas/login')
-          .replace(queryParameters: {'service': service.toString()}),
-      followRedirects: false,
-    );
+  Future<Uri> _authenticate(
+    SchoolCredentials credentials,
+    Uri service, {
+    SchoolResponse? loginPage,
+  }) async {
+    final pageResponse =
+        loginPage ??
+        await _request(
+          _sso
+              .resolve('/cas/login')
+              .replace(queryParameters: {'service': service.toString()}),
+          followRedirects: false,
+        );
     if (pageResponse.location != null) return _callback(pageResponse);
     final page = _LoginPage(pageResponse);
     _referer = pageResponse.url;
@@ -184,6 +188,7 @@ class SchoolLogin {
     final secondFactor = _LoginPage(response);
     if (secondFactor.field('user-object-id').isNotEmpty &&
         (response.text.contains('secondSmsLoginForm') ||
+            response.text.contains('second-auth-tip') ||
             response.text.contains('cas-gateway'))) {
       return _secondFactor(credentials.username, secondFactor);
     }
@@ -291,6 +296,12 @@ class SchoolLogin {
           '认证请求失败（${response.status}）：'
           '${response.url.host}${response.url.path}',
         ),
+      );
+    }
+    if (message.isEmpty) {
+      AppDiagnostics.instance.info(
+        '统一身份认证未返回跳转：HTTP ${response.status}，'
+        '${response.url.origin}${response.url.path}，错误码 ${code.isEmpty ? '未提供' : code}',
       );
     }
     throw SchoolRequestError(message.isEmpty ? '学校未完成登录，请重试。' : message);
@@ -419,9 +430,10 @@ class _LoginPage {
       document.getElementById('login-page-flowkey')!.text.trim();
   String get cryptoKey => document.getElementById('login-croypto')!.text.trim();
   Uri get action {
-    final action = url.resolve(
-      document.querySelector('form')!.attributes['action'] ?? 'login',
-    );
+    final target = document.querySelector('form')!.attributes['action'];
+    final action = target == null || target.trim().isEmpty
+        ? url
+        : url.resolve(target);
     if (action.origin != 'https://sso.bit.edu.cn') {
       throw const SchoolRequestError('学校登录表单的地址异常。');
     }

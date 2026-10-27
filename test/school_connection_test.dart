@@ -12,6 +12,7 @@ import 'package:bitree/school/session.dart';
 import 'package:bitree/school/storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/school_network.dart';
 import 'support/test_app.dart';
 
 void main() {
@@ -19,12 +20,12 @@ void main() {
   final service = SchoolNetwork.campus.accountPage;
   late HttpServer server;
   late StreamIterator<HttpRequest> incoming;
-  late _LocalSchoolNetwork network;
+  late LocalSchoolNetwork network;
 
   setUp(() async {
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     incoming = StreamIterator(server);
-    network = _LocalSchoolNetwork(server.port);
+    network = LocalSchoolNetwork(server.port);
   });
 
   tearDown(() async {
@@ -434,61 +435,4 @@ void main() {
       expect(network.clients.every((client) => client.closed), isTrue);
     }, network),
   );
-}
-
-/// Sends the real HTTP client to a local server instead of school services.
-class _LocalSchoolNetwork extends HttpOverrides {
-  _LocalSchoolNetwork(this.port);
-
-  final int port;
-  final clients = <_LocalClient>[];
-
-  _LocalClient clientFor(SchoolNetwork network) => clients.firstWhere(
-    (client) =>
-        client.firstUrl?.host ==
-        (network == SchoolNetwork.webvpn
-            ? 'webvpn.bit.edu.cn'
-            : 'jxzxehallapp.bit.edu.cn'),
-  );
-
-  @override
-  HttpClient createHttpClient(SecurityContext? context) {
-    final client = _LocalClient(super.createHttpClient(context), port);
-    clients.add(client);
-    return client;
-  }
-}
-
-class _LocalClient extends Fake implements HttpClient {
-  _LocalClient(this.delegate, this.port);
-
-  final HttpClient delegate;
-  final int port;
-  Uri? firstUrl;
-  bool closed = false;
-
-  @override
-  set connectionTimeout(Duration? timeout) =>
-      delegate.connectionTimeout = timeout;
-
-  @override
-  Future<HttpClientRequest> openUrl(String method, Uri url) {
-    firstUrl ??= url;
-    return delegate.openUrl(
-      method,
-      Uri(
-        scheme: 'http',
-        host: '127.0.0.1',
-        port: port,
-        path: '/${url.host}${url.path}',
-        query: url.hasQuery ? url.query : null,
-      ),
-    );
-  }
-
-  @override
-  void close({bool force = false}) {
-    closed = true;
-    delegate.close(force: force);
-  }
 }
