@@ -8,9 +8,9 @@ class StudyCourse {
     this.term = '',
     this.remote = true,
     this.lectures = const [],
-    int? lectureCount,
+    this._lectureCount,
     this.review = '',
-  }) : _lectureCount = lectureCount;
+  });
 
   final String id;
   String title;
