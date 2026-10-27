@@ -143,6 +143,30 @@ void main() {
     expectFullText(tester);
   });
 
+  testWidgets('Two-section cards retain the room below a three-line title', (
+    tester,
+  ) async {
+    final probability = Course(
+      id: 'probability',
+      name: '概率论与数理统计',
+      room: '文萃楼F704',
+      weekday: DateTime.monday,
+      startSection: 3,
+      endSection: 4,
+      weeks: [1],
+    );
+    await showCard(tester, width: 52, height: 92, shownCourse: probability);
+    for (final text in [probability.name, probability.room]) {
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+      expect(paragraph.didExceedMaxLines, isFalse, reason: text);
+      expect(
+        tester.getRect(find.text(text)).bottom,
+        lessThanOrEqualTo(tester.getRect(find.byType(CourseTile)).bottom),
+      );
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Short cards ellipsize without overflowing', (tester) async {
     await showCard(tester, width: 52, height: 48);
     final title = tester.renderObject<RenderParagraph>(find.text(course.name));

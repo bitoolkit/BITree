@@ -46,19 +46,21 @@ class CourseTile extends StatelessWidget {
                   final narrow = constraints.maxWidth < 100;
                   final fontSize = narrow ? 12.0 : 14.0;
                   final media = MediaQuery.of(context);
-                  final padding = narrow ? 3.0 : 10.0;
-                  final width = constraints.maxWidth - padding * 2;
-                  final available = constraints.maxHeight - 12;
+                  final horizontalPadding = narrow ? 3.0 : 10.0;
+                  final verticalPadding = narrow ? 4.0 : 6.0;
+                  final spacing = narrow ? 3.0 : 4.0;
+                  final width = constraints.maxWidth - horizontalPadding * 2;
+                  final available = constraints.maxHeight - verticalPadding * 2;
                   final defaults = DefaultTextStyle.of(context);
                   final titleStyle = TextStyle(
                     fontSize: fontSize,
-                    height: 1.4,
+                    height: narrow ? 1.25 : 1.4,
                     fontWeight: FontWeight.w600,
                     color: colors.text,
                   );
                   final roomStyle = TextStyle(
                     fontSize: fontSize - 1,
-                    height: 1.35,
+                    height: narrow ? 1.2 : 1.35,
                     color: colors.text.withValues(alpha: 0.8),
                   );
 
@@ -92,7 +94,8 @@ class CourseTile extends StatelessWidget {
                   var roomLines = course.room.isEmpty
                       ? 0
                       : room.computeLineMetrics().length;
-                  if (title.height + (roomLines > 0 ? room.height + 4 : 0) >
+                  if (title.height +
+                          (roomLines > 0 ? room.height + spacing : 0) >
                       available) {
                     title.maxLines = 1;
                     title.layout(maxWidth: width);
@@ -100,17 +103,17 @@ class CourseTile extends StatelessWidget {
                     room.layout(maxWidth: width);
                     final reserveRoom =
                         roomLines > 0 &&
-                        title.height + room.height + 4 <= available;
+                        title.height + room.height + spacing <= available;
                     titleLines = _fittingLines(
                       title,
                       width,
-                      available - (reserveRoom ? room.height + 4 : 0),
+                      available - (reserveRoom ? room.height + spacing : 0),
                     );
                     roomLines = reserveRoom
                         ? _fittingLines(
                             room,
                             width,
-                            available - title.height - 4,
+                            available - title.height - spacing,
                           )
                         : 0;
                   }
@@ -118,8 +121,8 @@ class CourseTile extends StatelessWidget {
                   room.dispose();
                   return Padding(
                     padding: EdgeInsets.symmetric(
-                      horizontal: padding,
-                      vertical: 6,
+                      horizontal: horizontalPadding,
+                      vertical: verticalPadding,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,7 +138,7 @@ class CourseTile extends StatelessWidget {
                           ),
                         ),
                         if (roomLines > 0) ...[
-                          const SizedBox(height: 4),
+                          SizedBox(height: spacing),
                           Text(
                             course.room,
                             textAlign: TextAlign.start,
