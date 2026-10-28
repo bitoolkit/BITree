@@ -601,6 +601,11 @@ class _AgendaTimelineState extends State<AgendaTimeline>
         '${date.year}年${date.month}月${date.day}日 '
         '${entry.timeLabel}${status.isEmpty ? '' : '，$status'}'
         '${entry.location.isEmpty ? '' : '，${entry.location}'}';
+    final label = entry.isDeadline
+    ? entry.course.isNotEmpty
+        ? entry.course
+        : entry.source?.label ?? entry.kind.label
+    : entry.kind.label;
     return Positioned(
       left: left,
       top: placement.lane * laneHeight + 12,
@@ -701,7 +706,7 @@ class _AgendaTimelineState extends State<AgendaTimeline>
                                       const SizedBox(width: 3),
                                       Flexible(
                                         child: Text(
-                                          '${entry.kind.label}'
+                                          '${label}'
                                           '${status.isEmpty ? '' : ' · $status'}',
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
