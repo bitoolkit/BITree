@@ -10,10 +10,10 @@ import '../../schedule/model.dart';
 import '../model.dart';
 import '../timeline_layout.dart';
 import 'agenda_detail.dart';
-import 'timeline_colors.dart';
+import 'timeline_entry.dart';
 
 const _microsecondsPerHour = Duration.microsecondsPerSecond * 3600;
-const _minimumEventWidth = 96.0;
+const _minimumEventWidth = 120.0;
 
 /// A viewport-sized timeline: panning changes a date, not a giant scroll offset.
 class AgendaTimeline extends StatefulWidget {
@@ -258,9 +258,9 @@ class _AgendaTimelineState extends State<AgendaTimeline>
         textHeight(headerStyle.fontSize!, 1) * 2 + 4,
       );
       final barHeight = math.max(
-        46.0 * fontScale,
+        56.0 * fontScale,
         textHeight(14, 1.2) +
-            math.max(textHeight(11, 1.1), 13 * fontScale) + 8,
+            math.max(textHeight(12, 1.2) * 2, 13 * fontScale) + 10,
       );
       final laneHeight = barHeight + 12;
       // Width is set by the MINIMUM zoom, never by the current zoom.
@@ -573,7 +573,6 @@ class _AgendaTimelineState extends State<AgendaTimeline>
     double deadlineWidth,
   ) {
     final entry = placement.entry;
-    final colors = agendaTimelineColors(context, entry, widget.now);
     double x(DateTime time) => width / 2 +
         time.difference(_center).inMicroseconds /
             _microsecondsPerHour * pixelsPerHour;
@@ -590,149 +589,17 @@ class _AgendaTimelineState extends State<AgendaTimeline>
         ? double.infinity
         : math.max(0.0, x(nextStart) - left);
     final tapWidth = math.min(math.max(24.0, barWidth), availableWidth);
-    final overdue = entry.overdue(widget.now);
-    final finished = entry.isFinished(widget.now);
-    final icon = finished
-        ? Icons.check_circle_outline
-        : overdue
-            ? Icons.warning_amber_rounded
-            : switch (entry.kind) {
-                AgendaKind.event => Icons.event_outlined,
-                AgendaKind.exam => Icons.school_outlined,
-                AgendaKind.deadline => Icons.flag_outlined,
-              };
-    final date = entry.startsAt;
-    final description = '${entry.kind.label}，${entry.title}，'
-        '${date.year}年${date.month}月${date.day}日 '
-        '${entry.timeLabel}'
-        '${entry.location.isEmpty ? '' : '，${entry.location}'}';
-    final label = entry.isDeadline
-    ? entry.course.isNotEmpty
-        ? entry.course
-        : entry.source?.label ?? entry.kind.label
-    : entry.kind.label;
     return Positioned(
       left: left,
       top: placement.lane * laneHeight + 12,
       width: tapWidth,
       height: laneHeight - 12,
-      child: Semantics(
-        button: true,
-        label: description,
+      child: AgendaTimelineEntry(
+        entry: entry,
+        now: widget.now,
+        barWidth: barWidth,
+        deadlineWidth: deadlineWidth,
         onTap: () => showAgendaEntry(context, widget.controller, entry),
-        child: Tooltip(
-          message: description,
-          excludeFromSemantics: true,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTap: () => showAgendaEntry(context, widget.controller, entry),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: SizedBox(
-                width: barWidth,
-                height: laneHeight - 12,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: entry.isDeadline ? null : colors.fill,
-                    gradient: entry.isDeadline
-                        ? LinearGradient(
-                            colors: [
-                              colors.fill.withValues(alpha: 0),
-                              colors.fill,
-                              colors.fill,
-                            ],
-                            stops: const [0, 0.35, 1],
-                          )
-                        : null,
-                    borderRadius: entry.isDeadline
-                        ? null
-                        : BorderRadius.circular(8),
-                    border: entry.isDeadline
-                        ? Border(
-                            right: BorderSide(color: colors.accent, width: 3),
-                          )
-                        : Border.all(color: colors.accent),
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      excludeFromSemantics: true,
-                      onTap: () => showAgendaEntry(
-                        context,
-                        widget.controller,
-                        entry,
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          left: entry.isDeadline ? deadlineWidth * 0.37 : 8,
-                          right: 8,
-                          top: 4,
-                          bottom: 4,
-                        ),
-                        child: barWidth < 48
-                            ? const SizedBox.shrink()
-                            : Column(
-                                crossAxisAlignment: entry.isDeadline
-                                    ? CrossAxisAlignment.end
-                                    : CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      entry.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: entry.isDeadline
-                                          ? TextAlign.right
-                                          : TextAlign.left,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        height: 1.2,
-                                        fontWeight: FontWeight.w600,
-                                        color: colors.text,
-                                        decoration: entry.done
-                                            ? TextDecoration.lineThrough
-                                            : null,
-                                      ),
-                                    ),
-                                  ),
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        icon,
-                                        size: 13 * math.max(
-                                          1.0,
-                                          MediaQuery.textScalerOf(context).scale(14) / 14,
-                                        ),
-                                        color: colors.text,
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Flexible(
-                                        child: Text(
-                                          label,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            height: 1.1,
-                                            color: colors.text,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
