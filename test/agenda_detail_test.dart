@@ -226,6 +226,45 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('An imported exam keeps its type and schedule when edited', (
+    tester,
+  ) async {
+    final entry = AgendaEntry(
+      id: 'exam-2026-2027-1-math',
+      title: '高等数学',
+      kind: AgendaKind.exam,
+      startsAt: DateTime.utc(2026, 12, 28, 9),
+      endsAt: DateTime.utc(2026, 12, 28, 11),
+      location: '文萃楼F704',
+      notes: '座位号：12',
+      term: '2026-2027-1',
+      local: false,
+    );
+    final controller = await open(tester, entry);
+    await tester.tap(find.widgetWithText(FilledButton, '编辑'));
+    await tester.pumpAndSettle();
+    expect(find.text('编辑考试'), findsOneWidget);
+    expect(find.byType(SegmentedButton<AgendaKind>), findsNothing);
+    final name = find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.decoration?.labelText == '名称',
+    );
+    await tester.enterText(name, '高等数学期末考试');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+    final saved = controller.agenda.entries.single;
+    expect(saved.id, entry.id);
+    expect(saved.title, '高等数学期末考试');
+    expect(saved.kind, AgendaKind.exam);
+    expect(saved.startsAt, entry.startsAt);
+    expect(saved.endsAt, entry.endsAt);
+    expect(saved.location, entry.location);
+    expect(saved.notes, entry.notes);
+    expect(saved.term, entry.term);
+    expect(saved.local, isTrue);
+    expect(find.byType(SheetLayout), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'All-day deadlines and multi-day activities show meaningful time ranges',
     (tester) async {

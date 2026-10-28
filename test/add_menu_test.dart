@@ -76,14 +76,33 @@ void main() {
             tester.widget<EditorSheet>(find.byType(EditorSheet)).title,
             '添加日程',
           );
-          for (final kind in [AgendaKind.deadline, AgendaKind.exam]) {
-            await tester.tap(find.text(kind.label));
-            await tester.pumpAndSettle();
-            expect(
-              tester.widget<EditorSheet>(find.byType(EditorSheet)).title,
-              '添加${kind.label}',
-            );
-          }
+          final kinds = tester.widget<SegmentedButton<AgendaKind>>(
+            find.byType(SegmentedButton<AgendaKind>),
+          );
+          expect(kinds.segments.map((segment) => segment.value), [
+            AgendaKind.event,
+            AgendaKind.deadline,
+          ]);
+          expect(find.text('考试'), findsNothing);
+          await tester.tap(find.text('DDL'));
+          await tester.pumpAndSettle();
+          expect(
+            tester.widget<EditorSheet>(find.byType(EditorSheet)).title,
+            '添加DDL',
+          );
+          expect(find.text('结束'), findsNothing);
+          await tester.tap(
+            find.descendant(
+              of: find.byType(SegmentedButton<AgendaKind>),
+              matching: find.text('日程'),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            tester.widget<EditorSheet>(find.byType(EditorSheet)).title,
+            '添加日程',
+          );
+          expect(find.text('结束'), findsOneWidget);
           await tester.tap(find.byTooltip('关闭'));
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
