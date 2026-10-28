@@ -33,10 +33,10 @@
 
 | 平台 | 下载文件 |
 | --- | --- |
-| Android | APK，提供 `arm64-v8a`、`armeabi-v7a` 和 `x86_64` 三种架构 |
+| Android | arm64-v8a APK |
 | Windows | x64 EXE 安装包，包含运行依赖 |
 | macOS | 通用版 ZIP，解压后使用，未签名 |
-| Linux | x64 tar.xz，解压后运行 `bitree` |
+| Linux | x64 / aarch64（arm64）tar.xz，解压后运行 `bitree` |
 | iOS | arm64 IPA，需自行签名后安装 |
 
 ## 数据与日志
@@ -48,7 +48,7 @@
 <details>
 <summary>发布构建与堆栈还原</summary>
 
-发布时会把 Dart 调试信息移出安装包，以减小包体。CI 将这些符号文件保存为 `debug-symbols-平台-版本`，保留 90 天。它们可在对应的 Actions 构建页面下载。Android 的 APK 和 AAB 符号分别位于 `apk/`、`appbundle/` 目录。
+发布时会把 Dart 调试信息移出安装包，以减小包体。CI 将这些符号文件保存为 `debug-symbols-平台-构建机架构-版本`，保留 90 天。它们可在对应的 Actions 构建页面下载。Android 的 APK 和 AAB 符号分别位于 `apk/`、`appbundle/` 目录。
 
 还原错误堆栈时，先下载与日志版本、平台和架构对应的符号文件，再把堆栈保存为 `stacktrace.txt`。以下以 Android arm64 为例：
 

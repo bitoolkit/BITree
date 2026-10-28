@@ -139,31 +139,15 @@ runs:
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v7
       with:
-        name: debug-symbols-${{ inputs.target }}-${{ inputs.version }}
+        name: debug-symbols-${{ inputs.target }}-${{ runner.arch }}-${{ inputs.version }}
         path: build/symbols/
         if-no-files-found: warn
         retention-days: 90
-    - name: Upload Android armeabi-v7a APK
-      if: ${{ !cancelled() && inputs.target == 'android' }}
-      uses: actions/upload-artifact@v7
-      with:
-        path: dist/*-android-armeabi-v7a*.apk
-        archive: false
-        if-no-files-found: warn
-        retention-days: 14
     - name: Upload Android arm64-v8a APK
       if: ${{ !cancelled() && inputs.target == 'android' }}
       uses: actions/upload-artifact@v7
       with:
         path: dist/*-android-arm64-v8a*.apk
-        archive: false
-        if-no-files-found: warn
-        retention-days: 14
-    - name: Upload Android x86_64 APK
-      if: ${{ !cancelled() && inputs.target == 'android' }}
-      uses: actions/upload-artifact@v7
-      with:
-        path: dist/*-android-x86_64*.apk
         archive: false
         if-no-files-found: warn
         retention-days: 14
@@ -187,8 +171,9 @@ runs:
         archive: false
         if-no-files-found: warn
         retention-days: 14
+    # Linux architectures share update metadata; upload it once from the x64 job.
     - name: Upload update metadata
-      if: ${{ !cancelled() }}
+      if: ${{ !cancelled() && (inputs.target != 'linux' || runner.arch == 'X64') }}
       uses: actions/upload-artifact@v7
       with:
         path: dist/*-update.json
