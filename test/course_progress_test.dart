@@ -47,6 +47,12 @@ int _difference(Color a, Color b) => [
     (((a.toARGB32() >> shift) & 255) - ((b.toARGB32() >> shift) & 255)).abs(),
 ].reduce(math.max);
 
+double _contrast(Color a, Color b) {
+  final first = a.computeLuminance();
+  final second = b.computeLuminance();
+  return (math.max(first, second) + 0.05) / (math.min(first, second) + 0.05);
+}
+
 void main() {
   final date = DateTime.utc(2026, 10, 27);
   DateTime at(int hour, int minute, [int second = 0]) =>
@@ -222,7 +228,7 @@ void main() {
           final x = 64 + day * 50 + 1.0;
           final background = _atPixel(pixels, Offset(x, center() + 3));
           final expected = Color.alphaBlend(
-            theme.colorScheme.primary.withValues(alpha: .28),
+            theme.colorScheme.primary.withValues(alpha: .42),
             background,
           );
           expect(
@@ -266,6 +272,19 @@ void main() {
             theme.colorScheme.primary,
           ),
           greaterThan(10),
+        );
+
+        time.value = at(11, 25);
+        await tester.pump();
+        pixels = await _capture(tester, key);
+        expect(
+          _contrast(
+            _atPixel(pixels, Offset(card.center.dx, center())),
+            _atPixel(pixels, Offset(card.center.dx, center() - 3)),
+          ),
+          greaterThanOrEqualTo(3),
+          reason:
+              'The current line stays distinct from the elapsed course fill',
         );
 
         time.value = at(10, 55);

@@ -35,6 +35,7 @@ class CurrentTimeIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final position = timeIndicatorPositionAt(now);
     final day = calendarDate(position.time)
         .difference(calendarDate(monday))
@@ -54,7 +55,10 @@ class CurrentTimeIndicator extends StatelessWidget {
             center: centerAt(position.section, rowHeight),
             day: day,
             columnWidth: columnWidth,
-            color: Theme.of(context).colorScheme.primary,
+            color: theme.colorScheme.primary,
+            cardBlendMode: theme.brightness == Brightness.dark
+                ? BlendMode.screen
+                : BlendMode.multiply,
             cards: cards,
           ),
         ),
@@ -69,6 +73,7 @@ class _TimeLinePainter extends CustomPainter {
     required this.day,
     required this.columnWidth,
     required this.color,
+    required this.cardBlendMode,
     required this.cards,
   });
 
@@ -76,6 +81,7 @@ class _TimeLinePainter extends CustomPainter {
   final int day;
   final double columnWidth;
   final Color color;
+  final BlendMode cardBlendMode;
   final List<({RRect shape, Color color})> cards;
 
   @override
@@ -87,7 +93,7 @@ class _TimeLinePainter extends CustomPainter {
       columnWidth - inset * 2,
       2,
     );
-    final paint = Paint()..color = color.withValues(alpha: 0.28);
+    final paint = Paint()..color = color.withValues(alpha: 0.42);
     // The faint line sits directly over every other day's cards. Do not mix it
     // into the strong segment or expose strong-colour stubs in the card insets.
     canvas.drawRect(
@@ -118,7 +124,7 @@ class _TimeLinePainter extends CustomPainter {
     canvas.drawRect(currentLine, paint..color = color);
     canvas.restore();
 
-    // Overlay preserves the card's hue and the light/dark text under the line.
+    // Darken light cards and lighten dark cards while retaining their text.
     for (final card in crossed) {
       canvas.save();
       canvas.clipRRect(card.shape);
@@ -126,7 +132,7 @@ class _TimeLinePainter extends CustomPainter {
         currentLine,
         paint
           ..color = card.color
-          ..blendMode = BlendMode.overlay,
+          ..blendMode = cardBlendMode,
       );
       canvas.restore();
     }
@@ -138,5 +144,6 @@ class _TimeLinePainter extends CustomPainter {
       day != oldDelegate.day ||
       columnWidth != oldDelegate.columnWidth ||
       color != oldDelegate.color ||
+      cardBlendMode != oldDelegate.cardBlendMode ||
       !listEquals(cards, oldDelegate.cards);
 }
