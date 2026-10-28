@@ -40,9 +40,15 @@ void main() {
     );
   });
 
+  test('Independent line centers retain the existing grid-edge clamping', () {
+    expect(CurrentTimeIndicator.centerAt(0, 64), 1);
+    expect(CurrentTimeIndicator.centerAt(2.5, 64), 160);
+    expect(CurrentTimeIndicator.centerAt(sectionTimes.length.toDouble(), 64), 831);
+  });
+
   for (final brightness in Brightness.values) {
     testWidgets(
-      'Fill and line share the same frontier without changing text width in $brightness',
+      'Card and independent lines stay aligned without changing text width in $brightness',
       (tester) async {
         tester.view.physicalSize = const Size(390, 1000);
         tester.view.devicePixelRatio = 1;
@@ -104,8 +110,34 @@ void main() {
           of: find.byType(CourseTile),
           matching: find.byType(FractionallySizedBox),
         );
+        final independentLine = find.descendant(
+          of: find.byType(CurrentTimeIndicator),
+          matching: find.byType(DecoratedBox),
+        );
         expect(fill, findsNothing);
-        for (final clock in [(10, 10), (10, 42), (10, 55), (11, 28)]) {
+        expect(independentLine, findsOneWidget);
+        final gridStack = tester
+            .element(find.byType(CurrentTimeIndicator))
+            .findAncestorWidgetOfExactType<Stack>()!;
+        final indicatorLayer = tester
+            .element(find.byType(CurrentTimeIndicator))
+            .findAncestorWidgetOfExactType<Positioned>()!;
+        final courseLayer = tester
+            .element(find.byType(CourseTile))
+            .findAncestorWidgetOfExactType<Positioned>()!;
+        expect(
+          gridStack.children.indexOf(indicatorLayer),
+          lessThan(gridStack.children.indexOf(courseLayer)),
+        );
+        for (final clock in [
+          (9, 55),
+          (9, 56),
+          (10, 10),
+          (10, 42),
+          (10, 55),
+          (11, 28),
+          (11, 29),
+        ]) {
           time.value = at(clock.$1, clock.$2);
           await tester.pump();
           final layer = find.descendant(
@@ -114,10 +146,19 @@ void main() {
           );
           final frontier = tester.getRect(layer).bottom;
           final line = find.descendant(
-            of: fill,
-            matching: find.byType(DecoratedBox),
+            of: find.byType(CourseTile),
+            matching: find.byKey(const ValueKey('course-progress-line')),
           );
-          expect(tester.getRect(line).center.dy, closeTo(frontier, 0.001));
+          expect(independentLine, findsOneWidget);
+          final lineCenter = tester.getRect(independentLine).center.dy;
+          expect(tester.getRect(line).center.dy, closeTo(lineCenter, 0.001));
+          expect(
+            frontier,
+            closeTo(
+              lineCenter.clamp(initialCard.top, initialCard.bottom),
+              0.001,
+            ),
+          );
           expect(tester.getSize(line).height, 2);
           final color =
               (tester.widget<DecoratedBox>(line).decoration as BoxDecoration)

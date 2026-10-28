@@ -233,7 +233,7 @@ void main() {
     });
   }
 
-  testWidgets('Course detail opens the same map at its actual room', (
+  testWidgets('Course preview opens the full floor and can locate its room', (
     tester,
   ) async {
     final course = _course('概率论与数理统计', '文萃楼F704');
@@ -275,6 +275,21 @@ void main() {
     expect(_floor(7), findsOneWidget);
     expect(find.text('F704'), findsOneWidget);
     expect(find.text('概率论与数理统计'), findsOneWidget);
+    final camera = tester
+        .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+        .transformationController!;
+    final viewport = Offset.zero & tester.getSize(find.byType(InteractiveViewer));
+    final plan = MatrixUtils.transformRect(
+      camera.value,
+      Offset.zero & tester.getSize(_floor(7)),
+    );
+    expect(viewport.contains(plan.topLeft), isTrue);
+    expect(viewport.contains(plan.bottomRight), isTrue);
+    final overviewScale = camera.value.getMaxScaleOnAxis();
+    await tester.tap(find.text('回到教室'));
+    await tester.pumpAndSettle();
+    expect(camera.value.getMaxScaleOnAxis(), greaterThan(overviewScale));
+    expect(find.text('F704'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

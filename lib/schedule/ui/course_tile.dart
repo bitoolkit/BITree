@@ -20,6 +20,9 @@ class CourseTile extends StatelessWidget {
   final AppController controller;
   final bool isToday;
   final DateTime? date;
+
+  /// Grid-relative frontier normalized to this card; insets may put it slightly
+  /// outside 0..1. Clamp only the fill, not the line's alignment coordinate.
   final double? progress;
 
   @override
@@ -53,28 +56,28 @@ class CourseTile extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (progress case final value?)
-                    Align(
-                      alignment: Alignment.topCenter,
-                      child: FractionallySizedBox(
-                        widthFactor: 1,
-                        heightFactor: value,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Positioned.fill(
+                    LayoutBuilder(
+                      builder: (context, constraints) => Stack(
+                        children: [
+                          Align(
+                            alignment: Alignment.topCenter,
+                            child: FractionallySizedBox(
+                              widthFactor: 1,
+                              heightFactor: value.clamp(0.0, 1.0).toDouble(),
                               child: ColoredBox(color: colors.elapsedFill),
                             ),
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              bottom: -1,
-                              height: 2,
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(color: colors.accent),
-                              ),
+                          ),
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: value * constraints.maxHeight - 1,
+                            height: 2,
+                            child: DecoratedBox(
+                              key: const ValueKey('course-progress-line'),
+                              decoration: BoxDecoration(color: colors.accent),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   LayoutBuilder(

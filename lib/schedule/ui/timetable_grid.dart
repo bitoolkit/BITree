@@ -271,6 +271,21 @@ class _TimetableGridState extends State<TimetableGrid> {
                                 ),
                               ),
                             ),
+                            // Keep the independent line above the grid background
+                            // but below cards, including while a course is ongoing.
+                            Positioned.fill(
+                              child: RepaintBoundary(
+                                child: ValueListenableBuilder<DateTime>(
+                                  valueListenable: widget.currentTime,
+                                  builder: (context, now, _) => CurrentTimeIndicator(
+                                    now: now,
+                                    monday: widget.monday,
+                                    columnWidth: columnWidth,
+                                    rowHeight: rowHeight,
+                                  ),
+                                ),
+                              ),
+                            ),
                             for (var day = 0; day < 7; day++)
                               for (final block in widget.layouts[day])
                                 Positioned(
@@ -297,12 +312,18 @@ class _TimetableGridState extends State<TimetableGrid> {
                                           final height =
                                               (block.end - block.start) *
                                               rowHeight;
-                                          // Cards sit 2px inside the grid. Keep the fill
-                                          // frontier aligned with the time indicator.
+                                          final section = block.start +
+                                              elapsed * (block.end - block.start);
+                                          final center = CurrentTimeIndicator.centerAt(
+                                            section,
+                                            rowHeight,
+                                          );
+                                          // Keep the raw line position, even in the
+                                          // card's 2px inset. Only the fill is clamped;
+                                          // the card clips the line naturally.
                                           progress =
-                                              ((elapsed * height - 2) /
-                                                      (height - 4))
-                                                  .clamp(0.0, 1.0);
+                                              (center - block.start * rowHeight - 2) /
+                                              (height - 4);
                                         }
                                       }
                                       return CalendarBlockTile(
@@ -314,39 +335,6 @@ class _TimetableGridState extends State<TimetableGrid> {
                                     },
                                   ),
                                 ),
-                            Positioned.fill(
-                              child: RepaintBoundary(
-                                child: ValueListenableBuilder<DateTime>(
-                                  valueListenable: widget.currentTime,
-                                  builder: (context, now, _) {
-                                    final ongoing = widget.layouts
-                                        .expand((blocks) => blocks)
-                                        .where(
-                                          (block) => block.items.length == 1,
-                                        )
-                                        .map((block) => block.items.single)
-                                        .where(
-                                          (item) =>
-                                              item.course != null &&
-                                              !now.isBefore(item.startsAt) &&
-                                              now.isBefore(item.endsAt!),
-                                        )
-                                        .firstOrNull;
-                                    // The ongoing course draws its own line below
-                                    // its text, alongside the elapsed fill.
-                                    if (ongoing != null) {
-                                      return const SizedBox.shrink();
-                                    }
-                                    return CurrentTimeIndicator(
-                                      now: now,
-                                      monday: widget.monday,
-                                      columnWidth: columnWidth,
-                                      rowHeight: rowHeight,
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
                             if (_selection case final selection?)
                               Positioned(
                                 left: selection.day * columnWidth + 2,

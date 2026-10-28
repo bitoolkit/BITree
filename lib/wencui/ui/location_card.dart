@@ -36,7 +36,7 @@ class WencuiLocationCard extends StatelessWidget {
             child: Row(
               children: [
                 SizedBox(
-                  width: 76,
+                  width: 114,
                   height: 76,
                   child: ExcludeSemantics(
                     child: ClipRRect(
@@ -106,47 +106,58 @@ class _RoomPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final crop = (bounds ?? const Rect.fromLTWH(0, 0, 1, 1)).inflate(.025);
-    return FittedBox(
-      fit: BoxFit.cover,
-      child: SizedBox(
-        width: crop.width * wencuiFloorSize.width,
-        height: crop.height * wencuiFloorSize.height,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned(
-              left: -crop.left * wencuiFloorSize.width,
-              top: -crop.top * wencuiFloorSize.height,
-              width: wencuiFloorSize.width,
-              height: wencuiFloorSize.height,
-              child: Stack(
-                children: [
-                  WencuiFloorImage(floor: floor),
-                  if (room != null)
-                    Positioned.fromRect(
-                      rect: Rect.fromLTRB(
-                        room!.bounds.left * wencuiFloorSize.width,
-                        room!.bounds.top * wencuiFloorSize.height,
-                        room!.bounds.right * wencuiFloorSize.width,
-                        room!.bounds.bottom * wencuiFloorSize.height,
-                      ),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary
-                              .withValues(alpha: .25),
-                          border: Border.all(
-                            color: Theme.of(context).colorScheme.primary,
-                            width: 3,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+    final scheme = Theme.of(context).colorScheme;
+    return AspectRatio(
+      aspectRatio: wencuiFloorSize.aspectRatio,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = constraints.biggest;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              FittedBox(
+                fit: BoxFit.contain,
+                child: SizedBox.fromSize(
+                  size: wencuiFloorSize,
+                  child: WencuiFloorImage(floor: floor),
+                ),
               ),
-            ),
-          ],
-        ),
+              if (bounds case final target?)
+                Positioned.fromRect(
+                  rect: Rect.fromLTRB(
+                    target.left * size.width,
+                    target.top * size.height,
+                    target.right * size.width,
+                    target.bottom * size.height,
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: .25),
+                      border: Border.all(color: scheme.primary),
+                    ),
+                  ),
+                ),
+              if (room case final target?)
+                Positioned.fromRect(
+                  rect: Rect.fromCenter(
+                    center: Offset(
+                      target.anchor.dx * size.width,
+                      target.anchor.dy * size.height,
+                    ),
+                    width: 10,
+                    height: 10,
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: scheme.primary,
+                      border: Border.all(color: scheme.surface, width: 2),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

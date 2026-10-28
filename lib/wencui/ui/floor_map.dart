@@ -346,9 +346,9 @@ class _WencuiFloorMapState extends State<WencuiFloorMap>
                     children: [
                       for (final wing in WencuiWing.values)
                         if (wing.hasFloor(widget.floor))
-                          if (widget.atlas.wingBounds(widget.floor, wing)
-                              case final bounds?)
-                            _wingButton(wing, bounds, viewport),
+                          if (widget.atlas.wingLabelPosition(widget.floor, wing)
+                              case final position?)
+                            _wingButton(wing, position, viewport),
                     ],
                   );
                 },
@@ -422,12 +422,12 @@ class _WencuiFloorMapState extends State<WencuiFloorMap>
     },
   );
 
-  Widget _wingButton(WencuiWing wing, Rect bounds, Size viewport) {
+  Widget _wingButton(WencuiWing wing, Offset position, Size viewport) {
     final center = MatrixUtils.transformPoint(
       _transform.value,
       Offset(
-        bounds.center.dx * _imageSize.width,
-        bounds.center.dy * _imageSize.height,
+        position.dx * _imageSize.width,
+        position.dy * _imageSize.height,
       ),
     );
     if (!(Offset.zero & viewport).contains(center)) {
