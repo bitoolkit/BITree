@@ -19,9 +19,12 @@ class SchoolLogin {
   SchoolLogin(this.session, this.verify);
 
   final SchoolSession session;
-  final VerifySchoolLogin verify;
+  final VerifySchoolLogin? verify;
   static final _sso = Uri.https('sso.bit.edu.cn');
   Uri _referer = _sso.resolve('/cas/login');
+
+  VerifySchoolLogin _verification(SchoolVerificationKind kind) =>
+      verify ?? (throw SchoolVerificationRequired(kind));
 
   Future<SchoolCredentials> _credentials(SchoolCredentials? provided) async {
     final account = provided ?? await session.storage.readCredentials();
@@ -138,15 +141,18 @@ class SchoolLogin {
     }
 
     final captchaRequired = captcha['captchaInvisible'] == true;
-    final captchaCode = captchaRequired
-        ? await verify(
-            SchoolImageVerification(
-              image: await _captchaImage(captcha),
-              reload: loadCaptcha,
-            ),
-          )
-        : '';
-    if (captchaCode == null) throw const RequestCancelled();
+    var captchaCode = '';
+    if (captchaRequired) {
+      final verify = _verification(SchoolVerificationKind.image);
+      final code = await verify(
+        SchoolImageVerification(
+          image: await _captchaImage(captcha),
+          reload: loadCaptcha,
+        ),
+      );
+      if (code == null) throw const RequestCancelled();
+      captchaCode = code;
+    }
     session.checkActive();
 
     final key = base64Decode(page.cryptoKey);
@@ -210,6 +216,7 @@ class SchoolLogin {
   }
 
   Future<Uri> _secondFactor(String username, _LoginPage page) async {
+    final verify = _verification(SchoolVerificationKind.sms);
     _referer = _sso.resolve('/cas/');
     final key = schoolRandomBytes(16);
     final encrypted = await _request(

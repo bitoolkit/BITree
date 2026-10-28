@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
-import '../controller.dart';
+import '../../ui/app_notice.dart';
 import 'school_screen.dart';
+import 'school_verification_dialog.dart';
 
 class SchoolAccount extends StatefulWidget {
   const SchoolAccount({super.key, required this.controller});
@@ -34,6 +35,13 @@ class _SchoolAccountState extends State<SchoolAccount> {
     );
   }
 
+  Future<void> _verify() async {
+    final success = await widget.controller.school.restoreAccount(
+      verify: (request) => verifySchoolLogin(context, request),
+    );
+    if (success && mounted) showAppNotice(context, '学校账号验证完成');
+  }
+
   Future<void> _signOut() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -56,18 +64,25 @@ class _SchoolAccountState extends State<SchoolAccount> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.controller.school,
+    builder: (context, _) => _build(context),
+  );
+
+  Widget _build(BuildContext context) {
     final controller = widget.controller;
     final hasAccount = controller.school.username != null;
+    final needsVerification = controller.school.verificationRequired;
+    final needsLogin = !hasAccount || controller.school.loginExpired;
     final enabled = !_handlingAction && !controller.timetable.busy;
     final canLogin = enabled && !controller.school.busy;
+    final onTap = needsLogin
+        ? _login
+        : needsVerification
+        ? _verify
+        : _signOut;
+    final canTap = needsLogin || needsVerification ? canLogin : enabled;
     final scheme = Theme.of(context).colorScheme;
-    final status = switch (controller.school.accountStatus) {
-      AccountStatus.signedIn => '已登录',
-      AccountStatus.expired => '需要重新登录',
-      AccountStatus.unverified => '未连接',
-      AccountStatus.signedOut => '未登录',
-    };
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(vertical: 4),
       leading: Icon(
@@ -76,19 +91,29 @@ class _SchoolAccountState extends State<SchoolAccount> {
         color: hasAccount ? scheme.primary : null,
       ),
       title: Text(controller.school.username ?? '登录学校账号'),
-      subtitle: hasAccount ? Text(status) : null,
-      trailing: controller.school.loginExpired
-          ? TextButton(
-              onPressed: canLogin ? () => _perform(_login) : null,
-              child: const Text('登录'),
-            )
-          : Icon(
-              hasAccount ? Icons.logout_rounded : Icons.chevron_right_rounded,
-              size: 20,
-            ),
-      onTap: (hasAccount ? enabled : canLogin)
-          ? () => _perform(hasAccount ? _signOut : _login)
+      subtitle: hasAccount || needsVerification
+          ? Text(controller.school.accountStatus.label)
           : null,
+      trailing: hasAccount
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (needsVerification || controller.school.loginExpired)
+                  TextButton(
+                    onPressed: canLogin
+                        ? () => _perform(needsVerification ? _verify : _login)
+                        : null,
+                    child: Text(needsVerification ? '验证' : '登录'),
+                  ),
+                IconButton(
+                  tooltip: '退出学校账号',
+                  onPressed: enabled ? () => _perform(_signOut) : null,
+                  icon: const Icon(Icons.logout_rounded, size: 20),
+                ),
+              ],
+            )
+          : const Icon(Icons.chevron_right_rounded, size: 20),
+      onTap: canTap ? () => _perform(onTap) : null,
     );
   }
 }

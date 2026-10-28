@@ -19,7 +19,17 @@ import 'session.dart';
 import 'storage.dart';
 import 'verification.dart';
 
-enum AccountStatus { unverified, signedIn, signedOut, expired }
+enum AccountStatus {
+  unverified('未连接'),
+  signedIn('已登录'),
+  signedOut('未登录'),
+  expired('需要重新登录'),
+  smsRequired('需要短信验证'),
+  imageRequired('需要图形验证');
+
+  const AccountStatus(this.label);
+  final String label;
+}
 
 /// Runs school operations through one authenticated, cancellable session owner.
 class SchoolController extends ChangeNotifier {
@@ -46,6 +56,9 @@ class SchoolController extends ChangeNotifier {
   AccountStatus get accountStatus => _status;
   String? get username => _username;
   bool get loginExpired => _status == AccountStatus.expired;
+  bool get verificationRequired =>
+      _status == AccountStatus.smsRequired ||
+      _status == AccountStatus.imageRequired;
   bool get busy => _finished != null;
 
   Future<void> loadAccount() async {
@@ -67,6 +80,22 @@ class SchoolController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _requireVerification(SchoolVerificationKind kind) {
+    _status = switch (kind) {
+      SchoolVerificationKind.sms => AccountStatus.smsRequired,
+      SchoolVerificationKind.image => AccountStatus.imageRequired,
+    };
+    if (!_disposed) notifyListeners();
+  }
+
+  VerifySchoolLogin _verification(VerifySchoolLogin verify) => (request) {
+    _requireVerification(switch (request) {
+      SchoolSmsVerification() => SchoolVerificationKind.sms,
+      SchoolImageVerification() => SchoolVerificationKind.image,
+    });
+    return verify(request);
+  };
+
   Future<bool> _run(String label, Future<bool> Function() operation) async {
     if (busy) {
       AppDiagnostics.instance.notice('正在处理学校请求，请稍后再试。');
@@ -85,6 +114,10 @@ class SchoolController extends ChangeNotifier {
         AppDiagnostics.instance.info('$label完成');
       }
       return success;
+    } on SchoolVerificationRequired catch (request) {
+      _requireVerification(request.kind);
+      AppDiagnostics.instance.notice('${_status.label}，请在设置中完成验证。');
+      return false;
     } on RequestCancelled {
       return false;
     } catch (failure, stack) {
@@ -110,7 +143,7 @@ class SchoolController extends ChangeNotifier {
     T? result;
     final success = await _run(label, () async {
       result = await _access.read(
-        verify,
+        _verification(verify),
         operation,
         cancellation: cancellation,
       );
@@ -124,17 +157,22 @@ class SchoolController extends ChangeNotifier {
     VerifySchoolLogin verify, {
     DeadlineSource? source,
   }) => _run('登录学校账号', () async {
-    await _access.signIn(credentials, verify, source: source);
+    await _access.signIn(credentials, _verification(verify), source: source);
     if (_username != credentials.username) _service.clearCache();
     _username = credentials.username;
     await _academics.load(_username);
     return true;
   });
 
-  Future<bool> restoreAccount(VerifySchoolLogin verify) async {
-    if (_username == null) return true;
+  Future<bool> restoreAccount({VerifySchoolLogin? verify}) async {
+    if (_username == null) return false;
     return _run('恢复学校登录', () async {
-      await _access.read(verify, (session) => session.checkLogin());
+      await _access.read(
+        verify == null ? null : _verification(verify),
+        (session) => session.checkLogin(),
+        // A manual check must reach SSO even if a service cookie still works.
+        service: verify == null ? null : SchoolNetwork.campus.accountPage,
+      );
       return true;
     });
   }
@@ -142,7 +180,7 @@ class SchoolController extends ChangeNotifier {
   Future<bool> synchronize({String? term, required VerifySchoolLogin verify}) =>
       _run(
         '同步课表',
-        () => _access.read(verify, (session) async {
+        () => _access.read(_verification(verify), (session) async {
           final result = await _service.synchronize(
             session,
             account: _username!,
@@ -156,7 +194,7 @@ class SchoolController extends ChangeNotifier {
   Future<bool> importExams({String? term, required VerifySchoolLogin verify}) =>
       _run(
         '同步考试安排',
-        () => _access.read(verify, (session) async {
+        () => _access.read(_verification(verify), (session) async {
           final result = await _service.exams(
             session,
             account: _username!,
@@ -170,7 +208,7 @@ class SchoolController extends ChangeNotifier {
   Future<bool> importGrades({required VerifySchoolLogin verify}) =>
       _run('同步成绩', () async {
         final grades = await _access.read(
-          verify,
+          _verification(verify),
           fetchSchoolGrades,
           service: SchoolNetwork.recordsService,
         );
@@ -184,7 +222,7 @@ class SchoolController extends ChangeNotifier {
 
   Future<bool> importStudyPlan({required VerifySchoolLogin verify}) =>
       _run('同步学分进度', () async {
-        final plan = await _access.read(verify, fetchStudyPlan);
+        final plan = await _access.read(_verification(verify), fetchStudyPlan);
         return _academics.save(
           _academics.record.copyWith(plan: plan, planUpdatedAt: DateTime.now()),
         );
@@ -198,17 +236,18 @@ class SchoolController extends ChangeNotifier {
     final sources = source == null ? DeadlineSource.values : [source];
     for (final source in sources) {
       try {
-        final saved = await _access.readLearningPlatform(source, verify, (
-          session,
-          page,
-        ) async {
-          final deadlines = await switch (source) {
-            DeadlineSource.lexue => fetchLexueDeadlines(session, page),
-            DeadlineSource.eclass => fetchEclassDeadlines(session),
-          };
-          session.checkActive();
-          return _agenda.mergeDeadlines(deadlines);
-        });
+        final saved = await _access.readLearningPlatform(
+          source,
+          _verification(verify),
+          (session, page) async {
+            final deadlines = await switch (source) {
+              DeadlineSource.lexue => fetchLexueDeadlines(session, page),
+              DeadlineSource.eclass => fetchEclassDeadlines(session),
+            };
+            session.checkActive();
+            return _agenda.mergeDeadlines(deadlines);
+          },
+        );
         success = saved && success;
       } on RequestCancelled {
         rethrow;

@@ -6,7 +6,6 @@ import '../../agenda/controller.dart';
 import '../../agenda/ui/calendar_screen.dart';
 import '../../core/diagnostics.dart';
 import '../../schedule/ui/home_screen.dart';
-import '../../school/ui/school_verification_dialog.dart';
 import '../../ui/app_notice.dart';
 import '../../ui/app_page.dart';
 import '../../ui/campus_time_builder.dart';
@@ -50,9 +49,7 @@ class _AppScreenState extends State<AppScreen> {
   }
 
   Future<void> _restoreAccount() async {
-    await widget.controller.school.restoreAccount(
-      (request) => verifySchoolLogin(context, request),
-    );
+    await widget.controller.school.restoreAccount();
     if (mounted) await _checkUpdates(silent: true);
   }
 

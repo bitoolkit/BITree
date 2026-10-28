@@ -200,7 +200,6 @@ class SettingsScreen extends StatelessWidget {
     listenable: Listenable.merge([
       controller,
       controller.timetable,
-      controller.school,
       controller.agenda,
     ]),
     builder: (context, _) => _build(context),

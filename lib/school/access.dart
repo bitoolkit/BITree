@@ -16,7 +16,7 @@ class SchoolAccess {
   SchoolConnection? _connection;
 
   Future<T> read<T>(
-    VerifySchoolLogin verify,
+    VerifySchoolLogin? verify,
     Future<T> Function(SchoolSession) operation, {
     CancellationToken? cancellation,
     Uri? service,

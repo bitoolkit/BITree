@@ -4,6 +4,15 @@ typedef VerifySchoolLogin = Future<String?> Function(
   SchoolVerification request,
 );
 
+enum SchoolVerificationKind { image, sms }
+
+/// A non-interactive login stops before loading or sending a verification code.
+class SchoolVerificationRequired implements Exception {
+  const SchoolVerificationRequired(this.kind);
+
+  final SchoolVerificationKind kind;
+}
+
 sealed class SchoolVerification {
   const SchoolVerification();
 }
