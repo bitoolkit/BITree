@@ -18,10 +18,12 @@ class WencuiMapScreen extends StatefulWidget {
     required this.controller,
     this.initialRoom = '',
     this.initialCourse,
+    this.initialOverview = false,
   });
   final AppController controller;
   final String initialRoom;
   final Course? initialCourse;
+  final bool initialOverview;
 
   @override
   State<WencuiMapScreen> createState() => _WencuiMapScreenState();
@@ -85,10 +87,12 @@ class _WencuiMapScreenState extends State<WencuiMapScreen> {
       (atlas) {
         if (!mounted) return;
         setState(() => _selected = atlas.room(_place?.label ?? ''));
-        _camera.show(
-          _selected?.bounds ??
-              (_place == null ? null : atlas.wingBounds(_floor, _place!.wing)),
-        );
+        if (!widget.initialOverview) {
+          _camera.show(
+            _selected?.bounds ??
+                (_place == null ? null : atlas.wingBounds(_floor, _place!.wing)),
+          );
+        }
       },
       onError: (Object error, StackTrace stack) {
         FlutterError.reportError(

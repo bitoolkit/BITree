@@ -56,6 +56,7 @@ Future<void> showCourse(
                         builder: (_) => WencuiMapScreen(
                           controller: controller,
                           initialCourse: selected,
+                          initialOverview: true,
                         ),
                       ),
                     );

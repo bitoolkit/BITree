@@ -86,14 +86,34 @@ class WencuiAtlas {
       if (feature.floor == floor) feature,
   ];
 
-  Rect? wingBounds(int floor, WencuiWing wing) {
+  Rect? _wingMemberBounds(int floor, WencuiWing wing) {
     final members = features.where(
       (feature) => feature.floor == floor && feature.wing == wing,
     );
     if (members.isEmpty) return null;
-    final bounds = members
+    return members
         .map((feature) => feature.bounds)
         .reduce((a, b) => a.expandToInclude(b));
+  }
+
+  Offset? wingLabelPosition(int floor, WencuiWing wing) {
+    final bounds = _wingMemberBounds(floor, wing);
+    if (bounds == null) return null;
+    // Each L-shaped wing bends near its corresponding corner. Keep the label
+    // inside the wing's own extent, before nearby stairs/lifts expand the view.
+    final inset = bounds.deflate(.04);
+    return switch (wing) {
+      WencuiWing.m => inset.topRight,
+      WencuiWing.b => inset.topLeft,
+      WencuiWing.g => inset.bottomLeft,
+      WencuiWing.h => inset.bottomRight,
+      _ => wingBounds(floor, wing)?.center,
+    };
+  }
+
+  Rect? wingBounds(int floor, WencuiWing wing) {
+    final bounds = _wingMemberBounds(floor, wing);
+    if (bounds == null) return null;
     // Include surrounding stairs/lifts in the view, without implying a route
     // across a wall or a connection between wings.
     return features
