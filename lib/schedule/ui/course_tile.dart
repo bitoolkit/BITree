@@ -101,7 +101,7 @@ class CourseTile extends StatelessWidget {
                         height: narrow ? 1.2 : 1.35,
                         color: progress != null
                             ? colors.text
-                            : colors.text.withValues(alpha: 0.8),
+                            : colors.secondaryText,
                       );
 
                       TextPainter measure(String text, TextStyle style) =>

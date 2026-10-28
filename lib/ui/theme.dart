@@ -276,20 +276,25 @@ ThemeData bitreeTheme(Brightness brightness) {
   );
 }
 
-({Color fill, Color text, Color accent, Color elapsedFill}) courseColors(
-  BuildContext context,
-  Course course,
-) {
+({Color fill, Color text, Color secondaryText, Color accent, Color elapsedFill})
+courseColors(BuildContext context, Course course) {
   final palette =
       matchCampusBuilding(course.room, campus: course.campus) ??
       unknownBuildingPalette;
-  final colors = Theme.of(context).brightness == Brightness.dark
-      ? palette.dark
-      : palette.light;
+  final dark = Theme.of(context).brightness == Brightness.dark;
+  final colors = dark ? palette.dark : palette.light;
+  final accent = Color(colors.accent);
+  // Solid course blocks need more colour than the subtle timeline fades.
+  // Resolve the fill here so row bands and today's column cannot tint it.
+  final fill = dark
+      ? Color.lerp(Color(colors.fill), accent, 0.24)!
+      : Color(colors.fill);
+  final text = Color(colors.text);
   return (
-    fill: Color(colors.fill),
-    text: Color(colors.text),
-    accent: Color(colors.accent),
-    elapsedFill: Color.lerp(Color(colors.fill), Color(colors.accent), 0.32)!,
+    fill: fill,
+    text: text,
+    secondaryText: Color.lerp(fill, text, 0.8)!,
+    accent: accent,
+    elapsedFill: Color.lerp(fill, accent, dark ? 0.16 : 0.32)!,
   );
 }
