@@ -42,9 +42,18 @@ runs:
       run: |
         "${env:ProgramFiles(x86)}\Inno Setup 6" >> $env:GITHUB_PATH
     - uses: subosito/flutter-action@v2
+      if: ${{ runner.os != 'Linux' || runner.arch != 'ARM64' }}
       with:
         flutter-version: '3.47.7'
         channel: stable
+        cache: true
+        pub-cache: true
+    # The release manifest has no Linux arm64 archive for this version, so check out the tag from git
+    - uses: subosito/flutter-action@v2
+      if: ${{ runner.os == 'Linux' && runner.arch == 'ARM64' }}
+      with:
+        flutter-version: '3.47.7'
+        channel: master
         cache: true
         pub-cache: true
     - name: Select Android NDK
