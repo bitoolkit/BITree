@@ -396,6 +396,37 @@ void main() {
   );
 
   for (final source in DeadlineSource.values) {
+    for (final stillExpired in [false, true]) {
+      test(
+        '${source.label} retries authentication once when a DDL read expires, stillExpired=$stillExpired',
+        () => HttpOverrides.runWithHttpOverrides(() async {
+          final access = SchoolAccess(MemorySchoolStorage());
+          var reads = 0;
+          final result = access.readLearningPlatform(
+            source,
+            (_) async =>
+                throw StateError('The platform session is already valid'),
+            (session, page) async {
+              reads++;
+              if (reads == 1 || stillExpired) throw const SessionExpired();
+              return 'deadlines';
+            },
+          );
+          final expectation = stillExpired
+              ? expectLater(result, throwsA(isA<SessionExpired>()))
+              : expectLater(result, completion('deadlines'));
+          for (var attempt = 0; attempt < 2; attempt++) {
+            final request = await nextRequest();
+            expect(request.uri.path, '/${source.host}${source.loginPage.path}');
+            await reply(request);
+          }
+          await expectation;
+          expect(reads, 2);
+          expect(network.clients.every((client) => client.closed), isTrue);
+        }, network),
+      );
+    }
+
     test(
       '${source.label} uses one direct request without probing WebVPN',
       () => HttpOverrides.runWithHttpOverrides(() async {

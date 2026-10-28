@@ -93,12 +93,10 @@ class YanhektRepository {
       entry.replace(queryParameters: query),
       followRedirects: false,
     );
-    final redirect = await session.request(
-      entry.replace(queryParameters: {...query, 'auType': 'cas'}),
-      followRedirects: false,
-    );
-    final service = Uri.parse(redirect.location!.queryParameters['service']!);
-    await SchoolLogin(session, verify).signInTo(service);
+    await SchoolLogin(
+      session,
+      verify,
+    ).openService(entry.replace(queryParameters: {...query, 'auType': 'cas'}));
     token = await _token();
     if (token == null) throw const SessionExpired();
     final profile = await _profile(session, token);

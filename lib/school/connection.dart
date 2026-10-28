@@ -26,15 +26,22 @@ class SchoolConnection {
         if (SchoolNetwork.webvpn.route(service) != service)
           SchoolNetwork.webvpn,
       };
+      final parallel = networks.length > 1;
+      if (parallel) {
+        AppDiagnostics.instance.info(
+          '学校请求并行探测校内直连和 WebVPN：${service.origin}${service.path}',
+        );
+      }
       var session = networks.length == 1
           ? _open(networks.single)
           : await _connect(service, networks);
+      var reason = parallel ? '并行探测胜出' : '该服务直接访问，无需 WebVPN';
       while (true) {
         _cancellation.check();
         networks.remove(session.network);
         final url = session.network.route(service);
         AppDiagnostics.instance.info(
-          '学校请求使用${session.network.label}：${url.origin}${url.path}',
+          '学校请求使用${session.network.label}（$reason）：${url.origin}${url.path}',
         );
         try {
           final result = await operation(session);
@@ -47,8 +54,9 @@ class SchoolConnection {
           final next = networks.single;
           AppDiagnostics.instance.info(
             '${session.network.label}连接失败，改用${next.label}：'
-            '${failure.url.origin}${failure.url.path}',
+            '${failure.url.origin}${failure.url.path}（${failure.cause}）',
           );
+          reason = '${session.network.label}连接失败后切换';
           session = _open(next);
         }
       }

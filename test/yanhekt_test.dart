@@ -1259,6 +1259,42 @@ void main() {
     );
   }
 
+  test(
+    'The Yanhekt entry can finish an existing session without another CAS redirect',
+    () => HttpOverrides.runWithHttpOverrides(() async {
+      await storage.clearSession(SchoolNetwork.campus);
+      var authenticated = false;
+      respond = (request) async {
+        final path = request.uri.path;
+        if (path == '/aita.yanhekt.cn/casapi/index.php') {
+          final signingIn = request.uri.queryParameters['auType'] == 'cas';
+          authenticated = authenticated || signingIn;
+          return reply(request, {}, token: signingIn ? newToken : null);
+        }
+        expect(authenticated, isTrue);
+        if (path.endsWith('/userapi/v1/infosimple')) return profile(request);
+        expect(
+          path,
+          '/aita.yanhekt.cn/vlabpassportapi/v1/account-profile/course',
+        );
+        expect(request.headers.value('Authorization'), 'Bearer $newToken');
+        await reply(request, {
+          'params': {
+            'result': {'total': 0, 'data': []},
+          },
+        });
+      };
+      expect(
+        await repository.courses(
+          (_) async => fail('The service already completed authentication'),
+          CancellationToken(),
+        ),
+        isEmpty,
+      );
+      expect(network.clients.every((client) => client.closed), isTrue);
+    }, network),
+  );
+
   for (final stillExpired in [false, true]) {
     test(
       'An expired course request renews CAS once, stillExpired=$stillExpired',
