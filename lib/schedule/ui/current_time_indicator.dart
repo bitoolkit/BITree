@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../model.dart';
 import '../time_position.dart';
 
-/// One non-interactive time line over the grid, masked by the cards it crosses.
+/// One non-interactive line over the grid, with a masked current-day segment.
 class CurrentTimeIndicator extends StatelessWidget {
   const CurrentTimeIndicator({
     super.key,
@@ -16,6 +16,7 @@ class CurrentTimeIndicator extends StatelessWidget {
   });
 
   static const _lineHeight = 2.0;
+  static const _horizontalInset = 3.0;
 
   final DateTime now;
   final DateTime monday;
@@ -39,7 +40,10 @@ class CurrentTimeIndicator extends StatelessWidget {
         .difference(calendarDate(monday))
         .inDays;
     final gridHeight = rowHeight * sectionTimes.length;
-    if (day < 0 || day >= 7 || columnWidth <= 0 || gridHeight < _lineHeight) {
+    if (day < 0 ||
+        day >= 7 ||
+        columnWidth <= _horizontalInset * 2 ||
+        gridHeight < _lineHeight) {
       return const SizedBox.shrink();
     }
 
@@ -76,47 +80,56 @@ class _TimeLinePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    const inset = CurrentTimeIndicator._horizontalInset;
+    final currentLine = Rect.fromLTWH(
+      day * columnWidth + inset,
+      center - 1,
+      columnWidth - inset * 2,
+      2,
+    );
+    final paint = Paint()..color = color.withValues(alpha: 0.28);
+    // The faint line sits directly over every other day's cards. Do not mix it
+    // into the strong segment or expose strong-colour stubs in the card insets.
+    canvas.drawRect(
+      Rect.fromLTRB(0, center - 0.5, currentLine.left, center + 0.5),
+      paint,
+    );
+    canvas.drawRect(
+      Rect.fromLTRB(currentLine.right, center - 0.5, size.width, center + 0.5),
+      paint,
+    );
     final crossed = cards
-        .where(
-          (card) =>
-              card.shape.top < center + 1 && card.shape.bottom > center - 1,
-        )
+        .where((card) => card.shape.outerRect.overlaps(currentLine))
         .toList();
     final outlines = Path();
     for (final card in crossed) {
       outlines.addRRect(card.shape);
     }
 
-    // Keep the original colour in the gaps and around the rounded corners.
+    // Keep the original colour around the current card's rounded corners.
     canvas.save();
     canvas.clipPath(
       Path.combine(
         PathOperation.difference,
-        Path()..addRect(Offset.zero & size),
+        Path()..addRect(currentLine),
         outlines,
       ),
     );
-    _drawLine(canvas, size, color, BlendMode.srcOver);
+    canvas.drawRect(currentLine, paint..color = color);
     canvas.restore();
 
     // Overlay preserves the card's hue and the light/dark text under the line.
     for (final card in crossed) {
       canvas.save();
       canvas.clipRRect(card.shape);
-      _drawLine(canvas, size, card.color, BlendMode.overlay);
+      canvas.drawRect(
+        currentLine,
+        paint
+          ..color = card.color
+          ..blendMode = BlendMode.overlay,
+      );
       canvas.restore();
     }
-  }
-
-  void _drawLine(Canvas canvas, Size size, Color color, BlendMode blendMode) {
-    final paint = Paint()
-      ..blendMode = blendMode
-      ..color = color.withValues(alpha: 0.28);
-    canvas.drawRect(Rect.fromLTWH(0, center - 0.5, size.width, 1), paint);
-    canvas.drawRect(
-      Rect.fromLTWH(day * columnWidth, center - 1, columnWidth, 2),
-      paint..color = color,
-    );
   }
 
   @override

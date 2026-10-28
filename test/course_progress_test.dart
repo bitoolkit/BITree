@@ -194,11 +194,8 @@ void main() {
           expect(line, findsOneWidget);
           final pixels = await _capture(tester, key);
           expect(
-            _difference(
-              _atPixel(pixels, Offset(115, center())),
-              theme.colorScheme.primary,
-            ),
-            lessThanOrEqualTo(2),
+            _atPixel(pixels, Offset(115, center())),
+            _atPixel(pixels, Offset(65, center())),
           );
           if (occurrence.progressAt(time.value) != null) {
             final layer = find.descendant(
@@ -258,7 +255,7 @@ void main() {
         pixels = await _capture(tester, key);
         expect(
           _difference(
-            _atPixel(pixels, Offset(card.left + .25, center())),
+            _atPixel(pixels, Offset(card.left + 1.25, center())),
             theme.colorScheme.primary,
           ),
           lessThanOrEqualTo(2),
@@ -295,7 +292,7 @@ void main() {
         pixels = await _capture(tester, key);
         expect(
           _difference(
-            _atPixel(pixels, const Offset(165, 1)),
+            _atPixel(pixels, const Offset(169, 1)),
             theme.colorScheme.primary,
           ),
           lessThanOrEqualTo(2),
