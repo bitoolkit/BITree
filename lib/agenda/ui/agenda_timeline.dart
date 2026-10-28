@@ -589,18 +589,16 @@ class _AgendaTimelineState extends State<AgendaTimeline>
                 AgendaKind.exam => Icons.school_outlined,
                 AgendaKind.deadline => Icons.flag_outlined,
               };
-    final status = entry.done
-        ? '已完成'
-        : overdue
-            ? '已逾期'
-            : finished
-                ? '已结束'
-                : '';
     final date = entry.startsAt;
     final description = '${entry.kind.label}，${entry.title}，'
         '${date.year}年${date.month}月${date.day}日 '
-        '${entry.timeLabel}${status.isEmpty ? '' : '，$status'}'
+        '${entry.timeLabel}'
         '${entry.location.isEmpty ? '' : '，${entry.location}'}';
+    final label = entry.isDeadline
+    ? entry.course.isNotEmpty
+        ? entry.course
+        : entry.source?.label ?? entry.kind.label
+    : entry.kind.label;
     return Positioned(
       left: left,
       top: placement.lane * laneHeight + 12,
@@ -701,8 +699,7 @@ class _AgendaTimelineState extends State<AgendaTimeline>
                                       const SizedBox(width: 3),
                                       Flexible(
                                         child: Text(
-                                          '${entry.kind.label}'
-                                          '${status.isEmpty ? '' : ' · $status'}',
+                                          label,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
