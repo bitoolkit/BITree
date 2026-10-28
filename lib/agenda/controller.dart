@@ -130,8 +130,13 @@ class AgendaController extends ChangeNotifier {
   }
 
   /// Refresh this semester's generated records, keeping edits and tombstones.
+  /// Only new entries are auto-completed when already past due at import time.
   /// Returns the matched generated count, or null when persistence fails.
-  Future<int?> updatePhysicsLabDeadlines(SemesterSchedule schedule) async {
+  Future<int?> updatePhysicsLabDeadlines(
+    SemesterSchedule schedule, {
+    DateTime? now,
+  }) async {
+    final importedAt = now ?? campusNow();
     final incoming = physicsLabDeadlines(schedule);
     final savedById = {for (final entry in _entries) entry.id: entry};
     final next = <String, AgendaEntry>{
@@ -148,7 +153,7 @@ class AgendaController extends ChangeNotifier {
       next[entry.id] = saved?.local == true
           ? saved!
           : entry.copyWith(
-              done: saved?.done ?? false,
+              done: saved?.done ?? entry.dueAt.isBefore(importedAt),
               deleted: saved?.deleted ?? false,
             );
     }
