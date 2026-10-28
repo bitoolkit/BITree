@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../model.dart';
 import '../time_position.dart';
 
-/// A non-interactive overlay for the timetable's equal-height section grid.
+/// A non-interactive time line below cards in the equal-height section grid.
 class CurrentTimeIndicator extends StatelessWidget {
   const CurrentTimeIndicator({
     super.key,
@@ -21,6 +21,15 @@ class CurrentTimeIndicator extends StatelessWidget {
   final double columnWidth;
   final double rowHeight;
 
+  /// Shared grid-space center for both the independent and in-card lines.
+  static double centerAt(double section, double rowHeight) {
+    final gridHeight = rowHeight * sectionTimes.length;
+    return (section * rowHeight - _lineHeight / 2)
+            .clamp(0.0, gridHeight - _lineHeight)
+            .toDouble() +
+        _lineHeight / 2;
+  }
+
   @override
   Widget build(BuildContext context) {
     final position = timeIndicatorPositionAt(now);
@@ -35,9 +44,7 @@ class CurrentTimeIndicator extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final top = (position.section * rowHeight - _lineHeight / 2)
-        .clamp(0.0, gridHeight - _lineHeight)
-        .toDouble();
+    final top = centerAt(position.section, rowHeight) - _lineHeight / 2;
     return IgnorePointer(
       child: ExcludeSemantics(
         child: Stack(
