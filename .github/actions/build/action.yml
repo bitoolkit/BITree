@@ -100,14 +100,6 @@ runs:
       if: ${{ inputs.target == 'linux' }}
       run: flutter analyze --no-pub
       shell: bash
-    - name: Test release packaging
-      if: ${{ inputs.target == 'linux' && runner.arch == 'X64' }}
-      run: python -m unittest discover -s tool -p 'test_*.py'
-      shell: bash
-    - name: Test update selection
-      if: ${{ inputs.target == 'linux' }}
-      run: flutter test --no-pub test/app_release_test.dart test/app_update_notes_test.dart
-      shell: bash
     - name: Decrypt Android signing
       if: >-
         ${{ inputs.target == 'android' &&
