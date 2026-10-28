@@ -45,9 +45,7 @@ runs:
       if: ${{ runner.os != 'Linux' || runner.arch != 'ARM64' }}
       with:
         flutter-version: '3.47.7'
-        # Linux ARM64 has no stable SDK archive. The main-channel installer
-        # checks out the exact version tag and bootstraps its native Dart SDK.
-        channel: ${{ runner.os == 'Linux' && runner.arch == 'ARM64' && 'main' || 'stable' }}
+        channel: stable
         cache: true
         pub-cache: true
     # The release manifest has no Linux arm64 archive for this version, so check out the tag from git
