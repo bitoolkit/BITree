@@ -2,6 +2,7 @@ import 'package:bitree/agenda/model.dart';
 import 'package:bitree/agenda/timeline_layout.dart';
 import 'package:bitree/agenda/ui/agenda_timeline.dart';
 import 'package:bitree/ui/theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -153,6 +154,10 @@ void main() {
           );
           expect(rectangles.last.width, closeTo(180, .001));
           for (var index = 0; index < rectangles.length; index++) {
+            expect(
+              rectangles[index].height,
+              closeTo(tester.getRect(_bar(entries[index])).height, .001),
+            );
             for (var other = index + 1; other < rectangles.length; other++) {
               expect(rectangles[index].overlaps(rectangles[other]), isFalse);
             }
@@ -208,6 +213,7 @@ void main() {
       // Half of the 2px bar is clipped at the left edge; its hit target is wider.
       expect(painted.width, closeTo(1, .001));
       final card = tester.getRect(_bar(entry));
+      expect(card.left, 0);
       await tester.tapAt(card.center);
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
@@ -215,4 +221,125 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets(
+    'Time ranges are visible on cards and long press previews complete endpoints',
+    (tester) async {
+      final entry = AgendaEntry(
+        id: 'preview',
+        title: '时间预览日程',
+        kind: AgendaKind.event,
+        startsAt: _date.add(const Duration(hours: 11)),
+        endsAt: _date.add(const Duration(hours: 13)),
+      );
+      await _show(tester, [entry]);
+      // Card text is conditional on available width; zoom in on a real 2h event.
+      tester.widget<Slider>(find.byType(Slider)).onChanged!(24);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: _bar(entry), matching: find.text('11:00–13:00')),
+        findsOneWidget,
+      );
+      await tester.longPress(_bar(entry));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('开始：2026-11-17 周二 11:00', findRichText: true),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('结束：2026-11-17 周二 13:00', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.byType(BottomSheet), findsNothing);
+      await tester.tap(_bar(entry));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  for (final allDay in [false, true]) {
+    testWidgets('Multi-day entries label both dates, allDay=$allDay', (
+      tester,
+    ) async {
+      final entry = AgendaEntry(
+        id: 'multi',
+        title: '跨天日程',
+        kind: AgendaKind.event,
+        startsAt: allDay ? _date : _date.add(const Duration(hours: 11)),
+        endsAt: allDay
+            ? _date.add(const Duration(days: 2))
+            : _date.add(const Duration(days: 1, hours: 13)),
+        allDay: allDay,
+      );
+      await _show(tester, [entry], scale: 1.6, brightness: Brightness.dark);
+      expect(
+        find.descendant(
+          of: _bar(entry),
+          matching: find.text(
+            allDay ? '11/17–11/18\n全天' : '11/17 11:00\n→ 11/18 13:00',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
+  for (final allDay in [false, true]) {
+    testWidgets(
+      'DDL cards show their deadline without losing the course label, allDay=$allDay',
+      (tester) async {
+        final entry = AgendaEntry(
+          id: 'deadline',
+          title: '第五章作业',
+          kind: AgendaKind.deadline,
+          startsAt: _date.add(const Duration(hours: 13)),
+          course: '高等数学',
+          allDay: allDay,
+        );
+        await _show(tester, [entry], scale: 1.6);
+        expect(
+          find.descendant(of: _bar(entry), matching: find.text('高等数学')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: _bar(entry),
+            matching: find.text(allDay ? '全天截止' : '13:00 截止'),
+          ),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+
+  testWidgets('Hover previews the real interval without opening details', (
+    tester,
+  ) async {
+    final entry = _event('hover', 11);
+    await _show(tester, [entry]);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(10, 500));
+    await mouse.moveTo(tester.getCenter(_bar(entry)));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('开始：2026-11-17 周二 11:00', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('结束：2026-11-17 周二 11:05', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.byType(BottomSheet), findsNothing);
+    await mouse.removePointer();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
 }
