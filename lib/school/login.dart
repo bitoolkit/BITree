@@ -375,28 +375,46 @@ class SchoolLogin {
       'language': jsonEncode('zh-CN'),
       'screenResolution': '[956,1470]',
     };
-    final result = await _json(
-      '/ustc-rba-front/fp',
-      body: {
-        for (final entry in values.entries)
-          entry.key:
-              [
-                'fonts',
-                'deviceMemory',
-                'hardwareConcurrency',
-                'cpuClass',
-              ].contains(entry.key)
-              ? schoolSha256(entry.value)
-              : entry.value,
-        'localgroupId': group,
-        'fingerprint': schoolSha256(values.values.join()),
-        'cookieValue': device,
-        'userAgent': SchoolSession.userAgent,
-        'platformAuthenticator': 'support',
-      },
-    );
-    final token = result['responsetoken'] as String;
-    return {'token': token, 'groupId': group};
+    try {
+      final response = await _request(
+        _sso.resolve('/ustc-rba-front/fp'),
+        jsonBody: {
+          for (final entry in values.entries)
+            entry.key:
+                [
+                  'fonts',
+                  'deviceMemory',
+                  'hardwareConcurrency',
+                  'cpuClass',
+                ].contains(entry.key)
+                ? schoolSha256(entry.value)
+                : entry.value,
+          'localgroupId': group,
+          'fingerprint': schoolSha256(values.values.join()),
+          'cookieValue': device,
+          'userAgent': SchoolSession.userAgent,
+          'platformAuthenticator': 'support',
+        },
+      );
+      final result = jsonDecode(response.text);
+      if (result case {'responsetoken': final String token}
+          when token.isNotEmpty) {
+        return {'token': token, 'groupId': group};
+      }
+      throw const FormatException('学校风控接口未返回有效 token');
+    } catch (failure) {
+      session.checkActive();
+      if (failure is! SchoolRequestError &&
+          failure is! SchoolConnectionError &&
+          failure is! FormatException) {
+        rethrow;
+      }
+      // The school's login page submits this exact payload when fingerprint
+      // collection fails; CAS still decides whether authentication or SMS passes.
+      final detail = failure is FormatException ? failure.message : '$failure';
+      AppDiagnostics.instance.info('学校风控采集失败，将在登录时提交采集失败状态，由学校继续验证：$detail');
+      return {'error': true};
+    }
   }
 
   Future<Map<String, dynamic>> _json(String path, {Object? body}) async =>

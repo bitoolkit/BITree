@@ -3,12 +3,16 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:bitree/agenda/deadline_source.dart';
+import 'package:bitree/core/async/cancelable_request.dart';
+import 'package:bitree/core/diagnostics.dart';
 import 'package:bitree/school/crypto.dart';
 import 'package:bitree/school/errors.dart';
 import 'package:bitree/school/login.dart';
 import 'package:bitree/school/network.dart';
 import 'package:bitree/school/session.dart';
 import 'package:bitree/school/storage.dart';
+import 'package:bitree/school/verification.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/school_network.dart';
@@ -26,8 +30,25 @@ void main() {
   late LocalSchoolNetwork network;
   late MemorySchoolStorage storage;
   late SchoolSession session;
+  late Directory directory;
+  const pathProvider = MethodChannel('plugins.flutter.io/path_provider');
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+
+  setUpAll(() async {
+    directory = await Directory.systemTemp.createTemp('bitree-school-login-');
+  });
+  tearDownAll(() async {
+    await AppDiagnostics.instance.recentLines();
+    messenger.setMockMethodCallHandler(pathProvider, null);
+    await directory.delete(recursive: true);
+  });
 
   setUp(() async {
+    messenger.setMockMethodCallHandler(
+      pathProvider,
+      (_) async => directory.path,
+    );
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     incoming = StreamIterator(server);
     network = LocalSchoolNetwork(server.port);
@@ -72,7 +93,7 @@ void main() {
     await request.response.close();
   }
 
-  Future<HttpRequest> passwordPost({String action = ''}) async {
+  Future<HttpRequest> riskRequest({String action = ''}) async {
     final entry = await nextRequest();
     expect(entry.uri.path, '/lexue.bit.edu.cn/login/index.php');
     entry.response.cookies.add(
@@ -107,16 +128,29 @@ void main() {
     await reply(captcha, body: '{"data":{"captchaInvisible":false}}');
     final risk = await nextRequest();
     expect(risk.uri.path, '/sso.bit.edu.cn/ustc-rba-front/fp');
-    await reply(risk, body: '{"responsetoken":"risk-token"}');
+    return risk;
+  }
+
+  Future<HttpRequest> passwordPost({
+    String action = '',
+    int riskStatus = 200,
+    String riskBody = '{"responsetoken":"risk-token"}',
+  }) async {
+    final risk = await riskRequest(action: action);
+    await reply(risk, status: riskStatus, body: riskBody);
     final password = await nextRequest();
     expect(password.method, 'POST');
     expect(password.uri.path, '/sso.bit.edu.cn/cas/login');
     return password;
   }
 
-  for (final action in ['', 'action=""']) {
+  for (final (action, riskStatus) in [
+    ('', 200),
+    ('action=""', 200),
+    ('', 404),
+  ]) {
     test(
-      'A login form with ${action.isEmpty ? 'no' : 'an empty'} action keeps its service',
+      'A login form with ${action.isEmpty ? 'no' : 'an empty'} action keeps its service after risk status $riskStatus',
       () => HttpOverrides.runWithHttpOverrides(() async {
         final result = login().openService(lexue.loginPage);
         final expectation = expectLater(
@@ -129,7 +163,10 @@ void main() {
             ),
           ),
         );
-        final password = await passwordPost(action: action);
+        final password = await passwordPost(
+          action: action,
+          riskStatus: riskStatus,
+        );
         expect(password.uri.queryParameters['service'], '${lexue.loginPage}');
         final form = Uri.splitQueryString(
           await utf8.decoder.bind(password).join(),
@@ -139,6 +176,14 @@ void main() {
         expect(
           decryptSchoolValue(form['password']!, base64Decode(cryptoKey)),
           'test',
+        );
+        expect(
+          jsonDecode(
+            decryptSchoolValue(form['risk_payload']!, base64Decode(cryptoKey)),
+          ),
+          riskStatus == 200
+              ? {'token': 'risk-token', 'groupId': ''}
+              : {'error': true},
         );
         await reply(
           password,
@@ -161,6 +206,96 @@ void main() {
       }, network),
     );
   }
+
+  for (final (status, body) in [
+    (404, ''),
+    (503, ''),
+    (200, '<html>Unavailable</html>'),
+    (200, '{"responsetoken":42}'),
+  ]) {
+    test(
+      'Risk collection failure ($status, $body) is reported to CAS, which can still require SMS',
+      () => HttpOverrides.runWithHttpOverrides(() async {
+        final result = login().openService(lexue.loginPage);
+        final expectation = expectLater(
+          result,
+          throwsA(
+            isA<SchoolConnectionError>().having(
+              (failure) => failure.url.path,
+              'next authentication step',
+              '/cas/api/protected/sms/getPhoneNumberByUserId',
+            ),
+          ),
+        );
+        final password = await passwordPost(riskStatus: status, riskBody: body);
+        final form = Uri.splitQueryString(
+          await utf8.decoder.bind(password).join(),
+        );
+        expect(form['riskEngine'], 'true');
+        expect(
+          jsonDecode(
+            decryptSchoolValue(form['risk_payload']!, base64Decode(cryptoKey)),
+          ),
+          {'error': true},
+        );
+        expect(
+          decryptSchoolValue(form['password']!, base64Decode(cryptoKey)),
+          'test',
+        );
+        await reply(
+          password,
+          body: '''
+          <p id="login-page-flowkey">sms-flow</p>
+          <p id="user-object-id">test-user-object</p>
+          <form id="secondSmsLoginForm" method="post"></form>
+        ''',
+        );
+        final phone = await nextRequest();
+        // Stop at the encrypted boundary; no real SMS is sent.
+        await reply(phone, status: 503);
+        await expectation;
+      }, network),
+    );
+  }
+
+  test(
+    'Automatic login still defers SMS after a risk collection failure',
+    () => HttpOverrides.runWithHttpOverrides(() async {
+      session = SchoolSession(network: SchoolNetwork.campus, storage: storage);
+      final result = SchoolLogin(session, null).openService(lexue.loginPage);
+      final expectation = expectLater(
+        result,
+        throwsA(
+          isA<SchoolVerificationRequired>().having(
+            (request) => request.kind,
+            'required verification',
+            SchoolVerificationKind.sms,
+          ),
+        ),
+      );
+      final password = await passwordPost(riskStatus: 404, riskBody: '');
+      await reply(
+        password,
+        body: '''
+        <p id="login-page-flowkey">sms-flow</p>
+        <p id="user-object-id">test-user-object</p>
+        <form id="secondSmsLoginForm" method="post"></form>
+      ''',
+      );
+      await expectation;
+    }, network),
+  );
+
+  test(
+    'Cancelling risk collection does not submit a failure payload or credentials',
+    () => HttpOverrides.runWithHttpOverrides(() async {
+      final result = login().openService(lexue.loginPage);
+      final expectation = expectLater(result, throwsA(isA<RequestCancelled>()));
+      await riskRequest();
+      session.close();
+      await expectation;
+    }, network),
+  );
 
   for (final source in DeadlineSource.values) {
     test(
@@ -359,30 +494,32 @@ void main() {
     }, network),
   );
 
-  test(
-    'Rejected credentials keep the school login error',
-    () => HttpOverrides.runWithHttpOverrides(() async {
-      final result = login().openService(lexue.loginPage);
-      final expectation = expectLater(
-        result,
-        throwsA(
-          isA<SchoolCredentialsRequired>().having(
-            (failure) => failure.message,
-            'message',
-            '账号或密码错误',
+  for (final riskStatus in [200, 404]) {
+    test(
+      'Rejected credentials keep the school login error after risk status $riskStatus',
+      () => HttpOverrides.runWithHttpOverrides(() async {
+        final result = login().openService(lexue.loginPage);
+        final expectation = expectLater(
+          result,
+          throwsA(
+            isA<SchoolCredentialsRequired>().having(
+              (failure) => failure.message,
+              'message',
+              '账号或密码错误',
+            ),
           ),
-        ),
-      );
-      final password = await passwordPost();
-      await reply(
-        password,
-        status: 401,
-        body: '''
+        );
+        final password = await passwordPost(riskStatus: riskStatus);
+        await reply(
+          password,
+          status: 401,
+          body: '''
           <p id="login-error-code">1030027</p>
           <p id="login-error-msg">认证信息无效</p>
         ''',
-      );
-      await expectation;
-    }, network),
-  );
+        );
+        await expectation;
+      }, network),
+    );
+  }
 }
