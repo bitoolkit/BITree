@@ -112,7 +112,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ],
       ),
       actions: [
-        AddButton(controller: controller, includeCourse: false),
+        AddButton(controller: controller),
         SchoolImportButton(controller: controller),
         IconButton(
           tooltip: timeline ? '切换到列表' : '切换到时间轴',

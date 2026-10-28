@@ -24,7 +24,7 @@ Future<void> editAgenda(
   builder: (_) => _AgendaEditor(
     controller: controller,
     entry: entry,
-    kind: kind,
+    kind: entry?.kind ?? kind,
     startsAt: selection?.startsAt ?? date ?? campusNow(),
     endsAt: selection?.endsAt,
     term: term,
@@ -57,7 +57,7 @@ class _AgendaEditorState extends State<_AgendaEditor> {
   late final _title = TextEditingController(text: widget.entry?.title);
   late final _location = TextEditingController(text: widget.entry?.location);
   late final _notes = TextEditingController(text: widget.entry?.notes);
-  late AgendaKind _kind = widget.entry?.kind ?? widget.kind;
+  late AgendaKind _kind = widget.kind;
   late DateTime _start = widget.entry?.startsAt ?? widget.startsAt;
   late DateTime _end =
       widget.entry?.allDay == true && widget.entry?.endsAt != null
@@ -233,9 +233,9 @@ class _AgendaEditorState extends State<_AgendaEditor> {
         children: [
           if (widget.entry == null) ...[
             SegmentedButton<AgendaKind>(
-              segments: [
-                for (final kind in AgendaKind.values)
-                  ButtonSegment(value: kind, label: Text(kind.label)),
+              segments: const [
+                ButtonSegment(value: AgendaKind.event, label: Text('日程')),
+                ButtonSegment(value: AgendaKind.deadline, label: Text('DDL')),
               ],
               selected: {_kind},
               showSelectedIcon: false,

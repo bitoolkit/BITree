@@ -1,5 +1,6 @@
 import 'package:bitree/agenda/model.dart';
 import 'package:bitree/agenda/ui/calendar_screen.dart';
+import 'package:bitree/agenda/view_mode.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +20,7 @@ void main() {
       ],
     );
     await app.initialize();
+    await app.setAgendaViewMode(AgendaViewMode.list);
     await tester.pumpWidget(
       MaterialApp(
         theme: bitreeTheme(Brightness.light),

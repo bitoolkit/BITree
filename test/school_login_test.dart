@@ -118,7 +118,7 @@ void main() {
     test(
       'A login form with ${action.isEmpty ? 'no' : 'an empty'} action keeps its service',
       () => HttpOverrides.runWithHttpOverrides(() async {
-        final result = login().openLearningPlatform(lexue);
+        final result = login().openService(lexue.loginPage);
         final expectation = expectLater(
           result,
           completion(
@@ -170,7 +170,7 @@ void main() {
         await storage.saveCookies(SchoolNetwork.campus, source.origin, [
           Cookie('session', 'signed-in')..path = '/',
         ]);
-        final result = login().openLearningPlatform(source);
+        final result = login().openService(source.loginPage);
         final expectation = expectLater(result, completes);
         final request = await nextRequest();
         expect(request.uri.path, '/${source.host}${source.loginPage.path}');
@@ -195,7 +195,7 @@ void main() {
     test(
       'A secondary verification page starts its phone lookup: $marker',
       () => HttpOverrides.runWithHttpOverrides(() async {
-        final result = login().openLearningPlatform(lexue);
+        final result = login().openService(lexue.loginPage);
         final expectation = expectLater(
           result,
           throwsA(
@@ -229,10 +229,140 @@ void main() {
     );
   }
 
+  for (final (target, entry) in [
+    ('teaching', SchoolNetwork.campus.accountPage),
+    ('records', SchoolNetwork.recordsService),
+    ('lexue', lexue.loginPage),
+    ('eclass', DeadlineSource.eclass.loginPage),
+  ]) {
+    test(
+      '$target resumes SMS verification from an existing SSO session without a password page',
+      () => HttpOverrides.runWithHttpOverrides(() async {
+        final auth = login();
+        Future<void> authenticate() async {
+          switch (target) {
+            case 'teaching':
+              await auth.signIn();
+            case 'records':
+              await auth.signInTo(entry);
+            default:
+              await auth.openService(entry);
+          }
+        }
+
+        final expectation = expectLater(
+          authenticate(),
+          throwsA(
+            isA<SchoolConnectionError>().having(
+              (failure) => failure.url.path,
+              'SMS endpoint reached',
+              '/cas/api/protected/sms/getPhoneNumberByUserId',
+            ),
+          ),
+        );
+        if (target == 'teaching') {
+          final preflight = await nextRequest();
+          expect(
+            preflight.uri.path,
+            '/jxzxehall.bit.edu.cn/auth-protocol-core/login',
+          );
+          await reply(
+            preflight,
+            status: 302,
+            location: sso.replace(queryParameters: {'service': '$entry'}),
+          );
+        } else if (target != 'records') {
+          final service = await nextRequest();
+          expect(service.uri.path, '/${entry.host}${entry.path}');
+          await reply(
+            service,
+            status: 302,
+            location: sso.replace(queryParameters: {'execution': 'sms-flow'}),
+          );
+        }
+        final page = await nextRequest();
+        expect(page.uri.path, '/sso.bit.edu.cn/cas/login');
+        await reply(
+          page,
+          body: '''
+          <p id="login-page-flowkey">sms-flow</p>
+          <p id="user-object-id">test-user-object</p>
+          <form id="secondSmsLoginForm" method="post"></form>
+        ''',
+        );
+        final phone = await nextRequest();
+        expect(
+          phone.uri.path,
+          '/sso.bit.edu.cn/cas/api/protected/sms/getPhoneNumberByUserId',
+        );
+        // Stop at the encrypted school boundary; never contact a real SMS service.
+        await reply(phone, status: 503);
+        await expectation;
+      }, network),
+    );
+  }
+
+  test(
+    'A password response can redirect to the SMS step before the service callback',
+    () => HttpOverrides.runWithHttpOverrides(() async {
+      final expectation = expectLater(
+        login().openService(lexue.loginPage),
+        throwsA(
+          isA<SchoolConnectionError>().having(
+            (failure) => failure.url.path,
+            'SMS endpoint reached',
+            '/cas/api/protected/sms/getPhoneNumberByUserId',
+          ),
+        ),
+      );
+      final password = await passwordPost();
+      final continuation = sso.replace(
+        queryParameters: {'execution': 'sms-flow'},
+      );
+      await reply(password, status: 303, location: continuation);
+      final page = await nextRequest();
+      expect(page.method, 'GET');
+      expect(page.uri.queryParameters['execution'], 'sms-flow');
+      await reply(
+        page,
+        body: '''
+        <p id="login-page-flowkey">sms-flow</p>
+        <p id="user-object-id">test-user-object</p>
+        <div id="second-auth-tip">请验证绑定手机</div>
+        <form method="post"></form>
+      ''',
+      );
+      final phone = await nextRequest();
+      expect(
+        phone.uri.path,
+        '/sso.bit.edu.cn/cas/api/protected/sms/getPhoneNumberByUserId',
+      );
+      await reply(phone, status: 503);
+      await expectation;
+    }, network),
+  );
+
+  test(
+    'Repeated SSO redirects stop without submitting credentials',
+    () => HttpOverrides.runWithHttpOverrides(() async {
+      final expectation = expectLater(
+        login().signInTo(SchoolNetwork.recordsService),
+        throwsA(isA<SchoolRequestError>()),
+      );
+      for (var redirect = 0; redirect <= 11; redirect++) {
+        final request = await nextRequest();
+        expect(request.method, 'GET');
+        expect(request.uri.path, '/sso.bit.edu.cn/cas/login');
+        await reply(request, status: 302, location: sso);
+      }
+      await expectation;
+    }, network),
+  );
+
   test(
     'Rejected credentials keep the school login error',
     () => HttpOverrides.runWithHttpOverrides(() async {
-      final result = login().openLearningPlatform(lexue);
+      final result = login().openService(lexue.loginPage);
       final expectation = expectLater(
         result,
         throwsA(

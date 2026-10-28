@@ -168,7 +168,7 @@ void main() {
   });
 
   testWidgets(
-    'Current course text remains readable on the derived elapsed fill',
+    'Course colours stay opaque and readable before and during class',
     (tester) async {
       for (final brightness in Brightness.values) {
         await tester.pumpWidget(
@@ -191,13 +191,32 @@ void main() {
                     room: row['name'] as String,
                   );
                   final colors = courseColors(context, course);
-                  final a = colors.elapsedFill.computeLuminance();
-                  final b = colors.text.computeLuminance();
-                  expect(
-                    (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05),
-                    greaterThanOrEqualTo(4.5),
-                    reason: '${row['name']} $brightness',
-                  );
+                  for (final (foreground, background) in [
+                    (colors.text, colors.fill),
+                    (colors.secondaryText, colors.fill),
+                    (colors.text, colors.elapsedFill),
+                  ]) {
+                    expect(foreground.a, 1);
+                    expect(background.a, 1);
+                    final a = foreground.computeLuminance();
+                    final b = background.computeLuminance();
+                    expect(
+                      (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05),
+                      greaterThanOrEqualTo(4.5),
+                      reason: '${row['name']} $brightness',
+                    );
+                  }
+                  if (brightness == Brightness.dark) {
+                    final column = Theme.of(context)
+                        .colorScheme
+                        .surfaceContainer;
+                    expect(
+                      (colors.fill.computeLuminance() + 0.05) /
+                          (column.computeLuminance() + 0.05),
+                      greaterThanOrEqualTo(1.5),
+                      reason: '${row['name']} separates from today’s column',
+                    );
+                  }
                   expect(
                     colors.elapsedFill.computeLuminance(),
                     brightness == Brightness.light

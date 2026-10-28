@@ -197,8 +197,10 @@ class _TimetableState extends State<Timetable> with WidgetsBindingObserver {
     final today = calendarDate(_currentTime.value);
     final currentWeek = schedule.weekAt(today) == widget.week;
     final todayColumn = currentWeek ? today.weekday - 1 : null;
-    final todayBackground = Theme.of(context).colorScheme.primary
-        .withValues(alpha: 0.08);
+    final theme = Theme.of(context);
+    final todayBackground = theme.brightness == Brightness.dark
+        ? theme.colorScheme.surfaceContainer
+        : theme.colorScheme.primary.withValues(alpha: 0.08);
     final scale = MediaQuery.textScalerOf(context).scale(1);
 
     final days = [

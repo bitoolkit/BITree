@@ -10,10 +10,6 @@ import 'package:bitree/schedule/store.dart';
 import 'package:bitree/school/network.dart';
 import 'package:bitree/school/service.dart';
 import 'package:bitree/school/storage.dart';
-import 'package:bitree/study/controller.dart';
-import 'package:bitree/study/model.dart';
-import 'package:bitree/study/store.dart';
-import 'package:bitree/study/yanhekt.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -124,12 +120,6 @@ class TestAppController extends AppController {
          preferences: MemoryPreferences(),
          agenda: agenda ?? AgendaController(MemoryAgendaStore(entries)),
          academics: AcademicController(MemoryAcademicStore()),
-         study: StudyController(
-           store: MemoryStudyStore(),
-           repository: YanhektRepository(
-             schoolStorage ?? MemorySchoolStorage(),
-           ),
-         ),
        ) {
     addTearDown(dispose);
   }
@@ -140,29 +130,4 @@ class TestAppController extends AppController {
     await super.initialize();
     if (initialWeek case final week?) timetable.selectWeek(week);
   }
-}
-
-class MemoryStudyStore extends StudyStore {
-  List<StudyCourse> courses = [];
-  final _materials = <String, LectureMaterials>{};
-  ({String course, String lecture})? resume;
-  @override
-  Future<List<StudyCourse>> readCourses() async => courses;
-  @override
-  Future<void> writeCourses(List<StudyCourse> value) async =>
-      courses = List.of(value);
-  @override
-  Future<LectureMaterials> readMaterials(String course, String lecture) async =>
-      _materials.putIfAbsent('$course/$lecture', LectureMaterials.new);
-  @override
-  Future<void> writeMaterials(
-    String course,
-    String lecture,
-    LectureMaterials value,
-  ) async => _materials['$course/$lecture'] = value;
-  @override
-  Future<({String course, String lecture})?> readResume() async => resume;
-  @override
-  Future<void> writeResume(String course, String lecture) async =>
-      resume = (course: course, lecture: lecture);
 }
