@@ -1,0 +1,95 @@
+import 'package:bitree/agenda/model.dart';
+import 'package:bitree/agenda/ui/calendar_screen.dart';
+import 'package:bitree/schedule/ui/home_screen.dart';
+import 'package:bitree/ui/editor_sheet.dart';
+import 'package:bitree/ui/theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'support/test_app.dart';
+
+void main() {
+  final now = DateTime.utc(2026, 10, 28, 12);
+
+  for (final home in [true, false]) {
+    for (final size in [const Size(320, 844), const Size(1200, 900)]) {
+      testWidgets(
+        '${home ? 'Home' : 'Agenda'} offers the same ordered add actions at $size',
+        (tester) async {
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = size;
+          addTearDown(tester.view.resetDevicePixelRatio);
+          addTearDown(tester.view.resetPhysicalSize);
+          final controller = TestAppController();
+          await controller.initialize();
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: bitreeTheme(Brightness.light),
+              home: Scaffold(
+                body: home
+                    ? HomeScreen(
+                        controller: controller,
+                        now: now,
+                        active: false,
+                      )
+                    : CalendarScreen(
+                        controller: controller,
+                        now: now,
+                        active: false,
+                      ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.byTooltip('添加'));
+          await tester.pumpAndSettle();
+          final labels = find.descendant(
+            of: find.byType(MenuItemButton),
+            matching: find.byType(Text),
+          );
+          expect(tester.widgetList<Text>(labels).map((label) => label.data), [
+            '添加课程',
+            '添加日程',
+          ]);
+          final addCourse = find.widgetWithText(MenuItemButton, '添加课程');
+          final addAgenda = find.widgetWithText(MenuItemButton, '添加日程');
+          final course = tester.getRect(addCourse);
+          final agenda = tester.getRect(addAgenda);
+          expect(course.center.dy, lessThan(agenda.center.dy));
+          expect(agenda.right, lessThanOrEqualTo(size.width));
+
+          await tester.tap(addCourse);
+          await tester.pumpAndSettle();
+          expect(
+            tester.widget<EditorSheet>(find.byType(EditorSheet)).title,
+            '添加课程',
+          );
+          await tester.tap(find.byTooltip('关闭'));
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.byTooltip('添加'));
+          await tester.pumpAndSettle();
+          await tester.tap(addAgenda);
+          await tester.pumpAndSettle();
+          expect(
+            tester.widget<EditorSheet>(find.byType(EditorSheet)).title,
+            '添加日程',
+          );
+          for (final kind in [AgendaKind.deadline, AgendaKind.exam]) {
+            await tester.tap(find.text(kind.label));
+            await tester.pumpAndSettle();
+            expect(
+              tester.widget<EditorSheet>(find.byType(EditorSheet)).title,
+              '添加${kind.label}',
+            );
+          }
+          await tester.tap(find.byTooltip('关闭'));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+        },
+      );
+    }
+  }
+}

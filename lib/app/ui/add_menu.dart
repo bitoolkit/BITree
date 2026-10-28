@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../agenda/model.dart';
 import '../../agenda/ui/agenda_editor.dart';
 import '../../schedule/selection.dart';
 import '../../schedule/ui/course_editor.dart';
@@ -14,7 +13,6 @@ class AddMenu extends StatelessWidget {
     this.menuController,
     this.selection,
     this.date,
-    this.includeCourse = true,
     this.onClose,
     this.builder,
     this.child,
@@ -24,19 +22,9 @@ class AddMenu extends StatelessWidget {
   final MenuController? menuController;
   final TimetableSelection? selection;
   final DateTime? date;
-  final bool includeCourse;
   final VoidCallback? onClose;
   final AppMenuAnchorBuilder? builder;
   final Widget? child;
-
-  Future<void> _addAgenda(BuildContext context, AgendaKind kind) => editAgenda(
-    context,
-    controller,
-    selection: selection,
-    date: date,
-    term: includeCourse ? controller.timetable.schedule?.term : null,
-    kind: kind,
-  );
 
   @override
   Widget build(BuildContext context) {
@@ -45,37 +33,26 @@ class AddMenu extends StatelessWidget {
       controller: menuController,
       onClose: onClose,
       menuChildren: [
-        if (includeCourse)
-          AppMenuItemButton(
-            onPressed: controller.timetable.busy
-                ? null
-                : () => editCourse(context, controller, selection: selection),
-            leadingIcon: const Icon(Icons.school_outlined),
-            child: const Text('添加课程'),
-          ),
+        AppMenuItemButton(
+          onPressed: controller.timetable.busy
+              ? null
+              : () => editCourse(context, controller, selection: selection),
+          leadingIcon: const Icon(Icons.school_outlined),
+          child: const Text('添加课程'),
+        ),
         AppMenuItemButton(
           onPressed: agendaEnabled
-              ? () => _addAgenda(context, AgendaKind.event)
+              ? () => editAgenda(
+                  context,
+                  controller,
+                  selection: selection,
+                  date: date,
+                  term: controller.timetable.schedule?.term,
+                )
               : null,
           leadingIcon: const Icon(Icons.event_outlined),
           child: const Text('添加日程'),
         ),
-        if (selection == null)
-          AppMenuItemButton(
-            onPressed: agendaEnabled
-                ? () => _addAgenda(context, AgendaKind.deadline)
-                : null,
-            leadingIcon: const Icon(Icons.flag_outlined),
-            child: const Text('添加 DDL'),
-          ),
-        if (!includeCourse)
-          AppMenuItemButton(
-            onPressed: agendaEnabled
-                ? () => _addAgenda(context, AgendaKind.exam)
-                : null,
-            leadingIcon: const Icon(Icons.edit_note_rounded),
-            child: const Text('添加考试'),
-          ),
       ],
       builder: builder,
       child: child,
@@ -84,22 +61,15 @@ class AddMenu extends StatelessWidget {
 }
 
 class AddButton extends StatelessWidget {
-  const AddButton({
-    super.key,
-    required this.controller,
-    this.date,
-    this.includeCourse = true,
-  });
+  const AddButton({super.key, required this.controller, this.date});
 
   final AppController controller;
   final DateTime? date;
-  final bool includeCourse;
 
   @override
   Widget build(BuildContext context) => AddMenu(
     controller: controller,
     date: date,
-    includeCourse: includeCourse,
     builder: (context, menu, isOpen) => IconButton(
       tooltip: '添加',
       onPressed: controller.timetable.busy || controller.agenda.busy

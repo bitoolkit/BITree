@@ -105,6 +105,17 @@ void main() {
     await tester.tapAt(cell(tester, day, section));
     await tester.pumpAndSettle();
     expect(addCourse, findsOneWidget);
+    expect(
+      tester
+          .widgetList<Text>(
+            find.descendant(
+              of: find.byType(MenuItemButton),
+              matching: find.byType(Text),
+            ),
+          )
+          .map((label) => label.data),
+      ['添加课程', '添加日程'],
+    );
   }
 
   void expectClosed(WidgetTester tester) {
