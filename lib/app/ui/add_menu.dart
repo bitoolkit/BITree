@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../agenda/model.dart';
 import '../../agenda/ui/agenda_editor.dart';
 import '../../schedule/selection.dart';
 import '../../schedule/ui/course_editor.dart';
@@ -40,19 +41,24 @@ class AddMenu extends StatelessWidget {
           leadingIcon: const Icon(Icons.school_outlined),
           child: const Text('添加课程'),
         ),
-        AppMenuItemButton(
-          onPressed: agendaEnabled
-              ? () => editAgenda(
-                  context,
-                  controller,
-                  selection: selection,
-                  date: date,
-                  term: controller.timetable.schedule?.term,
-                )
-              : null,
-          leadingIcon: const Icon(Icons.event_outlined),
-          child: const Text('添加日程'),
-        ),
+        for (final (kind, label, icon) in const [
+          (AgendaKind.event, '添加日程', Icons.event_outlined),
+          (AgendaKind.deadline, '添加 DDL', Icons.flag_outlined),
+        ])
+          AppMenuItemButton(
+            onPressed: agendaEnabled
+                ? () => editAgenda(
+                    context,
+                    controller,
+                    kind: kind,
+                    selection: selection,
+                    date: date,
+                    term: controller.timetable.schedule?.term,
+                  )
+                : null,
+            leadingIcon: Icon(icon),
+            child: Text(label),
+          ),
       ],
       builder: builder,
       child: child,

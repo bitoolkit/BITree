@@ -51,13 +51,18 @@ void main() {
           expect(tester.widgetList<Text>(labels).map((label) => label.data), [
             '添加课程',
             '添加日程',
+            '添加 DDL',
           ]);
           final addCourse = find.widgetWithText(MenuItemButton, '添加课程');
           final addAgenda = find.widgetWithText(MenuItemButton, '添加日程');
+          final addDeadline = find.widgetWithText(MenuItemButton, '添加 DDL');
           final course = tester.getRect(addCourse);
           final agenda = tester.getRect(addAgenda);
+          final deadline = tester.getRect(addDeadline);
           expect(course.center.dy, lessThan(agenda.center.dy));
+          expect(agenda.center.dy, lessThan(deadline.center.dy));
           expect(agenda.right, lessThanOrEqualTo(size.width));
+          expect(deadline.right, lessThanOrEqualTo(size.width));
 
           await tester.tap(addCourse);
           await tester.pumpAndSettle();
@@ -103,6 +108,27 @@ void main() {
             '添加日程',
           );
           expect(find.text('结束'), findsOneWidget);
+          await tester.tap(find.byTooltip('关闭'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('添加'));
+          await tester.pumpAndSettle();
+          await tester.tap(addDeadline);
+          await tester.pumpAndSettle();
+          expect(
+            tester.widget<EditorSheet>(find.byType(EditorSheet)).title,
+            '添加DDL',
+          );
+          expect(
+            tester
+                .widget<SegmentedButton<AgendaKind>>(
+                  find.byType(SegmentedButton<AgendaKind>),
+                )
+                .selected,
+            {AgendaKind.deadline},
+          );
+          expect(find.text('截止'), findsOneWidget);
+          expect(find.text('结束'), findsNothing);
+          expect(find.text('地点（选填）'), findsNothing);
           await tester.tap(find.byTooltip('关闭'));
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);

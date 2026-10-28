@@ -13,6 +13,7 @@ Future<void> editAgenda(
   BuildContext context,
   AppController controller, {
   AgendaEntry? entry,
+  AgendaKind kind = AgendaKind.event,
   TimetableSelection? selection,
   DateTime? date,
   String? term,
@@ -23,6 +24,7 @@ Future<void> editAgenda(
   builder: (_) => _AgendaEditor(
     controller: controller,
     entry: entry,
+    kind: entry?.kind ?? kind,
     startsAt: selection?.startsAt ?? date ?? campusNow(),
     endsAt: selection?.endsAt,
     term: term,
@@ -32,6 +34,7 @@ Future<void> editAgenda(
 class _AgendaEditor extends StatefulWidget {
   const _AgendaEditor({
     required this.controller,
+    required this.kind,
     required this.startsAt,
     this.entry,
     this.endsAt,
@@ -40,6 +43,7 @@ class _AgendaEditor extends StatefulWidget {
 
   final AppController controller;
   final AgendaEntry? entry;
+  final AgendaKind kind;
   final DateTime startsAt;
   final DateTime? endsAt;
   final String? term;
@@ -53,7 +57,7 @@ class _AgendaEditorState extends State<_AgendaEditor> {
   late final _title = TextEditingController(text: widget.entry?.title);
   late final _location = TextEditingController(text: widget.entry?.location);
   late final _notes = TextEditingController(text: widget.entry?.notes);
-  late AgendaKind _kind = widget.entry?.kind ?? AgendaKind.event;
+  late AgendaKind _kind = widget.kind;
   late DateTime _start = widget.entry?.startsAt ?? widget.startsAt;
   late DateTime _end =
       widget.entry?.allDay == true && widget.entry?.endsAt != null
