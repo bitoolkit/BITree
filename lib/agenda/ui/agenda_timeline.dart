@@ -13,6 +13,7 @@ import 'agenda_detail.dart';
 import 'timeline_colors.dart';
 
 const _microsecondsPerHour = Duration.microsecondsPerSecond * 3600;
+const _minimumEventWidth = 96.0;
 
 /// A viewport-sized timeline: panning changes a date, not a giant scroll offset.
 class AgendaTimeline extends StatefulWidget {
@@ -58,13 +59,19 @@ class _AgendaTimelineState extends State<AgendaTimeline>
   int _gesturePointers = 0;
   DateTime? _gestureAnchor;
   List<AgendaEntry>? _cachedEntries;
+  Duration? _cachedMinimumEventSpan;
   List<AgendaTimelinePlacement> _cachedPlacements = const [];
   final Map<String, DateTime> _nextStartById = {};
 
-  List<AgendaTimelinePlacement> _layout() {
-    if (!identical(_cachedEntries, widget.entries)) {
+  List<AgendaTimelinePlacement> _layout(Duration minimumEventSpan) {
+    if (!identical(_cachedEntries, widget.entries) ||
+        _cachedMinimumEventSpan != minimumEventSpan) {
       _cachedEntries = widget.entries;
-      _cachedPlacements = layoutAgendaTimeline(widget.entries);
+      _cachedMinimumEventSpan = minimumEventSpan;
+      _cachedPlacements = layoutAgendaTimeline(
+        widget.entries,
+        minimumEventSpan: minimumEventSpan,
+      );
       _nextStartById.clear();
       final nextByLane = <int, DateTime>{};
       for (final placement in _cachedPlacements.reversed) {
@@ -262,7 +269,12 @@ class _AgendaTimelineState extends State<AgendaTimeline>
         microseconds: (deadlineWidth / pixelsPerHour * _microsecondsPerHour)
             .ceil(),
       );
-      final placements = _layout();
+      final minimumEventSpan = Duration(
+        microseconds:
+            (_minimumEventWidth * fontScale / pixelsPerHour * _microsecondsPerHour)
+                .ceil(),
+      );
+      final placements = _layout(minimumEventSpan);
       final laneCount = placements.fold<int>(
         0,
         (count, placement) => math.max(count, placement.lane + 1),
@@ -473,7 +485,7 @@ class _AgendaTimelineState extends State<AgendaTimeline>
                           );
                           final offset = _lanes.hasClients ? _lanes.offset : 0.0;
                           final visible = placements.where((placement) =>
-                              placement.end.isAfter(left) &&
+                              placement.layoutEnd.isAfter(left) &&
                               (placement.entry.isDeadline
                                       ? placement.end.subtract(deadlineDuration)
                                       : placement.start)
@@ -565,7 +577,7 @@ class _AgendaTimelineState extends State<AgendaTimeline>
     double x(DateTime time) => width / 2 +
         time.difference(_center).inMicroseconds /
             _microsecondsPerHour * pixelsPerHour;
-    final actualRight = x(placement.end);
+    final actualRight = x(placement.layoutEnd);
     final actualLeft = entry.isDeadline
         ? actualRight - deadlineWidth
         : x(placement.start);

@@ -1,6 +1,6 @@
 import 'model.dart';
 
-/// Lane bounds are expressed only in campus time, never in screen pixels.
+/// Event end times stay intact; layoutEnd includes their minimum display span.
 /// DDLs reserve four days solely for packing; their painted width is separate.
 class AgendaTimelinePlacement {
   const AgendaTimelinePlacement({
@@ -8,7 +8,6 @@ class AgendaTimelinePlacement {
     required this.lane,
     required this.start,
     required this.end,
-    required this.layoutStart,
     required this.layoutEnd,
   });
 
@@ -16,50 +15,55 @@ class AgendaTimelinePlacement {
   final int lane;
   final DateTime start;
   final DateTime end;
-  final DateTime layoutStart;
   final DateTime layoutEnd;
 }
 
-/// Pack true event intervals and fixed four-day DDL reservations. No zoom,
-/// viewport width or pixel gap participates, so zooming cannot change lanes.
+/// Pack visible event spans and fixed four-day DDL reservations.
+/// The view converts its minimum card width to campus time at the current zoom.
 List<AgendaTimelinePlacement> layoutAgendaTimeline(
-  Iterable<AgendaEntry> entries,
-) {
-  final intervals = [
-    for (final entry in entries.where((entry) => !entry.deleted))
-      (
-        entry: entry,
-        start: entry.isDeadline
-            ? entry.dueAt.subtract(const Duration(days: 4))
-            : entry.startsAt,
-        end: entry.isDeadline ? entry.dueAt : entry.endsAt!,
-      ),
-  ]..sort((a, b) {
-      final byStart = a.start.compareTo(b.start);
-      if (byStart != 0) return byStart;
-      final byEnd = a.end.compareTo(b.end);
-      return byEnd != 0 ? byEnd : a.entry.id.compareTo(b.entry.id);
-    });
+  Iterable<AgendaEntry> entries, {
+  required Duration minimumEventSpan,
+}) {
+  final intervals =
+      [
+        for (final entry in entries.where((entry) => !entry.deleted))
+          (
+            entry: entry,
+            start: entry.isDeadline
+                ? entry.dueAt.subtract(const Duration(days: 4))
+                : entry.startsAt,
+            end: entry.isDeadline ? entry.dueAt : entry.endsAt!,
+          ),
+      ]..sort((a, b) {
+        final byStart = a.start.compareTo(b.start);
+        if (byStart != 0) return byStart;
+        final byEnd = a.end.compareTo(b.end);
+        return byEnd != 0 ? byEnd : a.entry.id.compareTo(b.entry.id);
+      });
   final laneEnds = <DateTime>[];
   final result = <AgendaTimelinePlacement>[];
   for (final interval in intervals) {
-    var lane = laneEnds.indexWhere(
-      (end) => !interval.start.isBefore(end),
-    );
+    final minimumEnd = interval.start.add(minimumEventSpan);
+    final layoutEnd =
+        !interval.entry.isDeadline && interval.end.isBefore(minimumEnd)
+        ? minimumEnd
+        : interval.end;
+    var lane = laneEnds.indexWhere((end) => !interval.start.isBefore(end));
     if (lane < 0) {
       lane = laneEnds.length;
-      laneEnds.add(interval.end);
+      laneEnds.add(layoutEnd);
     } else {
-      laneEnds[lane] = interval.end;
+      laneEnds[lane] = layoutEnd;
     }
-    result.add(AgendaTimelinePlacement(
-      entry: interval.entry,
-      lane: lane,
-      start: interval.start,
-      end: interval.end,
-      layoutStart: interval.start,
-      layoutEnd: interval.end,
-    ));
+    result.add(
+      AgendaTimelinePlacement(
+        entry: interval.entry,
+        lane: lane,
+        start: interval.start,
+        end: interval.end,
+        layoutEnd: layoutEnd,
+      ),
+    );
   }
   return result;
 }
