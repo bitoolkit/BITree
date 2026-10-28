@@ -1,20 +1,56 @@
+import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:bitree/agenda/calendar.dart';
 import 'package:bitree/schedule/layout.dart';
 import 'package:bitree/schedule/model.dart';
 import 'package:bitree/schedule/selection.dart';
+import 'package:bitree/schedule/time_position.dart';
 import 'package:bitree/schedule/ui/course_tile.dart';
 import 'package:bitree/schedule/ui/current_time_indicator.dart';
 import 'package:bitree/schedule/ui/timetable_grid.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/test_app.dart';
 
+typedef _Pixels = ({ByteData bytes, int width});
+
+Future<_Pixels> _capture(WidgetTester tester, GlobalKey key) async =>
+    (await tester.runAsync(() async {
+      final boundary =
+          key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final image = await boundary.toImage(pixelRatio: 2);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      final result = (bytes: bytes!, width: image.width);
+      image.dispose();
+      return result;
+    }))!;
+
+Color _atPixel(_Pixels pixels, Offset point) {
+  final offset =
+      ((point.dy * 2).floor() * pixels.width + (point.dx * 2).floor()) * 4;
+  final data = pixels.bytes;
+  return Color.fromARGB(
+    data.getUint8(offset + 3),
+    data.getUint8(offset),
+    data.getUint8(offset + 1),
+    data.getUint8(offset + 2),
+  );
+}
+
+int _difference(Color a, Color b) => [
+  for (final shift in [0, 8, 16])
+    (((a.toARGB32() >> shift) & 255) - ((b.toARGB32() >> shift) & 255)).abs(),
+].reduce(math.max);
+
 void main() {
   final date = DateTime.utc(2026, 10, 27);
-  DateTime at(int hour, int minute) =>
-      date.add(Duration(hours: hour, minutes: minute));
+  DateTime at(int hour, int minute, [int second = 0]) =>
+      date.add(Duration(hours: hour, minutes: minute, seconds: second));
   final occurrence = TimetableSelection(
     date: date,
     startSection: 3,
@@ -40,17 +76,20 @@ void main() {
     );
   });
 
-  test('Independent line centers retain the existing grid-edge clamping', () {
+  test('The line and fill share the same grid-edge clamping', () {
     expect(CurrentTimeIndicator.centerAt(0, 64), 1);
     expect(CurrentTimeIndicator.centerAt(2.5, 64), 160);
-    expect(CurrentTimeIndicator.centerAt(sectionTimes.length.toDouble(), 64), 831);
+    expect(
+      CurrentTimeIndicator.centerAt(sectionTimes.length.toDouble(), 64),
+      831,
+    );
   });
 
   for (final brightness in Brightness.values) {
     testWidgets(
-      'Card and independent lines stay aligned without changing text width in $brightness',
+      'One full-width line crosses cards and class boundaries in $brightness',
       (tester) async {
-        tester.view.physicalSize = const Size(390, 1000);
+        tester.view.physicalSize = const Size(414, 1000);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
@@ -63,155 +102,210 @@ void main() {
           endSection: 4,
           weeks: [1],
         );
+        final other = Course(
+          id: 'discrete',
+          name: '离散数学',
+          room: '文萃楼I501',
+          weekday: 1,
+          startSection: 3,
+          endSection: 4,
+          weeks: [1],
+        );
         final schedule = SemesterSchedule(
           term: '2026-2027-1',
           firstMonday: mondayOf(date),
-          courses: [course],
+          courses: [course, other],
         );
         final controller = TestAppController(schedule: schedule);
         await controller.initialize();
         final time = ValueNotifier(at(9, 54));
         addTearDown(time.dispose);
+        final key = GlobalKey();
+        final theme = bitreeTheme(brightness);
         await tester.pumpWidget(
           MaterialApp(
-            theme: bitreeTheme(brightness),
+            theme: theme,
             home: Scaffold(
               body: SingleChildScrollView(
-                child: TimetableGrid(
-                  controller: controller,
-                  monday: mondayOf(date),
-                  layouts: [
-                    for (var day = 0; day < 7; day++)
-                      groupCalendarItems(
-                        calendarItemsOn(
-                          mondayOf(date).add(Duration(days: day)),
-                          schedule,
-                          [],
-                        ),
-                        mondayOf(date).add(Duration(days: day)),
-                      ),
-                  ],
-                  gutterWidth: 64,
-                  rowHeight: 64,
-                  todayColumn: 1,
-                  todayBackground: Colors.transparent,
-                  currentTime: time,
+                child: RepaintBoundary(
+                  key: key,
+                  child: ColoredBox(
+                    color: theme.colorScheme.surface,
+                    child: TimetableGrid(
+                      controller: controller,
+                      monday: mondayOf(date),
+                      layouts: [
+                        for (var day = 0; day < 7; day++)
+                          groupCalendarItems(
+                            calendarItemsOn(
+                              mondayOf(date).add(Duration(days: day)),
+                              schedule,
+                              [],
+                            ),
+                            mondayOf(date).add(Duration(days: day)),
+                          ),
+                      ],
+                      gutterWidth: 64,
+                      rowHeight: 64,
+                      todayColumn: 1,
+                      todayBackground: Colors.transparent,
+                      currentTime: time,
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
         );
-        final title = find.text(course.name);
-        final room = find.text(course.room);
-        final initialWidth = tester.getSize(title).width;
-        final initialRoomWidth = tester.getSize(room).width;
-        final initialCard = tester.getRect(find.byType(CourseTile));
+        final todayCard = find.byWidgetPredicate(
+          (widget) => widget is CourseTile && widget.course.id == course.id,
+        );
+        final otherCard = find.byWidgetPredicate(
+          (widget) => widget is CourseTile && widget.course.id == other.id,
+        );
+        final card = tester.getRect(todayCard);
+        final titleWidth = tester.getSize(find.text(course.name)).width;
+        final roomWidth = tester.getSize(find.text(course.room)).width;
         final fill = find.descendant(
-          of: find.byType(CourseTile),
+          of: todayCard,
           matching: find.byType(FractionallySizedBox),
         );
-        final independentLine = find.descendant(
+        final line = find.descendant(
           of: find.byType(CurrentTimeIndicator),
-          matching: find.byType(DecoratedBox),
+          matching: find.byType(CustomPaint),
         );
-        expect(fill, findsNothing);
-        expect(independentLine, findsOneWidget);
-        final gridStack = tester
-            .element(find.byType(CurrentTimeIndicator))
-            .findAncestorWidgetOfExactType<Stack>()!;
-        final indicatorLayer = tester
-            .element(find.byType(CurrentTimeIndicator))
-            .findAncestorWidgetOfExactType<Positioned>()!;
-        final courseLayer = tester
-            .element(find.byType(CourseTile))
-            .findAncestorWidgetOfExactType<Positioned>()!;
-        expect(
-          gridStack.children.indexOf(indicatorLayer),
-          lessThan(gridStack.children.indexOf(courseLayer)),
+        double center() => CurrentTimeIndicator.centerAt(
+          timeIndicatorPositionAt(time.value).section,
+          64,
         );
+
         for (final clock in [
-          (9, 55),
-          (9, 56),
-          (10, 10),
-          (10, 42),
-          (10, 55),
-          (11, 28),
-          (11, 29),
+          (9, 54, 0),
+          (9, 55, 0),
+          (9, 56, 0),
+          (10, 10, 0),
+          (10, 42, 0),
+          (10, 55, 0),
+          (11, 29, 59),
+          (11, 30, 0),
         ]) {
-          time.value = at(clock.$1, clock.$2);
+          time.value = at(clock.$1, clock.$2, clock.$3);
           await tester.pump();
-          final layer = find.descendant(
-            of: fill,
-            matching: find.byType(ColoredBox),
-          );
-          final frontier = tester.getRect(layer).bottom;
-          final line = find.descendant(
-            of: find.byType(CourseTile),
-            matching: find.byKey(const ValueKey('course-progress-line')),
-          );
-          expect(independentLine, findsOneWidget);
-          final lineCenter = tester.getRect(independentLine).center.dy;
-          expect(tester.getRect(line).center.dy, closeTo(lineCenter, 0.001));
+          expect(line, findsOneWidget);
+          final pixels = await _capture(tester, key);
           expect(
-            frontier,
-            closeTo(
-              lineCenter.clamp(initialCard.top, initialCard.bottom),
-              0.001,
+            _difference(
+              _atPixel(pixels, Offset(115, center())),
+              theme.colorScheme.primary,
             ),
+            lessThanOrEqualTo(2),
           );
-          expect(tester.getSize(line).height, 2);
-          final color =
-              (tester.widget<DecoratedBox>(line).decoration as BoxDecoration)
-                  .color;
-          expect(color, courseColors(tester.element(title), course).accent);
-          expect(tester.getSize(title).width, initialWidth);
-          expect(tester.getSize(room).width, initialRoomWidth);
-          expect(tester.getRect(find.byType(CourseTile)), initialCard);
-          final material = tester.widget<Material>(
-            find
-                .descendant(
-                  of: find.byType(CourseTile),
-                  matching: find.byType(Material),
-                )
-                .first,
-          );
-          final side = (material.shape! as RoundedRectangleBorder).side;
-          expect(side.width, 1.5);
-          expect(
-            side.color,
-            courseColors(tester.element(title), course).accent,
-          );
+          if (occurrence.progressAt(time.value) != null) {
+            final layer = find.descendant(
+              of: fill,
+              matching: find.byType(ColoredBox),
+            );
+            expect(
+              tester.getRect(layer).bottom,
+              closeTo(center().clamp(card.top, card.bottom), 0.001),
+            );
+          } else {
+            expect(fill, findsNothing);
+          }
+          expect(tester.getSize(find.text(course.name)).width, titleWidth);
+          expect(tester.getSize(find.text(course.room)).width, roomWidth);
+          expect(tester.getRect(todayCard), card);
           expect(tester.takeException(), isNull);
         }
-        time.value = at(11, 30);
+
+        time.value = at(10, 55);
         await tester.pump();
-        expect(fill, findsNothing);
-        final cardMaterial = tester.widget<Material>(
-          find
-              .descendant(
-                of: find.byType(CourseTile),
-                matching: find.byType(Material),
-              )
-              .first,
+        var pixels = await _capture(tester, key);
+        for (final day in [0, 2, 3, 4, 5, 6]) {
+          final x = 64 + day * 50 + 1.0;
+          final background = _atPixel(pixels, Offset(x, center() + 3));
+          final expected = Color.alphaBlend(
+            theme.colorScheme.primary.withValues(alpha: .28),
+            background,
+          );
+          expect(
+            _difference(_atPixel(pixels, Offset(x, center())), expected),
+            lessThanOrEqualTo(3),
+          );
+          expect(_atPixel(pixels, Offset(x, center() + 1.5)), background);
+        }
+        final last = _atPixel(pixels, Offset(413, center()));
+        expect(last, _atPixel(pixels, Offset(365, center())));
+        final previous = tester.getRect(otherCard);
+        final onCard = Offset(previous.right - 4, center());
+        expect(
+          _difference(
+            _atPixel(pixels, onCard),
+            _atPixel(pixels, onCard + const Offset(0, 3)),
+          ),
+          greaterThan(1),
         );
-        expect((cardMaterial.shape! as RoundedRectangleBorder).side.width, 1.5);
+        expect(
+          _difference(
+            _atPixel(pixels, Offset(card.right - 4, center())),
+            theme.colorScheme.primary,
+          ),
+          greaterThan(10),
+        );
+
+        time.value = at(9, 56, 45);
+        await tester.pump();
+        pixels = await _capture(tester, key);
+        expect(
+          _difference(
+            _atPixel(pixels, Offset(card.left + .25, center())),
+            theme.colorScheme.primary,
+          ),
+          lessThanOrEqualTo(2),
+        );
+        expect(
+          _difference(
+            _atPixel(pixels, Offset(card.center.dx, center())),
+            theme.colorScheme.primary,
+          ),
+          greaterThan(10),
+        );
+
+        time.value = at(10, 55);
+        await tester.pump();
+        await tester.tapAt(Offset(card.center.dx, center()));
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: find.byType(BottomSheet),
+            matching: find.text(course.name),
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(find.byTooltip('关闭'));
+        await tester.pumpAndSettle();
+
+        final material = tester.widget<Material>(
+          find.descendant(of: todayCard, matching: find.byType(Material)).first,
+        );
+        expect((material.shape! as RoundedRectangleBorder).side.width, 1.5);
         time.value = at(21, 20);
         await tester.pump();
         expect(fill, findsNothing);
-        final line = find.descendant(
-          of: find.byType(CurrentTimeIndicator),
-          matching: find.byType(DecoratedBox),
-        );
-        final grid = tester.getRect(find.byType(TimetableGrid));
-        expect(tester.getRect(line).top, grid.top);
+        pixels = await _capture(tester, key);
         expect(
-          tester.getRect(line).left,
-          closeTo(grid.left + 64 + 2 * (326 / 7) + 3, 0.001),
+          _difference(
+            _atPixel(pixels, const Offset(165, 1)),
+            theme.colorScheme.primary,
+          ),
+          lessThanOrEqualTo(2),
         );
         time.value = at(10, 55).add(const Duration(days: 7));
         await tester.pump();
         expect(fill, findsNothing);
         expect(line, findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
       },
     );
   }
