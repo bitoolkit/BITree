@@ -21,6 +21,9 @@ Finder _bar(AgendaEntry entry) => find.bySemanticsLabel(
   RegExp('^${RegExp.escape('${entry.kind.label}，${entry.title}，')}'),
 );
 
+Finder _paintedBar(AgendaEntry entry) =>
+    find.byKey(ValueKey(('agenda-timeline-bar', entry.id)));
+
 Future<TestAppController> _show(
   WidgetTester tester,
   List<AgendaEntry> entries, {
@@ -118,7 +121,7 @@ void main() {
     (Brightness.dark, 1.6),
   ]) {
     testWidgets(
-      'Short cards stay readable, separated and tappable across zoom in $brightness, $scale',
+      'Short cards keep a fixed 2px minimum and stay tappable in $brightness, $scale',
       (tester) async {
         final first = _event('first', 11);
         final second = _event('second', 14, exam: true);
@@ -136,15 +139,16 @@ void main() {
           brightness: brightness,
         );
         final viewport = tester.getRect(find.byType(AgendaTimeline));
-        void checkCards() {
+        void checkCards(double eventWidth) {
           final rectangles = entries
-              .map((entry) => tester.getRect(_bar(entry)))
+              .map((entry) => tester.getRect(_paintedBar(entry)))
               .toList();
-          expect(rectangles.first.width, closeTo(96 * scale, .001));
+          expect(rectangles.first.width, closeTo(eventWidth, .001));
           expect(
             rectangles[1].width,
-            greaterThanOrEqualTo(
-              (96 * scale).clamp(0, viewport.right - rectangles[1].left) - .001,
+            closeTo(
+              eventWidth.clamp(0, viewport.right - rectangles[1].left),
+              .001,
             ),
           );
           expect(rectangles.last.width, closeTo(180, .001));
@@ -160,10 +164,11 @@ void main() {
           expect(tester.takeException(), isNull);
         }
 
-        checkCards();
+        checkCards(2);
         tester.widget<Slider>(find.byType(Slider)).onChanged!(24);
         await tester.pumpAndSettle();
-        checkCards();
+        // At 48px/hour, the real five-minute duration is 4px, above the 2px floor.
+        checkCards(4);
         final short = tester.getRect(_bar(first));
         await tester.tapAt(Offset(short.right - 12, short.center.dy));
         await tester.pumpAndSettle();
@@ -189,7 +194,7 @@ void main() {
     (tester) async {
       final beforeViewport = _date
           .subtract(const Duration(days: 4))
-          .add(const Duration(hours: 9, minutes: 30));
+          .add(const Duration(hours: 10));
       final entry = AgendaEntry(
         id: 'edge',
         title: '边缘短日程',
@@ -198,9 +203,11 @@ void main() {
         endsAt: beforeViewport.add(const Duration(minutes: 5)),
       );
       await _show(tester, [entry]);
+      final painted = tester.getRect(_paintedBar(entry));
+      expect(painted.left, 0);
+      // Half of the 2px bar is clipped at the left edge; its hit target is wider.
+      expect(painted.width, closeTo(1, .001));
       final card = tester.getRect(_bar(entry));
-      expect(card.left, 0);
-      expect(card.width, closeTo(94, .001));
       await tester.tapAt(card.center);
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);

@@ -13,7 +13,7 @@ import 'agenda_detail.dart';
 import 'timeline_colors.dart';
 
 const _microsecondsPerHour = Duration.microsecondsPerSecond * 3600;
-const _minimumEventWidth = 96.0;
+const _minimumEventWidth = 2.0;
 
 /// A viewport-sized timeline: panning changes a date, not a giant scroll offset.
 class AgendaTimeline extends StatefulWidget {
@@ -270,9 +270,9 @@ class _AgendaTimelineState extends State<AgendaTimeline>
             .ceil(),
       );
       final minimumEventSpan = Duration(
+        // Keep the visual minimum fixed, including with larger accessibility text.
         microseconds:
-            (_minimumEventWidth * fontScale / pixelsPerHour * _microsecondsPerHour)
-                .ceil(),
+            (_minimumEventWidth / pixelsPerHour * _microsecondsPerHour).ceil(),
       );
       final placements = _layout(minimumEventSpan);
       final laneCount = placements.fold<int>(
@@ -633,6 +633,7 @@ class _AgendaTimelineState extends State<AgendaTimeline>
                 width: barWidth,
                 height: laneHeight - 12,
                 child: DecoratedBox(
+                  key: ValueKey(('agenda-timeline-bar', entry.id)),
                   decoration: BoxDecoration(
                     color: entry.isDeadline ? null : colors.fill,
                     gradient: entry.isDeadline
