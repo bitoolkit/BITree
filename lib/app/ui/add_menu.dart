@@ -68,14 +68,6 @@ class AddMenu extends StatelessWidget {
             leadingIcon: const Icon(Icons.flag_outlined),
             child: const Text('添加 DDL'),
           ),
-        if (!includeCourse)
-          AppMenuItemButton(
-            onPressed: agendaEnabled
-                ? () => _addAgenda(context, AgendaKind.exam)
-                : null,
-            leadingIcon: const Icon(Icons.edit_note_rounded),
-            child: const Text('添加考试'),
-          ),
       ],
       builder: builder,
       child: child,
