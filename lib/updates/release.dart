@@ -22,21 +22,20 @@ class AppRelease {
   }) {
     final url = Uri.parse(release['html_url'] as String);
     var downloadUrl = url;
-    final architecture = switch (abi) {
-      Abi.androidArm => 'armeabi-v7a',
-      Abi.androidArm64 => 'arm64-v8a',
-      Abi.androidX64 => 'x86_64',
-      _ => null,
+    final suffixes = switch (abi) {
+      Abi.androidArm64 => [
+        '-android-arm64-v8a.apk',
+        '-android-arm64-v8a-debug-signed.apk',
+      ],
+      Abi.linuxX64 => ['-linux-x64.tar.xz'],
+      Abi.linuxArm64 => ['-linux-arm64.tar.xz'],
+      _ => <String>[],
     };
-    if (architecture != null) {
+    if (suffixes.isNotEmpty) {
       final assets = (release['assets'] as List).cast<Map<String, dynamic>>();
-      for (final suffix in ['', '-debug-signed']) {
+      for (final suffix in suffixes) {
         final asset = assets
-            .where(
-              (asset) => (asset['name'] as String).endsWith(
-                '-android-$architecture$suffix.apk',
-              ),
-            )
+            .where((asset) => (asset['name'] as String).endsWith(suffix))
             .firstOrNull;
         if (asset != null) {
           downloadUrl = Uri.parse(asset['browser_download_url'] as String);
@@ -160,7 +159,10 @@ Future<AppRelease?> _developmentUpdate(
 }) async {
   if (release == null || release['draft'] == true) return null;
 
-  final suffix = '-${Platform.operatingSystem}-update.json';
+  final platform = Abi.current() == Abi.linuxArm64
+      ? 'linux-arm64'
+      : Platform.operatingSystem;
+  final suffix = '-$platform-update.json';
   final asset = (release['assets'] as List)
       .cast<Map<String, dynamic>>()
       .where((asset) => (asset['name'] as String).endsWith(suffix))

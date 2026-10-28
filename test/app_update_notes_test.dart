@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:bitree/updates/release.dart';
@@ -21,6 +22,12 @@ Map<String, dynamic> _release({required bool development}) => {
             'name': 'BITree-${Platform.operatingSystem}-update.json',
             'browser_download_url': 'https://downloads.example/update.json',
           },
+          if (Platform.isLinux)
+            {
+              'name': 'BITree-linux-arm64-update.json',
+              'browser_download_url':
+                  'https://downloads.example/arm64-update.json',
+            },
         ]
       : [],
 };
@@ -70,6 +77,7 @@ void main() {
           request.response.statusCode = discoveryStatus;
           data = [?development];
         case '/downloads.example/update.json':
+        case '/downloads.example/arm64-update.json':
           data = {
             'version': developmentVersion,
             'builtAt': '2026-10-27T09:00:00Z',
@@ -109,6 +117,26 @@ void main() {
         () => availableAppReleases(installed, builtAt: builtAt),
         network,
       );
+
+  if (Platform.isLinux) {
+    test(
+      'Metadata for another Linux architecture does not announce an update',
+      () async {
+        final other = Abi.current() == Abi.linuxArm64 ? 'linux' : 'linux-arm64';
+        development!['assets'] = [
+          {
+            'name': 'BITree-$other-update.json',
+            'browser_download_url': 'https://downloads.example/update.json',
+          },
+        ];
+        expect(await read('v0.3.0-dev.1111111'), isEmpty);
+        expect(
+          requests.where((url) => url.path.startsWith('/downloads.example/')),
+          isEmpty,
+        );
+      },
+    );
+  }
 
   test(
     'Development notes compare exact installed and downloaded commits',

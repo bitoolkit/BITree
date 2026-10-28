@@ -51,6 +51,7 @@ def build_linux(flags, prefix):
         f"dist/{prefix}-linux-{architecture}.tar.xz", "w:xz", preset=9
     ) as archive:
         archive.add(f"build/linux/{architecture}/release/bundle", arcname="BITree")
+    return architecture
 
 
 def build_windows(flags, prefix, native_version):
@@ -124,12 +125,14 @@ def main():
         f"--dart-define=BITREE_BUILD_TIME={built_at}",
     ]
     prefix = f"BITree-{args.version}"
+    metadata_platform = args.platform
 
     match args.platform:
         case "android":
             build_android(flags, prefix)
         case "linux":
-            build_linux(flags, prefix)
+            if build_linux(flags, prefix) == "arm64":
+                metadata_platform = "linux-arm64"
         case "windows":
             build_windows(flags, prefix, args.native_version)
         case "macos":
@@ -137,7 +140,7 @@ def main():
         case "ios":
             build_ios(flags, prefix)
 
-    Path(f"dist/{prefix}-{args.platform}-update.json").write_text(
+    Path(f"dist/{prefix}-{metadata_platform}-update.json").write_text(
         json.dumps({"version": args.version, "builtAt": built_at}) + "\n",
         encoding="utf-8",
     )

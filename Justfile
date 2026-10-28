@@ -25,7 +25,7 @@ build target=os():
     flutter build {{ quote(target) }}
 
 apk:
-    flutter build apk --release --split-per-abi
+    flutter build apk --release --target-platform=android-arm64 --split-per-abi
 
 release version:
     python3 tool/release.py {{ quote(version) }}

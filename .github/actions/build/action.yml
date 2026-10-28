@@ -45,7 +45,9 @@ runs:
       if: ${{ runner.os != 'Linux' || runner.arch != 'ARM64' }}
       with:
         flutter-version: '3.47.7'
-        channel: stable
+        # Linux ARM64 has no stable SDK archive. The main-channel installer
+        # checks out the exact version tag and bootstraps its native Dart SDK.
+        channel: ${{ runner.os == 'Linux' && runner.arch == 'ARM64' && 'main' || 'stable' }}
         cache: true
         pub-cache: true
     # The release manifest has no Linux arm64 archive for this version, so check out the tag from git
@@ -99,6 +101,14 @@ runs:
     - name: Analyze
       if: ${{ inputs.target == 'linux' }}
       run: flutter analyze --no-pub
+      shell: bash
+    - name: Test release packaging
+      if: ${{ inputs.target == 'linux' && runner.arch == 'X64' }}
+      run: python -m unittest discover -s tool -p 'test_*.py'
+      shell: bash
+    - name: Test update selection
+      if: ${{ inputs.target == 'linux' }}
+      run: flutter test --no-pub test/app_release_test.dart test/app_update_notes_test.dart
       shell: bash
     - name: Decrypt Android signing
       if: >-
@@ -180,9 +190,8 @@ runs:
         archive: false
         if-no-files-found: warn
         retention-days: 14
-    # Linux architectures share update metadata; upload it once from the x64 job.
     - name: Upload update metadata
-      if: ${{ !cancelled() && (inputs.target != 'linux' || runner.arch == 'X64') }}
+      if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v7
       with:
         path: dist/*-update.json
