@@ -158,7 +158,15 @@ void main() {
         await tester.pumpAndSettle();
         expectClosed(tester);
         expect(find.byType(BottomSheet), findsOneWidget);
-        if (occupied.day == 4) expect(find.text('课程学习'), findsOneWidget);
+        if (occupied.day == 4) {
+          expect(
+            find.descendant(
+              of: find.byType(BottomSheet),
+              matching: find.text(course.name),
+            ),
+            findsOneWidget,
+          );
+        }
       },
     );
   }

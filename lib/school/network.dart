@@ -56,10 +56,7 @@ enum SchoolNetwork {
 
 bool isSchoolUrl(Uri uri) =>
     (uri.scheme == 'https' &&
-        (uri.host == 'bit.edu.cn' ||
-            uri.host.endsWith('.bit.edu.cn') ||
-            uri.host == 'yanhekt.cn' ||
-            uri.host.endsWith('.yanhekt.cn'))) ||
+        (uri.host == 'bit.edu.cn' || uri.host.endsWith('.bit.edu.cn'))) ||
     (uri.scheme == 'http' && uri.host == 'jwms.bit.edu.cn');
 
 bool isSchoolLogin(Uri uri) =>

@@ -229,18 +229,16 @@ void main() {
     );
   }
 
-  for (final target in ['teaching', 'records', 'lexue', 'eclass', 'study']) {
+  for (final (target, entry) in [
+    ('teaching', SchoolNetwork.campus.accountPage),
+    ('records', SchoolNetwork.recordsService),
+    ('lexue', lexue.loginPage),
+    ('eclass', DeadlineSource.eclass.loginPage),
+  ]) {
     test(
       '$target resumes SMS verification from an existing SSO session without a password page',
       () => HttpOverrides.runWithHttpOverrides(() async {
         final auth = login();
-        final entry = switch (target) {
-          'teaching' => SchoolNetwork.campus.accountPage,
-          'records' => SchoolNetwork.recordsService,
-          'lexue' => lexue.loginPage,
-          'eclass' => DeadlineSource.eclass.loginPage,
-          _ => Uri.https('aita.yanhekt.cn', '/casapi/index.php'),
-        };
         Future<void> authenticate() async {
           switch (target) {
             case 'teaching':

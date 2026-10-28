@@ -1,6 +1,7 @@
 import 'package:bitree/agenda/controller.dart';
 import 'package:bitree/agenda/model.dart';
 import 'package:bitree/agenda/ui/calendar_screen.dart';
+import 'package:bitree/agenda/view_mode.dart';
 import 'package:bitree/schedule/model.dart';
 import 'package:bitree/ui/app_menu_trigger.dart';
 import 'package:bitree/ui/theme.dart';
@@ -95,6 +96,8 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
         final agenda = AgendaController(_Store());
         await agenda.load();
+        final controller = TestAppController(agenda: agenda);
+        await controller.setAgendaViewMode(AgendaViewMode.list);
 
         await tester.pumpWidget(
           MaterialApp(
@@ -105,10 +108,7 @@ void main() {
               child: child!,
             ),
             home: Scaffold(
-              body: CalendarScreen(
-                controller: TestAppController(agenda: agenda),
-                now: campusNow(),
-              ),
+              body: CalendarScreen(controller: controller, now: campusNow()),
             ),
           ),
         );

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/controller.dart';
-import '../../study/ui/study_schedule.dart';
 import '../../ui/app_notice.dart';
 import '../../ui/campus_time_builder.dart';
 import '../../ui/design.dart';
@@ -65,25 +64,6 @@ Future<void> showCourse(
               Navigator.pop(sheetContext);
               editCourse(context, controller, course: selected);
             },
-            onStudy: () {
-              Navigator.pop(sheetContext);
-              openScheduledStudy(
-                context,
-                controller,
-                selected,
-                date: occurrence,
-              );
-            },
-            onLive: () {
-              Navigator.pop(sheetContext);
-              openScheduledStudy(
-                context,
-                controller,
-                selected,
-                date: occurrence,
-                watchLive: true,
-              );
-            },
           ),
         ),
       ),
@@ -96,8 +76,6 @@ class _CourseDetails extends StatelessWidget {
     required this.controller,
     required this.course,
     required this.onEdit,
-    required this.onStudy,
-    required this.onLive,
     required this.onMap,
     required this.date,
     required this.now,
@@ -107,8 +85,6 @@ class _CourseDetails extends StatelessWidget {
   final AppController controller;
   final Course course;
   final VoidCallback onEdit;
-  final VoidCallback onStudy;
-  final VoidCallback onLive;
   final VoidCallback? onMap;
   final DateTime? date;
   final DateTime now;
@@ -215,29 +191,6 @@ class _CourseDetails extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _CopyableCourseName(name: course.name),
-              Wrap(
-                spacing: 12,
-                runSpacing: 4,
-                children: [
-                  TextButton.icon(
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.only(right: 8),
-                    ),
-                    onPressed: controller.timetable.busy ? null : onStudy,
-                    icon: const Icon(Icons.menu_book_rounded, size: 18),
-                    label: const Text('课程学习'),
-                  ),
-                  if (progress != null)
-                    TextButton.icon(
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.only(right: 8),
-                      ),
-                      onPressed: controller.timetable.busy ? null : onLive,
-                      icon: const Icon(Icons.live_tv_rounded, size: 18),
-                      label: const Text('观看直播'),
-                    ),
-                ],
-              ),
               detail(
                 Icons.schedule_outlined,
                 course.timeLabel,

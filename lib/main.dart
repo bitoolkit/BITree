@@ -14,9 +14,6 @@ import 'core/diagnostics.dart';
 import 'schedule/store.dart';
 import 'school/service.dart';
 import 'school/storage.dart';
-import 'study/controller.dart';
-import 'study/store.dart';
-import 'study/yanhekt.dart';
 import 'ui/theme.dart';
 
 void main() {
@@ -44,10 +41,6 @@ void main() {
     preferences: SharedPreferencesAsync(),
     agenda: AgendaController(AgendaStore()),
     academics: AcademicController(AcademicStore()),
-    study: StudyController(
-      store: StudyStore(),
-      repository: YanhektRepository(schoolStorage),
-    ),
   );
   runApp(BitreeApp(controller: controller));
   WidgetsBinding.instance.addPostFrameCallback((_) => controller.initialize());
