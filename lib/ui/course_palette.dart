@@ -12,9 +12,31 @@ enum DarkCoursePalette {
 
   final String label;
 
-  BuildingColorValues colorsFor(BuildingPalette building) {
+  BuildingColorValues colorsFor(BuildingPalette building) =>
+      _colorsForArea(building.area) ?? building.dark;
+
+  /// Opaque colour pairs for native courses by area, plus a surface pair.
+  /// An empty map restores the widget's default colours.
+  Map<String, List<int>> get widgetColors {
+    final surface = _colorsForArea(null);
+    if (surface == null) return {};
+    final result = <String, List<int>>{
+      'surface': [surface.fill, surface.text],
+    };
+    for (final area in <CampusArea?>[...CampusArea.values, null]) {
+      final colors = _colorsForArea(area);
+      if (colors == null) continue;
+      result[area?.name ?? 'neutral'] = [
+        Color.lerp(Color(colors.fill), Color(colors.accent), 0.24)!.toARGB32(),
+        colors.text,
+      ];
+    }
+    return result;
+  }
+
+  BuildingColorValues? _colorsForArea(CampusArea? area) {
     // Catppuccin's Base, Text and area accents. Keep the generated building
-    // table intact so the default palette and Android widget retain their colours.
+    // table intact so both renderers can restore their default colours.
     final colors = switch (this) {
       standard => null,
       mocha => (
@@ -48,11 +70,11 @@ enum DarkCoursePalette {
         neutral: 0xFFB5BFE2,
       ),
     };
-    if (colors == null) return building.dark;
+    if (colors == null) return null;
     return (
       fill: colors.base,
       text: colors.text,
-      accent: switch (building.area) {
+      accent: switch (area) {
         CampusArea.northTeaching => colors.blue,
         CampusArea.wencui => colors.green,
         CampusArea.southScience => colors.yellow,

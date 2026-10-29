@@ -6,6 +6,7 @@ import '../agenda/controller.dart';
 import '../agenda/view_mode.dart';
 import '../classrooms/repository.dart';
 import '../core/diagnostics.dart';
+import '../core/platform/desktop_widget.dart';
 import '../schedule/controller.dart';
 import '../schedule/store.dart';
 import '../school/controller.dart';
@@ -66,17 +67,22 @@ class AppController extends ChangeNotifier {
     }
     try {
       final savedPalette = await _preferences.getString('darkCoursePalette');
-      _darkCoursePalette = DarkCoursePalette.values
+      _darkCoursePalette =
+          DarkCoursePalette.values
               .where((palette) => palette.name == savedPalette)
               .firstOrNull ??
           DarkCoursePalette.standard;
     } catch (failure, stack) {
       AppDiagnostics.instance.report('读取深色课程配色', failure, stack);
     }
+    await updateDesktopWidget(
+      darkCourseColors: _darkCoursePalette.widgetColors,
+    );
     try {
       final savedView = await _preferences.getString('agendaViewMode');
       if (!_agendaViewChosen) {
-        agendaViewMode.value = AgendaViewMode.values
+        agendaViewMode.value =
+            AgendaViewMode.values
                 .where((mode) => mode.name == savedView)
                 .firstOrNull ??
             AgendaViewMode.timeline;
@@ -113,6 +119,7 @@ class AppController extends ChangeNotifier {
     _coursePaletteWrite = _coursePaletteWrite.then((_) async {
       try {
         await _preferences.setString('darkCoursePalette', value.name);
+        await updateDesktopWidget(darkCourseColors: value.widgetColors);
       } catch (failure, stack) {
         AppDiagnostics.instance.report('保存深色课程配色', failure, stack);
       }

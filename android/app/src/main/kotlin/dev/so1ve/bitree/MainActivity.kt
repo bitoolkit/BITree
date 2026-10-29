@@ -10,6 +10,9 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "dev.so1ve.bitree/widget")
             .setMethodCallHandler { call, result ->
                 if (call.method == "update") {
+                    call.argument<Map<String, List<Number>>>("darkCourseColors")?.let {
+                        BuildingColors.saveDarkPalette(this, it)
+                    }
                     TimetableWidget.updateAll(this)
                     result.success(null)
                 } else {

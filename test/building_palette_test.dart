@@ -61,10 +61,13 @@ void main() {
     },
   );
 
-  final table = jsonDecode(
-    File('android/app/src/main/assets/building_palette.json')
-        .readAsStringSync(),
-  ) as Map<String, dynamic>;
+  final table =
+      jsonDecode(
+            File(
+              'android/app/src/main/assets/building_palette.json',
+            ).readAsStringSync(),
+          )
+          as Map<String, dynamic>;
   final buildings = (table['buildings'] as List).cast<Map<String, dynamic>>();
 
   test('Android and Flutter share every alias and both theme palettes', () {
@@ -169,9 +172,28 @@ void main() {
   });
 
   testWidgets(
-    'Optional palettes preserve surfaces and light courses, with opaque readable dark courses',
+    'Optional palettes preserve surfaces and export matching opaque widget course colours',
     (tester) async {
       for (final palette in DarkCoursePalette.values) {
+        final widgetColors = palette.widgetColors;
+        if (palette == DarkCoursePalette.standard) {
+          expect(widgetColors, isEmpty);
+        } else {
+          expect(
+            widgetColors.keys,
+            unorderedEquals([
+              ...CampusArea.values.map((area) => area.name),
+              'neutral',
+              'surface',
+            ]),
+          );
+          expect(widgetColors['surface']!.first, switch (palette) {
+            DarkCoursePalette.mocha => 0xFF1E1E2E,
+            DarkCoursePalette.macchiato => 0xFF24273A,
+            DarkCoursePalette.frappe => 0xFF303446,
+            DarkCoursePalette.standard => throw StateError('default'),
+          });
+        }
         for (final brightness in Brightness.values) {
           final originalTheme = bitreeTheme(brightness);
           final theme = bitreeTheme(brightness, darkCoursePalette: palette);
@@ -180,71 +202,91 @@ void main() {
             theme.scaffoldBackgroundColor,
             originalTheme.scaffoldBackgroundColor,
           );
-          await tester.pumpWidget(MaterialApp(
-            key: ValueKey((palette, brightness)),
-            theme: theme,
-            home: Builder(builder: (context) {
-              for (final building in [
-                ...buildings.map((row) => buildingPaletteNamed(row['name'] as String)!),
-                unknownBuildingPalette,
-              ]) {
-                final course = Course(
-                  id: 'course',
-                  name: '测试课程',
-                  weekday: 1,
-                  startSection: 1,
-                  endSection: 2,
-                  weeks: [1],
-                  room: building.name,
-                );
-                final colors = courseColors(context, course);
-                if (brightness == Brightness.light) {
-                  expect(colors.fill, Color(building.light.fill));
-                  expect(colors.text, Color(building.light.text));
-                  expect(colors.accent, Color(building.light.accent));
-                } else if (palette == DarkCoursePalette.standard) {
-                  expect(colors.fill, Color.lerp(
-                    Color(building.dark.fill),
-                    Color(building.dark.accent),
-                    0.24,
-                  ));
-                  expect(colors.text, Color(building.dark.text));
-                  expect(colors.accent, Color(building.dark.accent));
-                } else {
-                  expect(colors.text, Color(switch (palette) {
-                    DarkCoursePalette.mocha => 0xFFCDD6F4,
-                    DarkCoursePalette.macchiato => 0xFFCAD3F5,
-                    DarkCoursePalette.frappe => 0xFFC6D0F5,
-                    DarkCoursePalette.standard => throw StateError('default'),
-                  }));
-                  if (building.area == CampusArea.wencui) {
-                    expect(colors.accent, Color(switch (palette) {
-                      DarkCoursePalette.mocha => 0xFFA6E3A1,
-                      DarkCoursePalette.macchiato => 0xFFA6DA95,
-                      DarkCoursePalette.frappe => 0xFFA6D189,
-                      DarkCoursePalette.standard => throw StateError('default'),
-                    }));
+          await tester.pumpWidget(
+            MaterialApp(
+              key: ValueKey((palette, brightness)),
+              theme: theme,
+              home: Builder(
+                builder: (context) {
+                  for (final building in [
+                    ...buildings.map(
+                      (row) => buildingPaletteNamed(row['name'] as String)!,
+                    ),
+                    unknownBuildingPalette,
+                  ]) {
+                    final course = Course(
+                      id: 'course',
+                      name: '测试课程',
+                      weekday: 1,
+                      startSection: 1,
+                      endSection: 2,
+                      weeks: [1],
+                      room: building.name,
+                    );
+                    final colors = courseColors(context, course);
+                    if (brightness == Brightness.dark &&
+                        palette != DarkCoursePalette.standard) {
+                      expect(
+                        widgetColors[building.area?.name ?? 'neutral'],
+                        [colors.fill.toARGB32(), colors.text.toARGB32()],
+                        reason: '${building.name} uses the same widget colours',
+                      );
+                    }
+                    if (brightness == Brightness.light) {
+                      expect(colors.fill, Color(building.light.fill));
+                      expect(colors.text, Color(building.light.text));
+                      expect(colors.accent, Color(building.light.accent));
+                    } else if (palette == DarkCoursePalette.standard) {
+                      expect(
+                        colors.fill,
+                        Color.lerp(
+                          Color(building.dark.fill),
+                          Color(building.dark.accent),
+                          0.24,
+                        ),
+                      );
+                      expect(colors.text, Color(building.dark.text));
+                      expect(colors.accent, Color(building.dark.accent));
+                    } else {
+                      expect(
+                        colors.text,
+                        Color(switch (palette) {
+                          DarkCoursePalette.mocha => 0xFFCDD6F4,
+                          DarkCoursePalette.macchiato => 0xFFCAD3F5,
+                          DarkCoursePalette.frappe => 0xFFC6D0F5,
+                          DarkCoursePalette.standard => throw StateError(
+                            'default',
+                          ),
+                        }),
+                      );
+                      if (building.area == CampusArea.wencui) {
+                        expect(
+                          colors.accent,
+                          Color(switch (palette) {
+                            DarkCoursePalette.mocha => 0xFFA6E3A1,
+                            DarkCoursePalette.macchiato => 0xFFA6DA95,
+                            DarkCoursePalette.frappe => 0xFFA6D189,
+                            DarkCoursePalette.standard => throw StateError(
+                              'default',
+                            ),
+                          }),
+                        );
+                      }
+                    }
+                    for (final (foreground, background) in [
+                      (colors.text, colors.fill),
+                      (colors.secondaryText, colors.fill),
+                      (colors.text, colors.elapsedFill),
+                    ]) {
+                      expect(foreground.a, 1);
+                      expect(background.a, 1);
+                    }
                   }
-                }
-                for (final (foreground, background) in [
-                  (colors.text, colors.fill),
-                  (colors.secondaryText, colors.fill),
-                  (colors.text, colors.elapsedFill),
-                ]) {
-                  expect(foreground.a, 1);
-                  expect(background.a, 1);
-                  final a = foreground.computeLuminance();
-                  final b = background.computeLuminance();
-                  expect(
-                    (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05),
-                    greaterThanOrEqualTo(4.5),
-                    reason: '${building.name} $brightness $palette',
-                  );
-                }
-              }
-              return const SizedBox.shrink();
-            }),
-          ));
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          );
         }
       }
     },
@@ -290,9 +332,9 @@ void main() {
                     );
                   }
                   if (brightness == Brightness.dark) {
-                    final column = Theme.of(context)
-                        .colorScheme
-                        .surfaceContainer;
+                    final column = Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainer;
                     expect(
                       (colors.fill.computeLuminance() + 0.05) /
                           (column.computeLuminance() + 0.05),

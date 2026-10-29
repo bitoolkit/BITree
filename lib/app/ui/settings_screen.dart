@@ -111,9 +111,9 @@ class SettingsScreen extends StatelessWidget {
                     if (iconTaps < 5) return;
                     controller.unlockDeveloperMode();
                     Navigator.pop(dialogContext);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('已开启开发者模式')),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(const SnackBar(content: Text('已开启开发者模式')));
                   },
                   child: SizedBox(
                     width: 48,
@@ -298,8 +298,7 @@ class SettingsScreen extends StatelessWidget {
                         child: AppMenuItemButton(
                           onPressed: () =>
                               controller.setDarkCoursePalette(palette),
-                          trailingIcon:
-                              controller.darkCoursePalette == palette
+                          trailingIcon: controller.darkCoursePalette == palette
                               ? const Icon(Icons.check_rounded, size: 18)
                               : const SizedBox(width: 18),
                           child: Text(palette.label),
@@ -310,9 +309,7 @@ class SettingsScreen extends StatelessWidget {
                     contentPadding: tilePadding,
                     leading: const Icon(Icons.palette_outlined),
                     title: const Text('深色模式调色板'),
-                    subtitle: Text(
-                      '${controller.darkCoursePalette.label} · 仅影响深色课程配色',
-                    ),
+                    subtitle: Text(controller.darkCoursePalette.label),
                     trailing: AppMenuArrow(isOpen: isOpen),
                     onTap: () => isOpen ? menu.close() : menu.open(),
                   ),
