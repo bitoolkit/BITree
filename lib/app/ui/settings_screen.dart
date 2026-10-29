@@ -13,8 +13,8 @@ import '../../ui/app_page.dart';
 import '../../ui/external_link.dart';
 import '../../updates/version.dart';
 import '../controller.dart';
+import 'appearance_screen.dart';
 import 'logs_screen.dart';
-import 'palette_settings.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -269,41 +269,25 @@ class SettingsScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           SchoolAccount(controller: controller),
-          section('外观', [
-            SegmentedButton<ThemeMode>(
-              expandedInsets: EdgeInsets.zero,
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(
-                  value: ThemeMode.system,
-                  label: Text('跟随系统', maxLines: 2, textAlign: TextAlign.center),
+          Padding(
+            padding: const EdgeInsets.only(top: 24),
+            child: ListTile(
+              contentPadding: tilePadding,
+              leading: const Icon(Icons.palette_outlined),
+              title: const Text('外观'),
+              subtitle: Text(switch (controller.themeMode) {
+                ThemeMode.system => '跟随系统',
+                ThemeMode.light => '浅色',
+                ThemeMode.dark => '深色',
+              }),
+              trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+              onTap: () => Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) => AppearanceScreen(controller: controller),
                 ),
-                ButtonSegment(value: ThemeMode.light, label: Text('浅色')),
-                ButtonSegment(value: ThemeMode.dark, label: Text('深色')),
-              ],
-              selected: {controller.themeMode},
-              onSelectionChanged: (selection) =>
-                  controller.setTheme(selection.single),
+              ),
             ),
-          ]),
-          if (controller.developerMode)
-            section('更多设置', [
-              PaletteSettings(controller: controller),
-              SwitchListTile(
-                contentPadding: tilePadding,
-                secondary: const Icon(Icons.auto_awesome_outlined),
-                title: const Text('小组件使用系统调色板'),
-                value: controller.widgetUseSystemPalette,
-                onChanged: controller.setWidgetUseSystemPalette,
-              ),
-              SwitchListTile(
-                contentPadding: tilePadding,
-                secondary: const Icon(Icons.color_lens_outlined),
-                title: const Text('全局系统调色板（实验性）'),
-                value: controller.globalUseSystemPalette,
-                onChanged: controller.setGlobalUseSystemPalette,
-              ),
-            ]),
+          ),
           if (controller.timetable.schedule != null)
             section('本地课表', [
               LayoutBuilder(

@@ -10,12 +10,15 @@ import 'support/course_palettes.dart';
 import 'support/test_app.dart';
 
 class _FailingPalettePreferences extends MemoryPreferences {
-  bool fail = false;
+  _FailingPalettePreferences(this.shouldFail);
+
+  final bool Function() shouldFail;
 
   @override
   Future<void> setString(String key, String value) async {
-    if (fail && key == 'coursePalettes')
+    if (shouldFail() && key == 'coursePalettes') {
       throw StateError('Storage unavailable');
+    }
     await super.setString(key, value);
   }
 }
@@ -130,7 +133,8 @@ void main() {
   test(
     'Invalid imports and failed saves preserve the current selection and catalog',
     () async {
-      final preferences = _FailingPalettePreferences();
+      var fail = false;
+      final preferences = _FailingPalettePreferences(() => fail);
       final controller = TestAppController(preferences: preferences);
       await controller.setCoursePalette(Brightness.dark, 'mocha');
       final saved = await preferences.getString('coursePalettes');
@@ -138,7 +142,7 @@ void main() {
         controller.importCoursePalette('{"name":"broken"}'),
         throwsFormatException,
       );
-      preferences.fail = true;
+      fail = true;
       await expectLater(
         controller.importCoursePalette(jsonEncode(lightTestPalette().toJson())),
         throwsStateError,
@@ -147,7 +151,7 @@ void main() {
       expect(controller.paletteFor(Brightness.light), isNull);
       expect(controller.customPalettes, isEmpty);
       expect(await preferences.getString('coursePalettes'), saved);
-      preferences.fail = false;
+      fail = false;
       // A failed import must not poison subsequent writes.
       await controller.importCoursePalette(
         jsonEncode(lightTestPalette().toJson()),
