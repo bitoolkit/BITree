@@ -30,7 +30,7 @@ import '../physics_lab_deadlines.dart';
         : switch (entry.source) {
             DeadlineSource.lexue => '工程训练中心',
             DeadlineSource.eclass => '文化体育中心',
-            null => null,
+            null => '文萃楼',
           },
     AgendaKind.event => null,
   };
