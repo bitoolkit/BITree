@@ -53,16 +53,19 @@ class BitreeApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lightTheme = bitreeTheme(Brightness.light);
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) => MaterialApp(
         title: 'BITree',
         debugShowCheckedModeBanner: false,
-        theme: lightTheme,
+        theme: bitreeTheme(
+          Brightness.light,
+          systemPalette: controller.systemPalette,
+        ),
         darkTheme: bitreeTheme(
           Brightness.dark,
           darkCoursePalette: controller.darkCoursePalette,
+          systemPalette: controller.systemPalette,
         ),
         themeMode: controller.themeMode,
         locale: const Locale('zh', 'CN'),

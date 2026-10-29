@@ -5,6 +5,7 @@ import 'package:bitree/agenda/controller.dart';
 import 'package:bitree/agenda/model.dart';
 import 'package:bitree/agenda/store.dart';
 import 'package:bitree/app/controller.dart';
+import 'package:bitree/core/platform/system_palette.dart';
 import 'package:bitree/schedule/model.dart';
 import 'package:bitree/schedule/store.dart';
 import 'package:bitree/school/network.dart';
@@ -118,11 +119,13 @@ class TestAppController extends AppController {
     List<AgendaEntry> entries = const [],
     MemorySchoolStorage? schoolStorage,
     MemoryPreferences? preferences,
+    SystemPaletteSource? systemPaletteSource,
   }) : super(
          store: MemoryScheduleStore(schedules: schedules, selected: schedule),
          school: SchoolService(),
          schoolStorage: schoolStorage ?? MemorySchoolStorage(),
          preferences: preferences ?? MemoryPreferences(),
+         systemPaletteSource: systemPaletteSource,
          agenda: agenda ?? AgendaController(MemoryAgendaStore(entries)),
          academics: AcademicController(MemoryAcademicStore()),
        ) {

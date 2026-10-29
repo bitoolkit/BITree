@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../schedule/building_palette.dart';
+import '../../ui/system_palette.dart';
 import '../deadline_source.dart';
 import '../model.dart';
 import '../physics_lab_deadlines.dart';
@@ -25,22 +26,34 @@ import '../physics_lab_deadlines.dart';
 
   final paletteName = switch (entry.kind) {
     AgendaKind.exam => '物理实验中心',
-    AgendaKind.deadline => isPhysicsLabDeadline(entry)
-        ? '综合教学楼A'
-        : switch (entry.source) {
-            DeadlineSource.lexue => '工程训练中心',
-            DeadlineSource.eclass => '文化体育中心',
-            null => null,
-          },
+    AgendaKind.deadline =>
+      isPhysicsLabDeadline(entry)
+          ? '综合教学楼A'
+          : switch (entry.source) {
+              DeadlineSource.lexue => '工程训练中心',
+              DeadlineSource.eclass => '文化体育中心',
+              null => null,
+            },
     AgendaKind.event => null,
   };
-  final palette = paletteName == null ? null : buildingPaletteNamed(paletteName);
+  final palette = paletteName == null
+      ? null
+      : buildingPaletteNamed(paletteName);
   final finished = entry.isFinished(now);
-  final fadeAll = finished &&
-      (entry.isDeadline || entry.kind == AgendaKind.exam);
+  final fadeAll =
+      finished && (entry.isDeadline || entry.kind == AgendaKind.exam);
   final fillAlpha = fadeAll ? 0.5 : (finished ? 0.55 : 1.0);
   final foregroundAlpha = fadeAll ? 0.5 : 1.0;
   if (palette != null) {
+    final system = theme.extension<SystemPaletteTheme>()?.palette;
+    if (system != null) {
+      final colors = system.courseColors(palette.area, theme.brightness);
+      return (
+        fill: colors.fill.withValues(alpha: fillAlpha),
+        text: colors.text.withValues(alpha: foregroundAlpha),
+        accent: colors.accent.withValues(alpha: foregroundAlpha),
+      );
+    }
     final values = theme.brightness == Brightness.dark
         ? palette.dark
         : palette.light;

@@ -7,12 +7,14 @@ import '../agenda/view_mode.dart';
 import '../classrooms/repository.dart';
 import '../core/diagnostics.dart';
 import '../core/platform/desktop_widget.dart';
+import '../core/platform/system_palette.dart';
 import '../schedule/controller.dart';
 import '../schedule/store.dart';
 import '../school/controller.dart';
 import '../school/service.dart';
 import '../school/storage.dart';
 import '../ui/course_palette.dart';
+import '../ui/system_palette.dart';
 
 /// Composes feature state and owns application startup and appearance.
 /// Feature changes are observed by their views, not relayed through this object.
@@ -24,7 +26,9 @@ class AppController extends ChangeNotifier {
     required this._preferences,
     required this.agenda,
     required this.academics,
-  }) : timetable = TimetableController(store) {
+    SystemPaletteSource? systemPaletteSource,
+  }) : _systemPaletteSource = systemPaletteSource ?? SystemPaletteSource(),
+       timetable = TimetableController(store) {
     this.school = SchoolController(
       service: school,
       storage: schoolStorage,
@@ -33,6 +37,7 @@ class AppController extends ChangeNotifier {
       academics: academics,
     );
     classrooms = ClassroomRepository(this.school);
+    _systemPaletteSource.watch(() => _refreshSystemPalette());
   }
 
   final TimetableController timetable;
@@ -50,12 +55,22 @@ class AppController extends ChangeNotifier {
   bool _widgetUseSystemPalette = false;
   DarkCoursePalette _darkCoursePalette = DarkCoursePalette.standard;
   Future<void> _coursePaletteWrite = Future<void>.value();
+  final SystemPaletteSource _systemPaletteSource;
+  bool _globalUseSystemPalette = false;
+  bool _globalPaletteChosen = false;
+  bool _disposed = false;
+  int _paletteRequest = 0;
+  SystemPalette? _systemPalette;
+  Future<void> _globalPaletteWrite = Future<void>.value();
 
   bool get ready => _ready;
   ThemeMode get themeMode => _themeMode;
   bool get developerMode => _developerMode;
   bool get widgetUseSystemPalette => _widgetUseSystemPalette;
   DarkCoursePalette get darkCoursePalette => _darkCoursePalette;
+  bool get globalUseSystemPalette => _globalUseSystemPalette;
+  SystemPalette? get systemPalette =>
+      _globalUseSystemPalette ? _systemPalette : null;
 
   Future<void> initialize() async {
     await timetable.load();
@@ -83,6 +98,14 @@ class AppController extends ChangeNotifier {
     } catch (failure, stack) {
       AppDiagnostics.instance.report('读取小组件调色板设置', failure, stack);
     }
+    try {
+      final enabled =
+          await _preferences.getBool('globalUseSystemPalette') ?? false;
+      if (!_globalPaletteChosen) _globalUseSystemPalette = enabled;
+    } catch (failure, stack) {
+      AppDiagnostics.instance.report('读取全局调色板设置', failure, stack);
+    }
+    await _refreshSystemPalette();
     await updateDesktopWidget(
       darkCourseColors: _darkCoursePalette.widgetColors,
       useSystemPalette: _widgetUseSystemPalette,
@@ -159,6 +182,37 @@ class AppController extends ChangeNotifier {
     return _coursePaletteWrite;
   }
 
+  Future<void> setGlobalUseSystemPalette(bool value) async {
+    _globalPaletteChosen = true;
+    _globalUseSystemPalette = value;
+    // Invalidate pending platform reads when the switch changes.
+    _paletteRequest++;
+    notifyListeners();
+    final refresh = _refreshSystemPalette();
+    _globalPaletteWrite = _globalPaletteWrite.then((_) async {
+      try {
+        await _preferences.setBool('globalUseSystemPalette', value);
+      } catch (failure, stack) {
+        AppDiagnostics.instance.report('保存全局调色板设置', failure, stack);
+      }
+    });
+    await Future.wait<void>([refresh, _globalPaletteWrite]);
+  }
+
+  Future<void> _refreshSystemPalette() async {
+    if (_disposed || !_globalUseSystemPalette) return;
+    final request = ++_paletteRequest;
+    try {
+      final palette = await _systemPaletteSource.load();
+      if (_disposed || request != _paletteRequest) return;
+      _systemPalette = palette;
+      notifyListeners();
+    } catch (failure, stack) {
+      // Keep the last working palette, or the original app theme on first load.
+      AppDiagnostics.instance.report('读取系统调色板', failure, stack);
+    }
+  }
+
   /// Publish immediately and serialize writes so rapid toggles cannot save an
   /// older choice after a newer one. Preference failures do not alter entries.
   Future<void> setAgendaViewMode(AgendaViewMode value) {
@@ -176,6 +230,9 @@ class AppController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _paletteRequest++;
+    _systemPaletteSource.dispose();
     agendaViewMode.dispose();
     classrooms.dispose();
     school.dispose();

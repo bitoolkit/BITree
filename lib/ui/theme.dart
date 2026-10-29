@@ -4,15 +4,18 @@ import '../schedule/building_palette.dart';
 import '../schedule/model.dart';
 import 'course_palette.dart';
 import 'design.dart';
+import 'system_palette.dart';
 
 const copper = Color(0xFFA85E3E);
 
 ThemeData bitreeTheme(
   Brightness brightness, {
   DarkCoursePalette darkCoursePalette = DarkCoursePalette.standard,
+  SystemPalette? systemPalette,
 }) {
   final dark = brightness == Brightness.dark;
   final scheme =
+      systemPalette?.colorScheme(brightness) ??
       ColorScheme.fromSeed(
         seedColor: copper,
         brightness: brightness,
@@ -56,7 +59,10 @@ ThemeData bitreeTheme(
       );
   return ThemeData(
     useMaterial3: true,
-    extensions: [CoursePaletteTheme(darkCoursePalette)],
+    extensions: [
+      CoursePaletteTheme(darkCoursePalette),
+      if (systemPalette != null) SystemPaletteTheme(systemPalette),
+    ],
     colorScheme: scheme,
     scaffoldBackgroundColor: scheme.surface,
     fontFamilyFallback: const [
@@ -288,6 +294,17 @@ courseColors(BuildContext context, Course course) {
       unknownBuildingPalette;
   final theme = Theme.of(context);
   final dark = theme.brightness == Brightness.dark;
+  final system = theme.extension<SystemPaletteTheme>()?.palette;
+  if (system != null) {
+    final colors = system.courseColors(palette.area, theme.brightness);
+    return (
+      fill: colors.fill,
+      text: colors.text,
+      secondaryText: Color.lerp(colors.fill, colors.text, 0.8)!,
+      accent: colors.accent,
+      elapsedFill: Color.lerp(colors.fill, colors.accent, dark ? 0.16 : 0.32)!,
+    );
+  }
   final darkPalette =
       theme.extension<CoursePaletteTheme>()?.darkPalette ??
       DarkCoursePalette.standard;

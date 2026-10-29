@@ -105,6 +105,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('更多设置'), findsNothing);
     expect(find.text('小组件使用系统调色板'), findsNothing);
+    expect(find.text('全局系统调色板（实验性）'), findsNothing);
     final scrollable = find
         .descendant(
           of: find.byType(SettingsScreen),
@@ -151,6 +152,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.widgetUseSystemPalette, isTrue);
     expect(tester.widget<SwitchListTile>(systemPaletteSwitch).value, isTrue);
+    final globalPaletteSwitch = find.widgetWithText(
+      SwitchListTile,
+      '全局系统调色板（实验性）',
+    );
+    await tester.ensureVisible(globalPaletteSwitch);
+    expect(tester.widget<SwitchListTile>(globalPaletteSwitch).value, isFalse);
+    await tester.tap(globalPaletteSwitch);
+    await tester.pumpAndSettle();
+    expect(controller.globalUseSystemPalette, isTrue);
+    expect(controller.widgetUseSystemPalette, isTrue);
+    expect(tester.widget<SwitchListTile>(globalPaletteSwitch).value, isTrue);
+    // Missing platform colours keep the existing app appearance.
+    expect(controller.systemPalette, isNull);
     await tester.ensureVisible(find.text('深色模式调色板'));
     await tester.tap(find.text('深色模式调色板'));
     await tester.pumpAndSettle();
