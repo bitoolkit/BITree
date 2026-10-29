@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Bitree · Catppuccin 课表配色预览</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; color: #ededed; background: #111; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    button, input { font: inherit; }
+    button, label { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, input:focus-visible { outline: 2px solid #e5ae8f; outline-offset: 4px; }
+    main { max-width: 1520px; margin: auto; padding: 48px 32px 32px; }
+    .eyebrow { color: #e5ae8f; font-size: 12px; letter-spacing: .16em; }
+    h1 { margin: 12px 0; font-size: clamp(26px, 4vw, 38px); font-weight: 650; letter-spacing: -.04em; }
+    .intro { max-width: 780px; color: #aaa; font-size: 14px; line-height: 1.8; margin: 0; }
+    fieldset { padding: 0; margin: 28px 0 18px; border: 0; }
+    legend { font-size: 13px; color: #bbb; margin-bottom: 10px; }
+    .options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .options.catppuccin { grid-template-columns: repeat(4, 1fr); }
+    details { margin-bottom: 20px; }
+    summary { cursor: pointer; font-size: 13px; color: #bbb; }
+    a { color: #e5ae8f; }
+    @media (max-width: 760px) { .options.catppuccin { grid-template-columns: repeat(2, 1fr); } }
+    .option { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 17px; border: 1px solid #363636; border-radius: 14px; background: #1b1b1b; cursor: pointer; }
+    .option:has(input:checked) { background: #28211d; border-color: #e5ae8f; }
+    .option:has(input:focus-visible) { outline: 2px solid #e5ae8f; outline-offset: 3px; }
+    .option input { position: absolute; top: 17px; right: 15px; accent-color: #e5ae8f; }
+    .option strong { font-size: 14px; padding-right: 22px; font-weight: 600; }
+    .option small { color: #aaa; font-size: 12px; line-height: 1.5; }
+    .dots { display: flex; gap: 5px; margin-top: 3px; }
+    .dots i { width: 22px; height: 8px; border-radius: 3px; background: var(--dot); }
+    .mix-info { font-size: 13px; color: #c5c5c5; }
+    .controls { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; margin-bottom: 22px; }
+    .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: #c5c5c5; font-size: 13px; }
+    .check input { width: 15px; height: 15px; accent-color: #e5ae8f; }
+    .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+    .panel { min-width: 0; border: 1px solid #333; border-radius: 18px; overflow: hidden; background: #171717; }
+    .panel-top { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 18px 20px; border-bottom: 1px solid #303030; }
+    h2 { margin: 0; font-size: 15px; font-weight: 600; }
+    .panel-top p { color: #999; font-size: 12px; margin: 6px 0 0; line-height: 1.5; }
+    .tag { white-space: nowrap; font-size: 11px; color: #cfbfaf; background: #302820; padding: 5px 8px; border-radius: 6px; }
+    .appbar { display: flex; align-items: center; justify-content: space-between; padding: 18px 15px 16px; }
+    .appbar strong { font-size: 19px; font-weight: 600; }
+    .appbar span { font-size: 12px; color: #a5a5a5; }
+    .schedule { --gutter: 34px; --row: 50px; padding: 0 8px 12px 4px; }
+    .date-row { display: grid; grid-template-columns: var(--gutter) repeat(7, minmax(0, 1fr)); align-items: stretch; }
+    .month { font-size: 10px; color: #aaa; align-self: center; text-align: center; }
+    .date { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 7px 0 9px; margin: 0 2px; border-radius: 10px 10px 0 0; }
+    .weekday { color: #aaa; font-size: 11px; }
+    .date-number { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 29px; height: 28px; padding: 0 5px; font-size: 20px; line-height: 1; border-radius: 8px; }
+    .date.today { background: var(--today); }
+    .date.today .date-number { color: #301c12; background: #e5ae8f; }
+    .date.today .weekday { color: #e8e8e8; }
+    .badge { position: absolute; top: -5px; right: -6px; min-width: 15px; height: 15px; display: grid; place-items: center; padding: 0 4px; border-radius: 20px; background: #3b302a; color: #e9d8cc; font-size: 9px; line-height: 1; }
+    .body-grid { position: relative; display: grid; grid-template-columns: var(--gutter) repeat(7, minmax(0, 1fr)); grid-template-rows: repeat(13, var(--row)); }
+    .band { grid-column: 2 / -1; margin: 2px 0; background: #1c1c1c; border-radius: 4px; }
+    .today-column { grid-column: 3; grid-row: 1 / -1; margin: 0 2px; background: var(--today); border-radius: 0 0 6px 6px; z-index: 1; }
+    .period { grid-column: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #aaa; font-size: 8px; line-height: 1.25; }
+    .period b { font-size: 11px; color: #ddd; font-weight: 500; }
+    .course { min-width: 0; position: relative; overflow: hidden; margin: 2px; border-radius: 6px; background: var(--fill); color: var(--text); z-index: 3; }
+    .course.today { box-shadow: inset 0 0 0 1.5px var(--accent); }
+    .course-inner { position: relative; z-index: 1; padding: 7px 5px; }
+    .course h3 { font-size: 12px; line-height: 1.35; margin: 0 0 5px; font-weight: 650; overflow-wrap: anywhere; }
+    .course p { color: var(--secondary); font-size: 10px; line-height: 1.4; margin: 0; overflow-wrap: anywhere; }
+    .course.ongoing p { color: var(--text); }
+    .elapsed { position: absolute; inset: 0 0 auto; height: 20%; background: var(--elapsed); border-bottom: 2px solid var(--accent); }
+    .time-line { position: absolute; top: calc(var(--row) * 1.44 - 1px); left: calc(var(--gutter) + (100% - var(--gutter)) / 7 + 3px); width: calc((100% - var(--gutter)) / 7 - 6px); height: 2px; background: #e5ae8f; z-index: 2; border-radius: 1px; }
+    .palette { margin-top: 28px; }
+    .palette-heading { display: flex; gap: 16px; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .palette-heading p { margin: 6px 0 0; font-size: 12px; color: #999; line-height: 1.6; }
+    .copy { flex-shrink: 0; color: #e9d8cc; background: #3b302a; border: 1px solid #635044; border-radius: 9px; padding: 9px 13px; cursor: pointer; font-size: 12px; }
+    .copy:hover { background: #493a30; }
+    .swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    .swatch { min-width: 0; }
+    .sample { padding: 16px 12px; min-height: 92px; border-radius: 10px; background: var(--fill); color: var(--text); }
+    .sample strong { display: block; font-size: 14px; font-weight: 600; }
+    .sample span { display: block; margin-top: 7px; font-size: 12px; color: var(--secondary); }
+    .swatch .values { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px; padding-top: 8px; font-size: 11px; color: #aaa; font-variant-numeric: tabular-nums; }
+    code { font-family: ui-monospace, monospace; }
+    #status { min-height: 19px; color: #c5b6a9; font-size: 12px; margin: 10px 0; }
+    #export { width: 100%; min-height: 220px; background: #1b1b1b; color: #ddd; border: 1px solid #555; border-radius: 10px; padding: 14px; font: 12px/1.6 ui-monospace, monospace; }
+    footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #2c2c2c; color: #888; font-size: 12px; line-height: 1.8; }
+    @media (max-width: 1000px) { main { padding: 32px 20px; } .comparison { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) { main { padding: 24px 12px; } .options { grid-template-columns: 1fr; gap: 8px; } .option { padding: 13px; gap: 5px; } .option input { top: 13px; } .dots { position: absolute; bottom: 14px; right: 14px; } .dots i { width: 13px; height: 6px; } .option small { padding-right: 92px; } .panel-top { padding: 14px 12px; } .schedule { --gutter: 28px; } .course-inner { padding: 6px 3px; } .course h3 { font-size: 11px; } .course p { font-size: 9px; } .swatches { grid-template-columns: repeat(2, 1fr); } .palette-heading { align-items: start; } .tag { font-size: 10px; } }
+    @media (prefers-reduced-motion: no-preference) { .option { transition: border-color .15s, background-color .15s; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="eyebrow">BITREE / COLOR STUDY</div>
+      <h1>同样的混色，比较不同配色。</h1>
+      <p class="intro">候选卡片 alpha 固定为 1。使用 App 深色模式相同的混色比例：底色向强调色混合 24%，进度填充再向强调色混合 16%，地点文字向标题色混合 80%。背景、今天列和日期高亮保持原有颜色。</p>
+    </header>
+    <fieldset>
+      <legend>Catppuccin · 官方配色</legend>
+      <div class="options catppuccin">
+        <label class="option"><input type="radio" name="scheme" value="mocha" checked><strong>Mocha · 推荐</strong><small>柔和蓝、绿、黄、紫、桃色。</small><span class="dots" data-dots="mocha" aria-hidden="true"></span></label>
+        <label class="option"><input type="radio" name="scheme" value="macchiato"><strong>Macchiato</strong><small>色彩略收敛，背景保持不变。</small><span class="dots" data-dots="macchiato" aria-hidden="true"></span></label>
+        <label class="option"><input type="radio" name="scheme" value="frappe"><strong>Frappé</strong><small>更柔和的彩色，背景保持不变。</small><span class="dots" data-dots="frappe" aria-hidden="true"></span></label>
+        <label class="option"><input type="radio" name="scheme" value="latte"><strong>Latte · 高彩度</strong><small>色彩更鲜明，背景保持不变。</small><span class="dots" data-dots="latte" aria-hidden="true"></span></label>
+      </div>
+    </fieldset>
+    <details>
+      <summary>比较之前的三组候选</summary>
+    <fieldset>
+      <legend>选择候选配色</legend>
+      <div class="options">
+        <label class="option"><input type="radio" name="scheme" value="previous"><strong>01 · 上一轮建议</strong><small>深色底，白色字；小幅提亮。</small><span class="dots" data-dots="previous" aria-hidden="true"></span></label>
+        <label class="option"><input type="radio" name="scheme" value="bright"><strong>02 · 明亮柔和 · 推荐</strong><small>中浅彩色，深色字；更舒展。</small><span class="dots" data-dots="bright" aria-hidden="true"></span></label>
+        <label class="option"><input type="radio" name="scheme" value="pastel"><strong>03 · 清透浅彩</strong><small>更浅的彩色，深色字；更轻快。</small><span class="dots" data-dots="pastel" aria-hidden="true"></span></label>
+      </div>
+    </fieldset>
+    </details>
+    <div class="controls">
+      <span class="mix-info">Alpha = 1 · 底色混色 24% · 进度混色 16% · 地点文字混色 80%</span>
+      <label class="check"><input id="quiet" type="checkbox">候选方案隐藏隔行底纹</label>
+      <label class="check"><input id="progress" type="checkbox" checked>显示上课进度</label>
+    </div>
+    <div class="comparison">
+      <section class="panel" aria-labelledby="baseline-title">
+        <div class="panel-top"><div><h2 id="baseline-title">当前配色</h2><p>深色卡片 · 白色文字 · 原有背景</p></div><span class="tag">对照</span></div>
+        <div id="baseline"></div>
+      </section>
+      <section class="panel" id="candidate-panel" aria-labelledby="candidate-title">
+        <div class="panel-top"><div><h2 id="candidate-title">Catppuccin Mocha</h2><p id="candidate-description">不透明卡片 · 原有背景</p></div><span class="tag" id="candidate-tag">推荐</span></div>
+        <div id="candidate"></div>
+      </section>
+    </div>
+    <section class="palette" aria-labelledby="palette-title">
+      <div class="palette-heading"><div><h2 id="palette-title">Catppuccin Mocha · 颜色细节</h2><p>对比度按最终不透明卡片色计算。所有候选使用 App 深色模式的混色比例。</p></div><button class="copy" id="copy" type="button">复制当前配色 JSON</button></div>
+      <div class="swatches" id="swatches"></div>
+      <p id="status" role="status" aria-live="polite"></p>
+      <textarea id="export" aria-label="当前候选配色 JSON" readonly hidden></textarea>
+    </section>
+    <footer>Catppuccin 颜色来自 <a href="https://catppuccin.com/palette/" target="_blank" rel="noopener noreferrer">官方色表</a>（v1.8.0）。综教使用 Blue，文萃使用 Green，理科使用 Yellow，文体使用 Mauve，工训使用 Peach。卡片与进度填充均完全不透明。Catppuccin 候选以各版本 Base 为卡片底色，向片区强调色混合 24%；其余候选以原建议底色为起点。进度色再向强调色混合 16%，地点文字向标题色混合 80%，与 App 深色模式一致。原有背景、今天列和日期高亮不变。可选隐藏隔行底纹；默认保留。预览不会修改应用配色。</footer>
+    <noscript><p>请启用 JavaScript 以显示课表并切换配色。</p></noscript>
+  </main>
+  <script>
+    'use strict';
+    // Current colours represent the App's area palette. Candidate colours below
+    // are resolved with the same dark-mode mixing ratios as courseColors().
+    const palettes = {
+      current: {
+        blue: { name: '综教 · 蓝', fill: '#335171', text: '#EEEEEE', secondary: '#C9CFD5', accent: '#7CBDFE', elapsed: '#3F6287' },
+        green: { name: '文萃 · 绿', fill: '#285A46', text: '#EEEEEE', secondary: '#C6D0CC', accent: '#64D0A3', elapsed: '#326D54' },
+        yellow: { name: '理科 · 黄', fill: '#624A23', text: '#EEEEEE', secondary: '#D2CDC5', accent: '#E1AD57', elapsed: '#765A2B' },
+        purple: { name: '文体 · 紫', fill: '#5A446A', text: '#EEEEEE', secondary: '#D0CCD4', accent: '#CFA1F1', elapsed: '#6D537F' },
+        orange: { name: '工训 · 橙', fill: '#6D4332', text: '#EEEEEE', secondary: '#D4CCC8', accent: '#F89D79', elapsed: '#83513D' }
+      },
+      previous: {
+        blue: { name: '综教 · 蓝', fill: '#30557A', text: '#EEEEEE', secondary: '#C8CFD7', accent: '#7CBDFE', elapsed: '#3B6186' },
+        green: { name: '文萃 · 绿', fill: '#225F47', text: '#EEEEEE', secondary: '#C5D1CD', accent: '#64D0A3', elapsed: '#2F6B52' },
+        yellow: { name: '理科 · 黄', fill: '#694D1C', text: '#EEEEEE', secondary: '#D3CEC4', accent: '#E1AD57', elapsed: '#755828' },
+        purple: { name: '文体 · 紫', fill: '#5F4671', text: '#EEEEEE', secondary: '#D1CCD5', accent: '#CFA1F1', elapsed: '#6B517D' },
+        orange: { name: '工训 · 橙', fill: '#754430', text: '#EEEEEE', secondary: '#D6CCC8', accent: '#F89D79', elapsed: '#814F3B' }
+      },
+      bright: {
+        blue: { name: '综教 · 蓝', fill: '#8DB5E0', text: '#20262D', secondary: '#364351', accent: '#275582', elapsed: '#7FA7D1' },
+        green: { name: '文萃 · 绿', fill: '#84C1A4', text: '#20262D', secondary: '#344545', accent: '#0B6245', elapsed: '#76B297' },
+        yellow: { name: '理科 · 黄', fill: '#CCAC7B', text: '#20262D', secondary: '#42413D', accent: '#6D4B04', elapsed: '#BD9E6D' },
+        purple: { name: '文体 · 紫', fill: '#C0A4D5', text: '#20262D', secondary: '#403F4F', accent: '#624377', elapsed: '#B196C7' },
+        orange: { name: '工训 · 橙', fill: '#DBA28C', text: '#20262D', secondary: '#453F40', accent: '#7B4028', elapsed: '#CC947E' }
+      },
+      pastel: {
+        blue: { name: '综教 · 蓝', fill: '#ABCFF4', text: '#20262D', secondary: '#3C4855', accent: '#275582', elapsed: '#9DC0E5' },
+        green: { name: '文萃 · 绿', fill: '#A4D8BF', text: '#20262D', secondary: '#3A4A4A', accent: '#0B6245', elapsed: '#96CAB1' },
+        yellow: { name: '理科 · 黄', fill: '#E2C69B', text: '#20262D', secondary: '#474643', accent: '#6D4B04', elapsed: '#D3B88D' },
+        purple: { name: '文体 · 紫', fill: '#D8BFEB', text: '#20262D', secondary: '#454553', accent: '#624377', elapsed: '#C9B1DC' },
+        orange: { name: '工训 · 橙', fill: '#F0BDAA', text: '#20262D', secondary: '#4A4446', accent: '#7B4028', elapsed: '#E1AF9C' }
+      }
+    };
+    // Official Catppuccin palette v1.8.0, https://github.com/catppuccin/palette
+    const catppuccin = {
+      mocha: { base: '#1e1e2e', mantle: '#181825', crust: '#11111b', surface0: '#313244', surface1: '#45475a', text: '#cdd6f4', subtext0: '#a6adc8', subtext1: '#bac2de', blue: '#89b4fa', green: '#a6e3a1', yellow: '#f9e2af', mauve: '#cba6f7', peach: '#fab387' },
+      macchiato: { base: '#24273a', mantle: '#1e2030', crust: '#181926', surface0: '#363a4f', surface1: '#494d64', text: '#cad3f5', subtext0: '#a5adcb', subtext1: '#b8c0e0', blue: '#8aadf4', green: '#a6da95', yellow: '#eed49f', mauve: '#c6a0f6', peach: '#f5a97f' },
+      frappe: { base: '#303446', mantle: '#292c3c', crust: '#232634', surface0: '#414559', surface1: '#51576d', text: '#c6d0f5', subtext0: '#a5adce', subtext1: '#b5bfe2', blue: '#8caaee', green: '#a6d189', yellow: '#e5c890', mauve: '#ca9ee6', peach: '#ef9f76' },
+      latte: { base: '#eff1f5', mantle: '#e6e9ef', crust: '#dce0e8', surface0: '#ccd0da', surface1: '#bcc0cc', text: '#4c4f69', subtext0: '#6c6f85', subtext1: '#5c5f77', blue: '#1e66f5', green: '#40a02b', yellow: '#df8e1d', mauve: '#8839ef', peach: '#fe640b' }
+    };
+    function mixHex(a, b, amount) {
+      return '#' + [1, 3, 5].map(index => Math.round(parseInt(a.slice(index, index + 2), 16) * (1 - amount) + parseInt(b.slice(index, index + 2), 16) * amount).toString(16).padStart(2, '0')).join('');
+    }
+    const areas = { blue: ['综教 · Blue', 'blue'], green: ['文萃 · Green', 'green'], yellow: ['理科 · Yellow', 'yellow'], purple: ['文体 · Mauve', 'mauve'], orange: ['工训 · Peach', 'peach'] };
+    for (const [mode, theme] of Object.entries(catppuccin)) {
+      palettes[mode] = Object.fromEntries(Object.entries(areas).map(([key, [name, token]]) => {
+        return [key, { name, fill: theme.base, text: theme.text, accent: theme[token] }];
+      }));
+    }
+    const metadata = {
+      mocha: { title: 'Catppuccin Mocha', description: '不透明卡片 · 原有背景', tag: '推荐' },
+      macchiato: { title: 'Catppuccin Macchiato', description: '不透明卡片 · 原有背景', tag: '深色' },
+      frappe: { title: 'Catppuccin Frappé', description: '不透明卡片 · 原有背景', tag: '深色' },
+      latte: { title: 'Catppuccin Latte', description: '不透明卡片 · 原有背景', tag: '高彩度' },
+      previous: { title: '上一轮建议', description: '深色卡片 · 白色文字', tag: '小幅提亮', lightness: .44, chroma: .075 },
+      bright: { title: '明亮柔和', description: '浅彩卡片 · 深色文字', tag: '推荐', lightness: .76, chroma: .075 },
+      pastel: { title: '清透浅彩', description: '更浅的卡片 · 深色文字', tag: '更轻快', lightness: .84, chroma: .065 }
+    };
+    const courses = [
+      { day: 0, start: 0, length: 2, color: 'blue', title: '高等数学', room: '综教 A204' },
+      { day: 0, start: 4, length: 2, color: 'green', title: '大学英语', room: '文萃 F704' },
+      { day: 0, start: 8, length: 2, color: 'orange', title: '工程训练', room: '工训中心' },
+      { day: 1, start: 1, length: 2, color: 'green', title: '离散数学', room: '文萃 G701', ongoing: true },
+      { day: 1, start: 4, length: 2, color: 'yellow', title: '大学物理', room: '理教 105' },
+      { day: 1, start: 8, length: 2, color: 'blue', title: '程序设计', room: '综教 B302' },
+      { day: 2, start: 0, length: 2, color: 'yellow', title: '物理实验', room: '物实 309' },
+      { day: 2, start: 4, length: 3, color: 'orange', title: '工程实践', room: '工训中心' },
+      { day: 3, start: 2, length: 2, color: 'blue', title: '线性代数', room: '综教 A208' },
+      { day: 3, start: 6, length: 2, color: 'purple', title: '体育', room: '文体中心' },
+      { day: 3, start: 10, length: 2, color: 'green', title: '数据结构', room: '文萃 C503' },
+      { day: 4, start: 0, length: 2, color: 'green', title: '大学英语', room: '文萃 F704' },
+      { day: 4, start: 4, length: 2, color: 'yellow', title: '大学物理', room: '理教 105' },
+      { day: 5, start: 2, length: 2, color: 'purple', title: '美育实践', room: '文博中心' }
+    ];
+    const times = [ ['08:00', '08:45'], ['08:50', '09:35'], ['09:55', '10:40'], ['10:45', '11:30'], ['11:35', '12:20'], ['13:20', '14:05'], ['14:10', '14:55'], ['15:15', '16:00'], ['16:05', '16:50'], ['16:55', '17:40'], ['18:30', '19:15'], ['19:20', '20:05'], ['20:10', '20:55'] ];
+    const $ = id => document.getElementById(id);
+    let selected = 'mocha';
+    const mixing = { fillAlpha: 1, fillAccentMix: .24, progressAccentMix: .16, secondaryTextMix: .8 };
+    function resolvedPalette(mode) {
+      if (mode === 'current') return palettes.current;
+      return Object.fromEntries(Object.entries(palettes[mode]).map(([key, color]) => {
+        const fill = mixHex(color.fill, color.accent, mixing.fillAccentMix);
+        return [key, { ...color, sourceFill: color.fill, alpha: mixing.fillAlpha, fill, secondary: mixHex(fill, color.text, mixing.secondaryTextMix), elapsed: mixHex(fill, color.accent, mixing.progressAccentMix) }];
+      }));
+    }
+    function colorStyle(colors) {
+      return ['fill', 'text', 'secondary', 'accent', 'elapsed'].map(key => `--${key}:${colors[key]}`).join(';');
+    }
+    function renderSchedule(mode, quiet, progress) {
+      const palette = resolvedPalette(mode);
+      const today = '#282828';
+      const counts = [0, 2, 0, 1, 3, 0, 0];
+      const dates = ['一', '二', '三', '四', '五', '六', '日'].map((day, i) => `<div class="date${i === 1 ? ' today' : ''}"><span class="weekday">${day}</span><span class="date-number">${26 + i > 31 ? 1 : 26 + i}${counts[i] ? `<span class="badge">${counts[i]}</span>` : ''}</span></div>`).join('');
+      const bands = quiet ? '' : [1, 3, 5, 7, 9, 11].map(row => `<div class="band" style="grid-row:${row + 1}"></div>`).join('');
+      const periods = times.map((pair, i) => `<div class="period" style="grid-row:${i + 1}"><b>${i + 1}</b><span>${pair[0]}<br>${pair[1]}</span></div>`).join('');
+      const cards = courses.map(course => {
+        const active = progress && course.ongoing;
+        // Same 2px card inset and 2px progress line as the app's grid.
+        const lineTop = (1.44 - course.start) * 50 - 3;
+        return `<div class="course${course.day === 1 ? ' today' : ''}${active ? ' ongoing' : ''}" style="grid-column:${course.day + 2};grid-row:${course.start + 1}/span ${course.length};${colorStyle(palette[course.color])}">${active ? `<div class="elapsed" style="height:${lineTop + 2}px"></div>` : ''}<div class="course-inner"><h3>${course.title}</h3><p>${course.room}</p></div></div>`;
+      }).join('');
+      return `<div class="appbar"><strong>第 6 周 <span aria-hidden="true">⌄</span></strong><span>10 月 27 日 · 周二</span></div><div class="schedule" style="--today:${today}"><div class="date-row"><div class="month">10月</div>${dates}</div><div class="body-grid">${bands}<div class="today-column"></div>${periods}${progress ? '<div class="time-line"></div>' : ''}${cards}</div></div>`;
+    }
+    function luminance(hex) {
+      const channels = [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255).map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
+      return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+    }
+    function contrast(a, b) {
+      const values = [luminance(a), luminance(b)].sort((x, y) => x - y);
+      return (values[1] + .05) / (values[0] + .05);
+    }
+    function exportPalette() {
+      const theme = catppuccin[selected];
+      return JSON.stringify({ name: metadata[selected].title, source: theme ? 'https://catppuccin.com/palette/ (v1.8.0)' : 'Oklab study', background: '#171717', todayBackground: '#282828', rowBands: !$('quiet').checked, ...mixing, oklab: theme ? undefined : { lightness: metadata[selected].lightness, chroma: metadata[selected].chroma }, colors: resolvedPalette(selected) }, null, 2);
+    }
+    function render() {
+      const quiet = $('quiet').checked;
+      const progress = $('progress').checked;
+      const info = metadata[selected];
+      $('candidate-panel').style.cssText = '';
+      $('candidate-panel').style.colorScheme = 'dark';
+      $('baseline').innerHTML = renderSchedule('current', false, progress);
+      $('candidate').innerHTML = renderSchedule(selected, quiet, progress);
+      $('candidate-title').textContent = info.title;
+      $('candidate-description').textContent = `${info.description} · ${quiet ? '隐藏底纹' : '保留底纹'}`;
+      $('candidate-tag').textContent = info.tag;
+      $('palette-title').textContent = `${info.title} · 颜色细节`;
+      $('swatches').innerHTML = Object.values(resolvedPalette(selected)).map(colors => `<div class="swatch"><div style="background:#171717;border-radius:10px"><div class="sample" style="${colorStyle(colors)}"><strong>${colors.name}</strong><span>课程名称 / 上课地点</span></div></div><div class="values"><code>${colors.fill}</code><span>对比度 ${contrast(colors.fill, colors.text).toFixed(1)}:1</span></div></div>`).join('');
+      $('status').textContent = '';
+      $('export').hidden = true;
+    }
+    document.querySelectorAll('[data-dots]').forEach(element => {
+      element.innerHTML = Object.values(resolvedPalette(element.dataset.dots)).map(colors => `<i style="--dot:${colors.fill}"></i>`).join('');
+    });
+    document.querySelectorAll('input[name="scheme"]').forEach(input => input.addEventListener('change', () => { if (input.checked) { selected = input.value; render(); } }));
+    ['quiet', 'progress'].forEach(id => $(id).addEventListener('change', render));
+    $('copy').addEventListener('click', async () => {
+      const value = exportPalette();
+      try {
+        await navigator.clipboard.writeText(value);
+        $('status').textContent = `已复制“${metadata[selected].title}”配色。`;
+      } catch {
+        $('export').value = value;
+        $('export').hidden = false;
+        $('export').focus();
+        $('export').select();
+        $('status').textContent = '当前浏览器无法直接复制，已选中下方 JSON，可手动复制。';
+      }
+    });
+    render();
+  </script>
+</body>
+</html>

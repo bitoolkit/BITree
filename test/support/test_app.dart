@@ -113,11 +113,12 @@ class TestAppController extends AppController {
     AgendaController? agenda,
     List<AgendaEntry> entries = const [],
     MemorySchoolStorage? schoolStorage,
+    MemoryPreferences? preferences,
   }) : super(
          store: MemoryScheduleStore(schedules: schedules, selected: schedule),
          school: SchoolService(),
          schoolStorage: schoolStorage ?? MemorySchoolStorage(),
-         preferences: MemoryPreferences(),
+         preferences: preferences ?? MemoryPreferences(),
          agenda: agenda ?? AgendaController(MemoryAgendaStore(entries)),
          academics: AcademicController(MemoryAcademicStore()),
        ) {

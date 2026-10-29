@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../agenda/deadline_clear_scope.dart';
@@ -8,6 +10,7 @@ import '../../school/ui/school_screen.dart';
 import '../../ui/app_menu_anchor.dart';
 import '../../ui/app_menu_trigger.dart';
 import '../../ui/app_page.dart';
+import '../../ui/course_palette.dart';
 import '../../ui/external_link.dart';
 import '../../updates/version.dart';
 import '../controller.dart';
@@ -70,6 +73,9 @@ class SettingsScreen extends StatelessWidget {
     final builtAt = appBuildTime?.toLocal();
     if (!context.mounted) return;
 
+    var iconTaps = 0;
+    Timer? resetTaps;
+
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
@@ -90,7 +96,38 @@ class SettingsScreen extends StatelessWidget {
           scrollable: true,
           title: Row(
             children: [
-              Image.asset('assets/brand/bitree.png', width: 40, height: 40),
+              Semantics(
+                button: true,
+                label: 'BITree 图标',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (controller.developerMode) return;
+                    resetTaps?.cancel();
+                    resetTaps = Timer(const Duration(seconds: 2), () {
+                      iconTaps = 0;
+                    });
+                    iconTaps++;
+                    if (iconTaps < 5) return;
+                    controller.unlockDeveloperMode();
+                    Navigator.pop(dialogContext);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('已开启开发者模式')),
+                    );
+                  },
+                  child: SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: Center(
+                      child: Image.asset(
+                        'assets/brand/bitree.png',
+                        width: 40,
+                        height: 40,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -193,6 +230,7 @@ class SettingsScreen extends StatelessWidget {
         );
       },
     );
+    resetTaps?.cancel();
   }
 
   @override
@@ -248,6 +286,39 @@ class SettingsScreen extends StatelessWidget {
                   controller.setTheme(selection.single),
             ),
           ]),
+          if (controller.developerMode)
+            section('更多设置', [
+              LayoutBuilder(
+                builder: (context, constraints) => AppMenuAnchor(
+                  menuWidth: constraints.maxWidth,
+                  menuChildren: [
+                    for (final palette in DarkCoursePalette.values)
+                      Semantics(
+                        selected: controller.darkCoursePalette == palette,
+                        child: AppMenuItemButton(
+                          onPressed: () =>
+                              controller.setDarkCoursePalette(palette),
+                          trailingIcon:
+                              controller.darkCoursePalette == palette
+                              ? const Icon(Icons.check_rounded, size: 18)
+                              : const SizedBox(width: 18),
+                          child: Text(palette.label),
+                        ),
+                      ),
+                  ],
+                  builder: (context, menu, isOpen) => ListTile(
+                    contentPadding: tilePadding,
+                    leading: const Icon(Icons.palette_outlined),
+                    title: const Text('深色模式调色板'),
+                    subtitle: Text(
+                      '${controller.darkCoursePalette.label} · 仅影响深色课程配色',
+                    ),
+                    trailing: AppMenuArrow(isOpen: isOpen),
+                    onTap: () => isOpen ? menu.close() : menu.open(),
+                  ),
+                ),
+              ),
+            ]),
           if (controller.timetable.schedule != null)
             section('本地课表', [
               LayoutBuilder(

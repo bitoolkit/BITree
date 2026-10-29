@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:bitree/schedule/building_palette.dart';
 import 'package:bitree/schedule/model.dart';
+import 'package:bitree/ui/course_palette.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -166,6 +167,88 @@ void main() {
       expect(_distance(a.dark.fill, b.dark.fill), greaterThan(0.05));
     }
   });
+
+  testWidgets(
+    'Optional palettes preserve surfaces and light courses, with opaque readable dark courses',
+    (tester) async {
+      for (final palette in DarkCoursePalette.values) {
+        for (final brightness in Brightness.values) {
+          final originalTheme = bitreeTheme(brightness);
+          final theme = bitreeTheme(brightness, darkCoursePalette: palette);
+          expect(theme.colorScheme, originalTheme.colorScheme);
+          expect(
+            theme.scaffoldBackgroundColor,
+            originalTheme.scaffoldBackgroundColor,
+          );
+          await tester.pumpWidget(MaterialApp(
+            key: ValueKey((palette, brightness)),
+            theme: theme,
+            home: Builder(builder: (context) {
+              for (final building in [
+                ...buildings.map((row) => buildingPaletteNamed(row['name'] as String)!),
+                unknownBuildingPalette,
+              ]) {
+                final course = Course(
+                  id: 'course',
+                  name: '测试课程',
+                  weekday: 1,
+                  startSection: 1,
+                  endSection: 2,
+                  weeks: [1],
+                  room: building.name,
+                );
+                final colors = courseColors(context, course);
+                if (brightness == Brightness.light) {
+                  expect(colors.fill, Color(building.light.fill));
+                  expect(colors.text, Color(building.light.text));
+                  expect(colors.accent, Color(building.light.accent));
+                } else if (palette == DarkCoursePalette.standard) {
+                  expect(colors.fill, Color.lerp(
+                    Color(building.dark.fill),
+                    Color(building.dark.accent),
+                    0.24,
+                  ));
+                  expect(colors.text, Color(building.dark.text));
+                  expect(colors.accent, Color(building.dark.accent));
+                } else {
+                  expect(colors.text, Color(switch (palette) {
+                    DarkCoursePalette.mocha => 0xFFCDD6F4,
+                    DarkCoursePalette.macchiato => 0xFFCAD3F5,
+                    DarkCoursePalette.frappe => 0xFFC6D0F5,
+                    DarkCoursePalette.standard => throw StateError('default'),
+                  }));
+                  if (building.area == CampusArea.wencui) {
+                    expect(colors.accent, Color(switch (palette) {
+                      DarkCoursePalette.mocha => 0xFFA6E3A1,
+                      DarkCoursePalette.macchiato => 0xFFA6DA95,
+                      DarkCoursePalette.frappe => 0xFFA6D189,
+                      DarkCoursePalette.standard => throw StateError('default'),
+                    }));
+                  }
+                }
+                for (final (foreground, background) in [
+                  (colors.text, colors.fill),
+                  (colors.secondaryText, colors.fill),
+                  (colors.text, colors.elapsedFill),
+                ]) {
+                  expect(foreground.a, 1);
+                  expect(background.a, 1);
+                  final a = foreground.computeLuminance();
+                  final b = background.computeLuminance();
+                  expect(
+                    (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05),
+                    greaterThanOrEqualTo(4.5),
+                    reason: '${building.name} $brightness $palette',
+                  );
+                }
+              }
+              return const SizedBox.shrink();
+            }),
+          ));
+        }
+      }
+    },
+  );
 
   testWidgets(
     'Course colours stay opaque and readable before and during class',

@@ -11,6 +11,7 @@ import '../schedule/store.dart';
 import '../school/controller.dart';
 import '../school/service.dart';
 import '../school/storage.dart';
+import '../ui/course_palette.dart';
 
 /// Composes feature state and owns application startup and appearance.
 /// Feature changes are observed by their views, not relayed through this object.
@@ -44,9 +45,14 @@ class AppController extends ChangeNotifier {
   bool _agendaViewChosen = false;
   bool _ready = false;
   ThemeMode _themeMode = ThemeMode.system;
+  bool _developerMode = false;
+  DarkCoursePalette _darkCoursePalette = DarkCoursePalette.standard;
+  Future<void> _coursePaletteWrite = Future<void>.value();
 
   bool get ready => _ready;
   ThemeMode get themeMode => _themeMode;
+  bool get developerMode => _developerMode;
+  DarkCoursePalette get darkCoursePalette => _darkCoursePalette;
 
   Future<void> initialize() async {
     await timetable.load();
@@ -57,6 +63,15 @@ class AppController extends ChangeNotifier {
           ThemeMode.system;
     } catch (failure, stack) {
       AppDiagnostics.instance.report('读取外观设置', failure, stack);
+    }
+    try {
+      final savedPalette = await _preferences.getString('darkCoursePalette');
+      _darkCoursePalette = DarkCoursePalette.values
+              .where((palette) => palette.name == savedPalette)
+              .firstOrNull ??
+          DarkCoursePalette.standard;
+    } catch (failure, stack) {
+      AppDiagnostics.instance.report('读取深色课程配色', failure, stack);
     }
     try {
       final savedView = await _preferences.getString('agendaViewMode');
@@ -84,6 +99,25 @@ class AppController extends ChangeNotifier {
     } catch (failure, stack) {
       AppDiagnostics.instance.report('保存外观设置', failure, stack);
     }
+  }
+
+  void unlockDeveloperMode() {
+    if (_developerMode) return;
+    _developerMode = true;
+    notifyListeners();
+  }
+
+  Future<void> setDarkCoursePalette(DarkCoursePalette value) {
+    _darkCoursePalette = value;
+    notifyListeners();
+    _coursePaletteWrite = _coursePaletteWrite.then((_) async {
+      try {
+        await _preferences.setString('darkCoursePalette', value.name);
+      } catch (failure, stack) {
+        AppDiagnostics.instance.report('保存深色课程配色', failure, stack);
+      }
+    });
+    return _coursePaletteWrite;
   }
 
   /// Publish immediately and serialize writes so rapid toggles cannot save an

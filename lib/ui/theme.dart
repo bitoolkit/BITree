@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../schedule/building_palette.dart';
 import '../schedule/model.dart';
+import 'course_palette.dart';
 import 'design.dart';
 
 const copper = Color(0xFFA85E3E);
 
-ThemeData bitreeTheme(Brightness brightness) {
+ThemeData bitreeTheme(
+  Brightness brightness, {
+  DarkCoursePalette darkCoursePalette = DarkCoursePalette.standard,
+}) {
   final dark = brightness == Brightness.dark;
   final scheme =
       ColorScheme.fromSeed(
@@ -52,6 +56,7 @@ ThemeData bitreeTheme(Brightness brightness) {
       );
   return ThemeData(
     useMaterial3: true,
+    extensions: [CoursePaletteTheme(darkCoursePalette)],
     colorScheme: scheme,
     scaffoldBackgroundColor: scheme.surface,
     fontFamilyFallback: const [
@@ -281,8 +286,12 @@ courseColors(BuildContext context, Course course) {
   final palette =
       matchCampusBuilding(course.room, campus: course.campus) ??
       unknownBuildingPalette;
-  final dark = Theme.of(context).brightness == Brightness.dark;
-  final colors = dark ? palette.dark : palette.light;
+  final theme = Theme.of(context);
+  final dark = theme.brightness == Brightness.dark;
+  final darkPalette =
+      theme.extension<CoursePaletteTheme>()?.darkPalette ??
+      DarkCoursePalette.standard;
+  final colors = dark ? darkPalette.colorsFor(palette) : palette.light;
   final accent = Color(colors.accent);
   // Solid course blocks need more colour than the subtle timeline fades.
   // Resolve the fill here so row bands and today's column cannot tint it.
