@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../academics/controller.dart';
 import '../agenda/controller.dart';
 import '../agenda/deadline_source.dart';
+import '../agenda/model.dart';
 import '../core/async/cancelable_request.dart';
 import '../core/diagnostics.dart';
 import '../schedule/controller.dart';
@@ -191,17 +192,22 @@ class SchoolController extends ChangeNotifier {
   Future<bool> importDeadlines(
     DeadlineSource source, {
     required VerifySchoolLogin verify,
-  }) => _run(
-    '更新${source.label} DDL',
-    () => _access.readLearningPlatform(source, verify, (session, page) async {
-      final deadlines = await switch (source) {
-        DeadlineSource.lexue => fetchLexueDeadlines(session, page),
-        DeadlineSource.eclass => fetchEclassDeadlines(session),
-      };
-      session.checkActive();
-      return _agenda.mergeDeadlines(deadlines);
-    }),
-  );
+  }) {
+    final Future<List<AgendaEntry>> Function(SchoolSession, SchoolResponse)
+    fetch = switch (source) {
+      DeadlineSource.lexue => fetchLexueDeadlines,
+      DeadlineSource.eclass => (session, _) => fetchEclassDeadlines(session),
+      DeadlineSource.mooc => throw ArgumentError('MOOC 使用独立账号同步'),
+    };
+    return _run(
+      '更新${source.label} DDL',
+      () => _access.readLearningPlatform(source, verify, (session, page) async {
+        final deadlines = await fetch(session, page);
+        session.checkActive();
+        return _agenda.mergeDeadlines(deadlines);
+      }),
+    );
+  }
 
   void cancel() => _access.cancel();
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../mooc/ui/mooc_screen.dart';
 import '../../schedule/ui/week_range_dialog.dart';
 import '../../school/ui/school_account.dart';
 import '../../school/ui/school_screen.dart';
@@ -205,6 +206,7 @@ class SettingsScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           SchoolAccount(controller: controller),
+          MoocAccountTile(controller: controller.mooc),
           section('外观', [
             SegmentedButton<ThemeMode>(
               expandedInsets: EdgeInsets.zero,

@@ -395,7 +395,7 @@ void main() {
     }, network),
   );
 
-  for (final source in DeadlineSource.values) {
+  for (final source in [DeadlineSource.lexue, DeadlineSource.eclass]) {
     test(
       '${source.label} uses one direct request without probing WebVPN',
       () => HttpOverrides.runWithHttpOverrides(() async {

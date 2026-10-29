@@ -1,0 +1,355 @@
+import 'package:flutter/material.dart';
+
+import '../../core/async/cancelable_request.dart';
+import '../../core/error_message.dart';
+import '../../ui/app_notice.dart';
+import '../../ui/editor_sheet.dart';
+import '../../ui/external_link.dart';
+import '../api.dart';
+import '../controller.dart';
+import '../credentials.dart';
+import 'login.dart';
+
+Future<void> openMooc(
+  BuildContext context,
+  MoocController controller, {
+  bool synchronize = false,
+}) => Navigator.of(context).push(
+  MaterialPageRoute<void>(
+    builder: (_) =>
+        MoocScreen(controller: controller, synchronize: synchronize),
+  ),
+);
+
+class MoocAccountTile extends StatelessWidget {
+  const MoocAccountTile({super.key, required this.controller});
+  final MoocController controller;
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: controller,
+    builder: (context, _) => ListTile(
+      contentPadding: const EdgeInsets.symmetric(vertical: 2),
+      leading: const Icon(Icons.school_outlined),
+      title: const Text('中国大学MOOC'),
+      subtitle: Text(
+        [
+          controller.account?.name,
+          controller.status,
+        ].whereType<String>().join(' · '),
+      ),
+      trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+      onTap: () => openMooc(context, controller),
+    ),
+  );
+}
+
+class MoocScreen extends StatefulWidget {
+  const MoocScreen({
+    super.key,
+    required this.controller,
+    this.synchronize = false,
+  });
+  final MoocController controller;
+  final bool synchronize;
+  @override
+  State<MoocScreen> createState() => _MoocScreenState();
+}
+
+class _MoocScreenState extends State<MoocScreen> {
+  MoocImportResult? _result;
+  String? _error;
+  bool _loginOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.synchronize && !widget.controller.needsLogin) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _sync();
+      });
+    }
+  }
+
+  Future<void> _login() async {
+    if (_loginOpen) return;
+    setState(() {
+      _loginOpen = true;
+      _error = null;
+    });
+    try {
+      final success = await loginToMooc(context, widget.controller);
+      if (success && mounted && widget.synchronize) await _sync();
+    } finally {
+      if (mounted) setState(() => _loginOpen = false);
+    }
+  }
+
+  Future<void> _cookie() async {
+    final success = await showModalBottomSheet<bool>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (_) => _CookieSheet(controller: widget.controller),
+    );
+    if (success == true && mounted && widget.synchronize) await _sync();
+  }
+
+  Future<void> _sync() async {
+    setState(() {
+      _error = null;
+      _result = null;
+    });
+    try {
+      final result = await widget.controller.synchronize();
+      if (mounted) setState(() => _result = result);
+    } on RequestCancelled {
+      if (mounted) showAppNotice(context, '已取消 MOOC 同步');
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = widget.controller.error ?? errorMessage(error));
+      }
+    }
+  }
+
+  Future<void> _disconnect() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('退出中国大学MOOC？'),
+        content: const Text('删除本机保存的登录会话，已导入的 DDL 会保留。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('退出'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.controller.disconnect();
+      if (mounted) setState(() => _result = null);
+    } catch (error) {
+      if (mounted) setState(() => _error = errorMessage(error));
+    }
+  }
+
+  @override
+  void dispose() {
+    if (!_loginOpen) widget.controller.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.controller,
+    builder: (context, _) {
+      final model = widget.controller;
+      final theme = Theme.of(context);
+      return Scaffold(
+        appBar: AppBar(title: const Text('中国大学MOOC')),
+        body: SafeArea(
+          top: false,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                shrinkWrap: true,
+                children: [
+                  if (model.account case final account?) ...[
+                    Text(account.name, style: theme.textTheme.titleLarge),
+                    const SizedBox(height: 4),
+                    Text(model.status, style: theme.textTheme.bodyMedium),
+                    const SizedBox(height: 24),
+                  ],
+                  if (model.needsLogin) ...[
+                    const Text('登录后同步 MOOC 和 SPOC 的作业、测验、考试与互评截止时间。'),
+                    const SizedBox(height: 20),
+                  ],
+                  FilledButton.icon(
+                    onPressed: model.busy || _loginOpen
+                        ? null
+                        : model.needsLogin
+                        ? _login
+                        : _sync,
+                    icon: Icon(
+                      model.needsLogin
+                          ? Icons.login_rounded
+                          : Icons.sync_rounded,
+                    ),
+                    label: Text(model.needsLogin ? '登录中国大学MOOC' : '同步 DDL'),
+                  ),
+                  if (model.busy) ...[
+                    const SizedBox(height: 20),
+                    const LinearProgressIndicator(),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: Text(model.progress)),
+                        TextButton(
+                          onPressed: model.cancel,
+                          child: const Text('取消'),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
+                      children: [
+                        if (!model.needsLogin)
+                          TextButton(
+                            onPressed: _loginOpen ? null : _login,
+                            child: const Text('重新登录'),
+                          ),
+                        TextButton(
+                          onPressed: _loginOpen ? null : _cookie,
+                          child: const Text('使用 Cookie'),
+                        ),
+                        if (model.account != null)
+                          TextButton(
+                            onPressed: _loginOpen ? null : _disconnect,
+                            child: const Text('退出账号'),
+                          ),
+                      ],
+                    ),
+                  ],
+                  if (_error ?? model.error case final error?)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Text(
+                        error,
+                        style: TextStyle(color: theme.colorScheme.error),
+                      ),
+                    ),
+                  if (_result case final result?) ...[
+                    const SizedBox(height: 24),
+                    Text(
+                      '已同步 ${result.entries.length} 条 DDL',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 6),
+                    Text('读取了 ${result.courseCount} 门课程'),
+                    if (result.failures.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        '以下课程未能同步，可重新尝试',
+                        style: TextStyle(color: theme.colorScheme.error),
+                      ),
+                      for (final failure in result.failures)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(failure.course),
+                          subtitle: Text(failure.message),
+                        ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _CookieSheet extends StatefulWidget {
+  const _CookieSheet({required this.controller});
+  final MoocController controller;
+  @override
+  State<_CookieSheet> createState() => _CookieSheetState();
+}
+
+class _CookieSheetState extends State<_CookieSheet> {
+  final _form = GlobalKey<FormState>();
+  final _text = TextEditingController();
+  bool _saving = false;
+  String? _error;
+
+  Future<void> _save() async {
+    if (!_form.currentState!.validate() || _saving) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await widget.controller.connect(
+        MoocCredentials.fromCookieHeader(_text.text),
+      );
+      if (mounted) Navigator.pop(context, true);
+    } on RequestCancelled {
+      if (mounted) setState(() => _error = '已取消连接');
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _error = error is FormatException
+              ? error.message
+              : widget.controller.error ?? errorMessage(error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => EditorSheet(
+    title: '使用 Cookie',
+    formKey: _form,
+    saving: _saving,
+    onSave: _save,
+    saveLabel: Text(_saving ? '验证中…' : '连接'),
+    error: _error,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('在已登录的 MOOC 网页中，从开发者工具的网络面板复制请求 Cookie。此方式仅作为网页登录的备用。'),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _text,
+          enabled: !_saving,
+          minLines: 3,
+          maxLines: 6,
+          decoration: const InputDecoration(
+            labelText: 'Cookie',
+            alignLabelWithHint: true,
+          ),
+          autocorrect: false,
+          enableSuggestions: false,
+          enableIMEPersonalizedLearning: false,
+          validator: (value) =>
+              value == null || value.trim().isEmpty ? '请粘贴 Cookie' : null,
+        ),
+        const SizedBox(height: 8),
+        if (_saving)
+          TextButton(
+            onPressed: widget.controller.cancel,
+            child: const Text('取消连接'),
+          ),
+        TextButton(
+          onPressed: () => openExternalLink(
+            context,
+            MoocCredentials.origin.resolve('/member/login.htm'),
+            failureTitle: '无法打开 MOOC',
+          ),
+          child: const Text('打开官方登录页'),
+        ),
+      ],
+    ),
+  );
+}

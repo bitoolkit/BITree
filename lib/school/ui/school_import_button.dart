@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../agenda/ui/deleted_deadlines.dart';
 import '../../app/controller.dart';
+import '../../mooc/ui/mooc_screen.dart';
 import '../../ui/app_menu_anchor.dart';
 import 'school_screen.dart';
 
@@ -48,6 +49,17 @@ class SchoolImportButton extends StatelessWidget {
                 : () => openSchoolPage(context, controller, action: action),
             child: Text(action.label),
           ),
+        const Divider(),
+        AppMenuItemButton(
+          leadingIcon: const Icon(Icons.menu_book_outlined),
+          onPressed:
+              !controller.agenda.ready ||
+                  controller.agenda.busy ||
+                  controller.mooc.busy
+              ? null
+              : () => openMooc(context, controller.mooc, synchronize: true),
+          child: const Text('同步中国大学MOOC DDL'),
+        ),
         const Divider(),
         AppMenuItemButton(
           leadingIcon: const Icon(Icons.restore_from_trash_outlined),

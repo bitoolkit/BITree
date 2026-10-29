@@ -25,6 +25,14 @@ flowchart LR
 
 数据仍使用 `schedule.json`、`agenda.json`、`academics.json` 和原有 JSON 字段；凭据与 Cookie 仍使用原有系统安全存储。DDL 同步保留本地编辑、删除标记和已完成状态，并接收平台完成状态。恢复已删除 DDL 是独立操作。
 
+## 中国大学MOOC
+
+`MoocController` 独立管理 MOOC 账号、当前请求与同步结果。登录由官方页面处理，`ui/login.dart` 在移动端使用 `flutter_inappwebview`，桌面端使用 `desktop_webview_window` 的原生窗口。只在完成登录后读取 MOOC 域内、适用于 `/web/j/` 的 Cookie，并保留浏览器真实 User-Agent；`MoocApi.member` 再向平台验证账号，不把 Cookie 存在当作登录成功。`MoocStorage` 将验证后的会话写入安全存储，不保存密码。
+
+`MoocApi` 只请求固定 HTTPS 来源的读取接口，不跟随认证重定向。Cookie 的域、路径、到期与服务器轮换由 `cookie_jar` 管理，请求前按路径长度排列同名 Cookie。每次同步重新校验账号，分页读取 `courseType=1/2` 的全部课程，再读取各课程学期 DTO。`tasks.dart` 只解析任务元数据，区分提交与学生互评截止；老师批改不会生成互评任务，考试的主观题互评也会解析。任务编号包含账号、学期、任务类型与阶段，交给 `AgendaController.mergeDeadlines` 保留本地编辑、完成与删除状态。某门课程失败会显示课程名和原因；会话过期或取消时，不保存部分导入结果。应用启动只读本机会话，不自动发起 MOOC 登录或同步。
+
+接口字段依据官方个人中心的 `home/desktop/modules/course/index.html`、`spocCourse/index.html` 及其脚本，以及公开课程 `courseBean.getMocTermDto.rpc` 的实际响应。登录验证码与风控都由平台官方页面完成。
+
 ## 空教室查询
 
 页面只负责显示控件、日期选择和登录验证界面。`ClassroomController` 管理查询输入、结果和取消：更换校区或日期会取消旧查询，等待其资源结束后执行新查询；教学楼和时段筛选直接复用已获取的数据。

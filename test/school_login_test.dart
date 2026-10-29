@@ -162,7 +162,7 @@ void main() {
     );
   }
 
-  for (final source in DeadlineSource.values) {
+  for (final source in [DeadlineSource.lexue, DeadlineSource.eclass]) {
     test(
       '${source.label} reuses its authenticated session without asking for credentials',
       () => HttpOverrides.runWithHttpOverrides(() async {

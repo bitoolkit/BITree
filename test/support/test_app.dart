@@ -5,6 +5,8 @@ import 'package:bitree/agenda/controller.dart';
 import 'package:bitree/agenda/model.dart';
 import 'package:bitree/agenda/store.dart';
 import 'package:bitree/app/controller.dart';
+import 'package:bitree/mooc/credentials.dart';
+import 'package:bitree/mooc/storage.dart';
 import 'package:bitree/schedule/model.dart';
 import 'package:bitree/schedule/store.dart';
 import 'package:bitree/school/network.dart';
@@ -113,11 +115,13 @@ class TestAppController extends AppController {
     AgendaController? agenda,
     List<AgendaEntry> entries = const [],
     MemorySchoolStorage? schoolStorage,
+    MoocStorage? moocStorage,
   }) : super(
          store: MemoryScheduleStore(schedules: schedules, selected: schedule),
          school: SchoolService(),
          schoolStorage: schoolStorage ?? MemorySchoolStorage(),
          preferences: MemoryPreferences(),
+         moocStorage: moocStorage ?? MemoryMoocStorage(),
          agenda: agenda ?? AgendaController(MemoryAgendaStore(entries)),
          academics: AcademicController(MemoryAcademicStore()),
        ) {
@@ -130,4 +134,14 @@ class TestAppController extends AppController {
     await super.initialize();
     if (initialWeek case final week?) timetable.selectWeek(week);
   }
+}
+
+class MemoryMoocStorage extends MoocStorage {
+  MoocAccount? account;
+  @override
+  Future<MoocAccount?> read() async => account;
+  @override
+  Future<void> write(MoocAccount value) async => account = value;
+  @override
+  Future<void> clear() async => account = null;
 }

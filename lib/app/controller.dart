@@ -5,6 +5,8 @@ import '../academics/controller.dart';
 import '../agenda/controller.dart';
 import '../classrooms/repository.dart';
 import '../core/diagnostics.dart';
+import '../mooc/controller.dart';
+import '../mooc/storage.dart';
 import '../schedule/controller.dart';
 import '../schedule/store.dart';
 import '../school/controller.dart';
@@ -21,6 +23,7 @@ class AppController extends ChangeNotifier {
     required this._preferences,
     required this.agenda,
     required this.academics,
+    MoocStorage? moocStorage,
   }) : timetable = TimetableController(store) {
     this.school = SchoolController(
       service: school,
@@ -30,6 +33,10 @@ class AppController extends ChangeNotifier {
       academics: academics,
     );
     classrooms = ClassroomRepository(this.school);
+    mooc = MoocController(
+      storage: moocStorage ?? MoocStorage(),
+      agenda: agenda,
+    );
   }
 
   final TimetableController timetable;
@@ -37,6 +44,7 @@ class AppController extends ChangeNotifier {
   late final ClassroomRepository classrooms;
   final AgendaController agenda;
   final AcademicController academics;
+  late final MoocController mooc;
   final SharedPreferencesAsync _preferences;
   bool _ready = false;
   ThemeMode _themeMode = ThemeMode.system;
@@ -56,6 +64,7 @@ class AppController extends ChangeNotifier {
     }
     await school.loadAccount();
     await agenda.load();
+    await mooc.load();
     await academics.load(school.username);
     _ready = true;
     notifyListeners();
@@ -75,6 +84,7 @@ class AppController extends ChangeNotifier {
   void dispose() {
     classrooms.dispose();
     school.dispose();
+    mooc.dispose();
     timetable.dispose();
     agenda.dispose();
     academics.dispose();
