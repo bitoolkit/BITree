@@ -9,6 +9,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/async/cancelable_request.dart';
+import '../../core/diagnostics.dart';
+import '../api.dart';
 import '../controller.dart';
 import '../credentials.dart';
 
@@ -40,6 +42,7 @@ class _MoocLoginState extends State<_MoocLogin> {
   bool _mobileReady = false;
   String? _message;
   String? _attempted;
+  int _attempts = 0;
   final _popups = <Route<void>>[];
 
   bool get _isDesktop =>
@@ -82,6 +85,7 @@ class _MoocLoginState extends State<_MoocLogin> {
         _message = null;
         _loading = true;
         _attempted = null;
+        _attempts = 0;
       });
     }
     try {
@@ -138,7 +142,10 @@ class _MoocLoginState extends State<_MoocLogin> {
     setState(
       () => _loading = _desktop?.navigationState.value.isLoading ?? false,
     );
-    if (!_loading) unawaited(_capture());
+    if (!_loading) {
+      _attempts = 0;
+      unawaited(_capture());
+    }
   }
 
   static bool _webNavigation(Uri? uri) =>
@@ -208,12 +215,9 @@ class _MoocLoginState extends State<_MoocLogin> {
     }
     _checking = true;
     try {
-      // Server-rendered webUser is a completion signal, not an authentication
-      // decision. The native client still verifies the exported session.
-      final ready = await _evaluate(
-        'location.origin === "https://www.icourse163.org" && !!(window.webUser && window.webUser.id)',
-      ).timeout(const Duration(seconds: 5));
-      if (!manual && ready != true) return;
+      final origin = await _evaluate('location.origin')
+          .timeout(const Duration(seconds: 5));
+      if (origin != '${MoocCredentials.origin}') return;
       final agent = await _evaluate('navigator.userAgent')
           .timeout(const Duration(seconds: 5));
       if (agent is! String) throw const FormatException('无法读取浏览器信息，请刷新登录页。');
@@ -221,15 +225,32 @@ class _MoocLoginState extends State<_MoocLogin> {
         userAgent: agent,
         cookies: await _cookies().timeout(const Duration(seconds: 5)),
       );
+      // The official frontend uses these cookies as its login signal. Only
+      // the native request to the account page decides whether they are valid.
+      if (!manual &&
+          !credential.cookies.any(
+            (value) => {
+              'STUDY_INFO',
+              'STUDY_SESS',
+              'NTES_SESS',
+            }.contains(Cookie.fromSetCookieValue(value).name),
+          )) {
+        return;
+      }
       final candidate = jsonEncode(credential.toJson());
-      if (!manual && candidate == _attempted) return;
-      _attempted = candidate;
+      if (manual || candidate != _attempted) {
+        _attempted = candidate;
+        _attempts = 0;
+      }
+      if (_attempts >= 3) return;
+      _attempts++;
       if (!mounted) return;
       if (mounted) setState(() => _message = '正在验证登录…');
       await widget.controller.connect(credential);
       if (!mounted) return;
       _finished = true;
       _poll?.cancel();
+      _closeDesktop();
       final navigator = Navigator.of(context);
       for (final route in _popups.toList()) {
         if (route.isActive) navigator.removeRoute(route);
@@ -237,6 +258,11 @@ class _MoocLoginState extends State<_MoocLogin> {
       navigator.pop(true);
     } on RequestCancelled {
       // Closing the page cancels validation without saving an unverified session.
+    } on MoocLoginRequired {
+      _attempts = 3;
+      if (mounted) {
+        setState(() => _message = '尚未读取到有效登录，请完成登录后点击“已完成登录”重试。');
+      }
     } on FormatException catch (error) {
       if (mounted && manual) setState(() => _message = error.message);
     } catch (_) {
@@ -287,13 +313,24 @@ class _MoocLoginState extends State<_MoocLogin> {
     useShouldOverrideUrlLoading: true,
   );
 
+  void _closeDesktop() {
+    final browser = _desktop;
+    _desktop = null;
+    browser?.navigationState.removeListener(_navigationChanged);
+    if (browser != null) {
+      unawaited(
+        browser.close().catchError((Object error, StackTrace stack) {
+          AppDiagnostics.instance.error('关闭 MOOC 登录窗口', error, stack);
+        }),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _poll?.cancel();
     if (!_finished) widget.controller.cancel();
-    final browser = _desktop;
-    browser?.navigationState.removeListener(_navigationChanged);
-    if (browser != null) unawaited(browser.close());
+    _closeDesktop();
     super.dispose();
   }
 
@@ -359,6 +396,7 @@ class _MoocLoginState extends State<_MoocLogin> {
                     onLoadStop: (_, _) {
                       if (mounted) {
                         setState(() => _loading = false);
+                        _attempts = 0;
                         unawaited(_capture());
                       }
                     },

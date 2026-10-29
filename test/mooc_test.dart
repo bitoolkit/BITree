@@ -217,6 +217,29 @@ void main() {
       server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       network = LocalHttpOverrides(server.port);
       server.listen((request) async {
+        if (request.uri.path == '/www.icourse163.org/home.htm') {
+          expect(request.method, 'GET');
+          expect(
+            request.headers.value(HttpHeaders.userAgentHeader),
+            'MOOC test browser',
+          );
+          final cookie = request.headers.value(HttpHeaders.cookieHeader)!;
+          expect(cookie, contains('STUDY_SESS=session'));
+          expect(cookie, isNot(contains('STUDY_SESS=specific')));
+          if (expired) {
+            request.response.write('<html><body>请登录</body></html>');
+          } else {
+            request.response.cookies.add(
+              Cookie('NTESSTUDYSI', 'rotated')..path = '/',
+            );
+            request.response.write(
+              '<html><script>window.webUser = '
+              '${jsonEncode({'id': 8, 'nickName': '测试同学'})};</script></html>',
+            );
+          }
+          await request.response.close();
+          return;
+        }
         final form = Uri.splitQueryString(
           await utf8.decoder.bind(request).join(),
         );
@@ -240,16 +263,6 @@ void main() {
         if (expired) {
           request.response.write(
             jsonEncode({'code': 1, 'message': 'not_auth', 'result': null}),
-          );
-        } else if (request.uri.path.endsWith('memberBean.getMocMember.rpc')) {
-          request.response.cookies.add(
-            Cookie('NTESSTUDYSI', 'rotated')..path = '/',
-          );
-          request.response.write(
-            jsonEncode({
-              'code': 0,
-              'result': {'id': 8, 'nickName': '测试同学'},
-            }),
           );
         } else if (request.uri.path.endsWith(
           'getMyLearnedCoursePanelList.rpc',

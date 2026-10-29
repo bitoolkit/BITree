@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cookie_jar/cookie_jar.dart';
+import 'package:html/parser.dart' as html;
 
 import '../agenda/model.dart';
 import '../core/async/cancelable_request.dart';
@@ -64,8 +65,38 @@ class MoocApi {
   }
 
   Future<MoocAccount> member() async {
-    final response = moocMap(await _rpc('memberBean.getMocMember'));
-    final member = moocMap(response?['member']) ?? response;
+    final page = await _request(MoocCredentials.origin.resolve('/home.htm'));
+    Map<String, dynamic>? member;
+    for (final script in html.parse(page).querySelectorAll('script')) {
+      final source = script.text;
+      final assignment = RegExp(r'\b(?:window\.)?webUser\s*=\s*(?=\{)')
+          .firstMatch(source);
+      if (assignment == null) continue;
+      var depth = 0;
+      var quoted = false;
+      var escaped = false;
+      for (var i = assignment.end; i < source.length; i++) {
+        final char = source[i];
+        if (quoted) {
+          if (escaped) {
+            escaped = false;
+          } else if (char == r'\') {
+            escaped = true;
+          } else if (char == '"') {
+            quoted = false;
+          }
+        } else if (char == '"') {
+          quoted = true;
+        } else if (char == '{') {
+          depth++;
+        } else if (char == '}' && --depth == 0) {
+          member = moocMap(jsonDecode(source.substring(assignment.end, i + 1)));
+          break;
+        }
+      }
+      if (member == null) throw const FormatException('MOOC 当前账号信息格式不正确。');
+      break;
+    }
     final id = moocId(member?['id']);
     if (id == null) throw const MoocLoginRequired();
     final name = member?['nickName'];
@@ -172,6 +203,29 @@ class MoocApi {
     Map<String, String> form = const {},
     Uri? referer,
   }) async {
+    final text = await _request(
+      MoocCredentials.origin.resolve('/web/j/$method.rpc'),
+      form: form,
+      referer: referer,
+    );
+    if (text.trimLeft().startsWith('<')) throw const MoocLoginRequired();
+    final data = moocMap(jsonDecode(text));
+    if (data == null) throw const FormatException('MOOC 返回的数据格式不正确。');
+    if (data['code'] == 0) return data['result'];
+    final message = data['message'];
+    if (message == 'not_auth' ||
+        (message is String &&
+            (message.contains('登录') || message.contains('非法跨域')))) {
+      throw const MoocLoginRequired();
+    }
+    throw const MoocFailure('MOOC 未完成请求，请稍后重试或重新登录。');
+  }
+
+  Future<String> _request(
+    Uri url, {
+    Map<String, String>? form,
+    Uri? referer,
+  }) async {
     _cancellation.check();
     if (!_seeded) {
       await _cookies.saveFromResponse(
@@ -180,36 +234,45 @@ class MoocApi {
       );
       _seeded = true;
     }
-    final url = MoocCredentials.origin.resolve('/web/j/$method.rpc');
     final cookies = await _requestCookies(url);
     final csrf = cookies
         .where((cookie) => cookie.name == 'NTESSTUDYSI')
         .firstOrNull
         ?.value;
-    if (csrf == null) throw const MoocLoginRequired();
+    if (form != null && csrf == null) throw const MoocLoginRequired();
     try {
-      final request = await _http
-          .postUrl(url.replace(queryParameters: {'csrfKey': csrf}))
-          .timeout(_timeout);
+      final request =
+          await (form == null
+                  ? _http.getUrl(url)
+                  : _http.postUrl(
+                      url.replace(queryParameters: {'csrfKey': csrf!}),
+                    ))
+              .timeout(_timeout);
       _cancellation.check();
       request.followRedirects = false;
       request.headers
         ..set(HttpHeaders.userAgentHeader, _credentials.userAgent)
-        ..set(HttpHeaders.acceptHeader, 'application/json')
+        ..set(
+          HttpHeaders.acceptHeader,
+          form == null ? 'text/html' : 'application/json',
+        )
         ..set(
           HttpHeaders.refererHeader,
           '${referer ?? MoocCredentials.origin.resolve('/home.htm')}',
-        )
-        ..set('Origin', '${MoocCredentials.origin}')
-        ..set('X-Requested-With', 'XMLHttpRequest')
-        ..set('edu-script-token', csrf)
-        ..contentType = ContentType(
-          'application',
-          'x-www-form-urlencoded',
-          charset: 'utf-8',
         );
+      if (form != null) {
+        request.headers
+          ..set('Origin', '${MoocCredentials.origin}')
+          ..set('X-Requested-With', 'XMLHttpRequest')
+          ..set('edu-script-token', csrf!)
+          ..contentType = ContentType(
+            'application',
+            'x-www-form-urlencoded',
+            charset: 'utf-8',
+          );
+      }
       request.cookies.addAll(cookies);
-      request.write(Uri(queryParameters: form).query);
+      if (form != null) request.write(Uri(queryParameters: form).query);
       final response = await request.close().timeout(_timeout);
       _cancellation.check();
       final received = response.cookies.where((cookie) {
@@ -244,17 +307,7 @@ class MoocApi {
       if (response.statusCode != 200) {
         throw MoocFailure('MOOC 请求失败（${response.statusCode}），请稍后重试。');
       }
-      if (text.trimLeft().startsWith('<')) throw const MoocLoginRequired();
-      final data = moocMap(jsonDecode(text));
-      if (data == null) throw const FormatException('MOOC 返回的数据格式不正确。');
-      if (data['code'] == 0) return data['result'];
-      final message = data['message'];
-      if (message == 'not_auth' ||
-          (message is String &&
-              (message.contains('登录') || message.contains('非法跨域')))) {
-        throw const MoocLoginRequired();
-      }
-      throw const MoocFailure('MOOC 未完成请求，请稍后重试或重新登录。');
+      return text;
     } on Exception catch (error) {
       _cancellation.check();
       if (error is SocketException ||

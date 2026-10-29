@@ -63,7 +63,7 @@ DDL 绘制与布局分离：右端为 `dueAt`，左侧渐隐，屏幕宽度为�
 
 ## 中国大学MOOC
 
-`MoocController` 独立管理 MOOC 账号、当前请求与同步结果。登录由官方页面处理，`ui/login.dart` 在移动端使用 `flutter_inappwebview`，桌面端使用 `desktop_webview_window` 的原生窗口。只在完成登录后读取 MOOC 域内、适用于 `/web/j/` 的 Cookie，并保留浏览器真实 User-Agent；`MoocApi.member` 再向平台验证账号，不把 Cookie 存在当作登录成功。`MoocStorage` 将验证后的会话写入安全存储，不保存密码。
+`MoocController` 独立管理 MOOC 账号、当前请求与同步结果。登录由官方页面处理，`ui/login.dart` 在移动端使用 `flutter_inappwebview`，桌面端使用 `desktop_webview_window` 的原生窗口。以官方登录 Cookie 触发会话读取，保留浏览器真实 User-Agent；`MoocApi.member` 读取 `/home.htm` 服务端返回的当前 `webUser` 验证账号，不把 Cookie 存在当作登录成功，也不调用按用户 ID 查询资料的 `getMocMember`。同一会话的临时失败最多自动尝试三次；页面加载完成或用户点击「已完成登录」时可重新验证。成功后关闭原生窗口并返回调用方。`MoocStorage` 将验证后的会话写入安全存储，不保存密码。
 
 `MoocApi` 只请求固定 HTTPS 来源的读取接口，不跟随认证重定向。Cookie 的域、路径、到期与服务器轮换由 `cookie_jar` 管理，请求前按路径长度排列同名 Cookie。每次同步重新校验账号，分页读取 `courseType=1/2` 的全部课程，再读取各课程学期 DTO。`tasks.dart` 只解析任务元数据，区分提交与学生互评截止；老师批改不会生成互评任务，考试的主观题互评也会解析。任务编号包含账号、学期、任务类型与阶段，交给 `AgendaController.mergeDeadlines` 保留本地编辑、完成与删除状态。某门课程失败会显示课程名和原因；会话过期或取消时，不保存部分导入结果。应用启动只读本机会话，不自动发起 MOOC 登录或同步。
 
