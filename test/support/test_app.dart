@@ -64,12 +64,16 @@ class MemoryAcademicStore extends AcademicStore {
 }
 
 class MemoryPreferences extends Fake implements SharedPreferencesAsync {
-  final _values = <String, String>{};
+  final _values = <String, Object>{};
   @override
-  Future<String?> getString(String key) async => _values[key];
+  Future<String?> getString(String key) async => _values[key] as String?;
   @override
   Future<void> setString(String key, String value) async =>
       _values[key] = value;
+  @override
+  Future<bool?> getBool(String key) async => _values[key] as bool?;
+  @override
+  Future<void> setBool(String key, bool value) async => _values[key] = value;
 }
 
 class MemorySchoolStorage extends SchoolStorage {

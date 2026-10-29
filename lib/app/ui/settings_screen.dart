@@ -315,6 +315,13 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              SwitchListTile(
+                contentPadding: tilePadding,
+                secondary: const Icon(Icons.auto_awesome_outlined),
+                title: const Text('小组件使用系统调色板'),
+                value: controller.widgetUseSystemPalette,
+                onChanged: controller.setWidgetUseSystemPalette,
+              ),
             ]),
           if (controller.timetable.schedule != null)
             section('本地课表', [

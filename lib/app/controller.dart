@@ -47,12 +47,14 @@ class AppController extends ChangeNotifier {
   bool _ready = false;
   ThemeMode _themeMode = ThemeMode.system;
   bool _developerMode = false;
+  bool _widgetUseSystemPalette = false;
   DarkCoursePalette _darkCoursePalette = DarkCoursePalette.standard;
   Future<void> _coursePaletteWrite = Future<void>.value();
 
   bool get ready => _ready;
   ThemeMode get themeMode => _themeMode;
   bool get developerMode => _developerMode;
+  bool get widgetUseSystemPalette => _widgetUseSystemPalette;
   DarkCoursePalette get darkCoursePalette => _darkCoursePalette;
 
   Future<void> initialize() async {
@@ -75,8 +77,15 @@ class AppController extends ChangeNotifier {
     } catch (failure, stack) {
       AppDiagnostics.instance.report('读取深色课程配色', failure, stack);
     }
+    try {
+      _widgetUseSystemPalette =
+          await _preferences.getBool('widgetUseSystemPalette') ?? false;
+    } catch (failure, stack) {
+      AppDiagnostics.instance.report('读取小组件调色板设置', failure, stack);
+    }
     await updateDesktopWidget(
       darkCourseColors: _darkCoursePalette.widgetColors,
+      useSystemPalette: _widgetUseSystemPalette,
     );
     try {
       final savedView = await _preferences.getString('agendaViewMode');
@@ -115,13 +124,36 @@ class AppController extends ChangeNotifier {
 
   Future<void> setDarkCoursePalette(DarkCoursePalette value) {
     _darkCoursePalette = value;
+    final useSystemPalette = _widgetUseSystemPalette;
     notifyListeners();
     _coursePaletteWrite = _coursePaletteWrite.then((_) async {
       try {
         await _preferences.setString('darkCoursePalette', value.name);
-        await updateDesktopWidget(darkCourseColors: value.widgetColors);
+        await updateDesktopWidget(
+          darkCourseColors: value.widgetColors,
+          useSystemPalette: useSystemPalette,
+        );
       } catch (failure, stack) {
         AppDiagnostics.instance.report('保存深色课程配色', failure, stack);
+      }
+    });
+    return _coursePaletteWrite;
+  }
+
+  Future<void> setWidgetUseSystemPalette(bool value) {
+    _widgetUseSystemPalette = value;
+    final palette = _darkCoursePalette;
+    notifyListeners();
+    // Share the palette write queue so rapid changes reach native code in order.
+    _coursePaletteWrite = _coursePaletteWrite.then((_) async {
+      try {
+        await _preferences.setBool('widgetUseSystemPalette', value);
+        await updateDesktopWidget(
+          darkCourseColors: palette.widgetColors,
+          useSystemPalette: value,
+        );
+      } catch (failure, stack) {
+        AppDiagnostics.instance.report('保存小组件调色板设置', failure, stack);
       }
     });
     return _coursePaletteWrite;

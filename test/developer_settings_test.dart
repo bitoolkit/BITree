@@ -38,6 +38,36 @@ void main() {
     },
   );
 
+  test(
+    'Widget system course palette defaults off and persists independently of developer mode',
+    () async {
+      final preferences = MemoryPreferences();
+      final first = TestAppController(preferences: preferences);
+      await first.initialize();
+      expect(first.widgetUseSystemPalette, isFalse);
+      await Future.wait([
+        first.setWidgetUseSystemPalette(true),
+        first.setWidgetUseSystemPalette(false),
+        first.setWidgetUseSystemPalette(true),
+        first.setDarkCoursePalette(DarkCoursePalette.mocha),
+      ]);
+
+      final second = TestAppController(preferences: preferences);
+      await second.initialize();
+      expect(second.widgetUseSystemPalette, isTrue);
+      expect(second.darkCoursePalette, DarkCoursePalette.mocha);
+      expect(second.developerMode, isFalse);
+      await second.setDarkCoursePalette(DarkCoursePalette.standard);
+      expect(second.widgetUseSystemPalette, isTrue);
+      await second.setWidgetUseSystemPalette(false);
+
+      final third = TestAppController(preferences: preferences);
+      await third.initialize();
+      expect(third.widgetUseSystemPalette, isFalse);
+      expect(third.darkCoursePalette, DarkCoursePalette.standard);
+    },
+  );
+
   test('Unknown saved palette falls back to the current app colours', () async {
     final preferences = MemoryPreferences();
     await preferences.setString('darkCoursePalette', 'retired-palette');
@@ -74,6 +104,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('更多设置'), findsNothing);
+    expect(find.text('小组件使用系统调色板'), findsNothing);
     final scrollable = find
         .descendant(
           of: find.byType(SettingsScreen),
@@ -110,6 +141,17 @@ void main() {
       scrollable: scrollable,
     );
     expect(find.text('默认'), findsOneWidget);
+    final systemPaletteSwitch = find.widgetWithText(
+      SwitchListTile,
+      '小组件使用系统调色板',
+    );
+    await tester.ensureVisible(systemPaletteSwitch);
+    expect(tester.widget<SwitchListTile>(systemPaletteSwitch).value, isFalse);
+    await tester.tap(systemPaletteSwitch);
+    await tester.pumpAndSettle();
+    expect(controller.widgetUseSystemPalette, isTrue);
+    expect(tester.widget<SwitchListTile>(systemPaletteSwitch).value, isTrue);
+    await tester.ensureVisible(find.text('深色模式调色板'));
     await tester.tap(find.text('深色模式调色板'));
     await tester.pumpAndSettle();
     for (final label in ['默认', 'Mocha', 'Macchiato', 'Frappé']) {
@@ -119,6 +161,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Mocha'), findsOneWidget);
     expect(controller.darkCoursePalette, DarkCoursePalette.mocha);
+    expect(controller.widgetUseSystemPalette, isTrue);
     final theme = Theme.of(tester.element(find.byType(SettingsScreen)));
     expect(
       theme.extension<CoursePaletteTheme>()!.darkPalette,

@@ -80,6 +80,7 @@ internal object BuildingColors {
         }.map { it.rule }.distinctBy { it.name }
         val building = buildings.singleOrNull()
         val palette = building?.palette ?: data.neutral
+        WidgetColors.course(context, building?.area)?.let { return it }
         if (!isDark(context)) return palette.light
         return readDarkPalette(context)[building?.area ?: "neutral"] ?: palette.dark
     }
