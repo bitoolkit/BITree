@@ -26,7 +26,7 @@ class MoocCredentials {
 
   /// A copied request header has no cookie scope metadata. Treat its first
   /// occurrence of a name as the value selected by the browser for this URL.
-  factory MoocCredentials.fromCookieHeader(String input) {
+  static List<Cookie> cookiesFromHeader(String input) {
     final header = RegExp(
       r'^\s*cookie\s*:\s*([^\r\n]+)',
       caseSensitive: false,
@@ -50,14 +50,11 @@ class MoocCredentials {
           ..secure = true,
       );
     }
-    return MoocCredentials(userAgent: cookieLoginUserAgent, cookies: cookies);
+    if (!cookies.any((cookie) => cookie.name == 'NTESSTUDYSI')) {
+      throw const FormatException('没有读取到中国大学MOOC 会话，请先完成登录。');
+    }
+    return cookies;
   }
-
-  // Cookie import has no browser context. Official webpage login records its
-  // real user agent instead of using this value.
-  static const cookieLoginUserAgent =
-      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
-      '(KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36';
 
   Map<String, Object> toJson() => {'userAgent': userAgent, 'cookies': cookies};
 

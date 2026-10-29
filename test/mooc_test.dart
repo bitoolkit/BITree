@@ -161,12 +161,12 @@ void main() {
   });
 
   test('Cookie import accepts copied headers and retains values containing equals signs', () {
-    final value = MoocCredentials.fromCookieHeader(
+    final value = MoocCredentials.cookiesFromHeader(
       'Accept: */*\r\nCookie: NTESSTUDYSI=csrf; STUDY_SESS=abc==\r\nReferer: https://www.icourse163.org/',
     );
-    expect(value.cookies.map(Cookie.fromSetCookieValue).last.value, 'abc==');
+    expect(value.last.value, 'abc==');
     expect(
-      () => MoocCredentials.fromCookieHeader('NTESSTUDYSI=x\r\nX-Test: y'),
+      () => MoocCredentials.cookiesFromHeader('NTESSTUDYSI=x\r\nX-Test: y'),
       throwsFormatException,
     );
   });
@@ -178,6 +178,7 @@ void main() {
     late MemoryMoocStorage storage;
     late LocalHttpOverrides network;
     late MoocCredentials credential;
+    late MoocAccount account;
     var expired = false;
     var brokenCourse = false;
     var malformedPage = false;
@@ -210,6 +211,7 @@ void main() {
             ..path = '/passport/',
         ],
       );
+      account = MoocAccount(id: '8', name: '测试同学', credentials: credential);
       storage = MemoryMoocStorage();
       agenda = AgendaController(MemoryAgendaStore());
       await agenda.load();
@@ -217,29 +219,6 @@ void main() {
       server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       network = LocalHttpOverrides(server.port);
       server.listen((request) async {
-        if (request.uri.path == '/www.icourse163.org/home.htm') {
-          expect(request.method, 'GET');
-          expect(
-            request.headers.value(HttpHeaders.userAgentHeader),
-            'MOOC test browser',
-          );
-          final cookie = request.headers.value(HttpHeaders.cookieHeader)!;
-          expect(cookie, contains('STUDY_SESS=session'));
-          expect(cookie, isNot(contains('STUDY_SESS=specific')));
-          if (expired) {
-            request.response.write('<html><body>请登录</body></html>');
-          } else {
-            request.response.cookies.add(
-              Cookie('NTESSTUDYSI', 'rotated')..path = '/',
-            );
-            request.response.write(
-              '<html><script>window.webUser = '
-              '${jsonEncode({'id': 8, 'nickName': '测试同学'})};</script></html>',
-            );
-          }
-          await request.response.close();
-          return;
-        }
         final form = Uri.splitQueryString(
           await utf8.decoder.bind(request).join(),
         );
@@ -267,6 +246,9 @@ void main() {
         } else if (request.uri.path.endsWith(
           'getMyLearnedCoursePanelList.rpc',
         )) {
+          request.response.cookies.add(
+            Cookie('NTESSTUDYSI', 'rotated')..path = '/',
+          );
           expect(form['type'], '30');
           expect(form['psize'], '8');
           pages.add('${form['courseType']}:${form['p']}');
@@ -323,13 +305,14 @@ void main() {
     test(
       'Every MOOC and SPOC page is read, rotated cookies are saved, and repeated sync preserves edits',
       () => HttpOverrides.runWithHttpOverrides(() async {
-        await controller.connect(credential);
+        await controller.connect(account);
         expect(storage.account!.name, '测试同学');
+        expect(network.clients, isEmpty);
+        final first = (await controller.synchronize())!;
         expect(
           storage.account!.credentials.cookies.join(';'),
           contains('NTESSTUDYSI=rotated'),
         );
-        final first = (await controller.synchronize())!;
         expect(pages, ['1:1', '1:2', '2:1']);
         expect(first.courseCount, 10);
         expect(first.entries, hasLength(20));
@@ -359,7 +342,7 @@ void main() {
     test(
       'An expired session retains local tasks and can be manually reconnected',
       () => HttpOverrides.runWithHttpOverrides(() async {
-        await controller.connect(credential);
+        await controller.connect(account);
         await controller.synchronize();
         expired = true;
         await expectLater(
@@ -369,7 +352,7 @@ void main() {
         expect(controller.needsLogin, isTrue);
         expect(agenda.entries, hasLength(20));
         expired = false;
-        await controller.connect(credential);
+        await controller.connect(account);
         expect(controller.needsLogin, isFalse);
       }, network),
     );
@@ -377,7 +360,7 @@ void main() {
     test(
       'Partial course failure is visible in the import result',
       () => HttpOverrides.runWithHttpOverrides(() async {
-        await controller.connect(credential);
+        await controller.connect(account);
         brokenCourse = true;
         final result = (await controller.synchronize())!;
         expect(result.courseCount, 9);
@@ -389,7 +372,7 @@ void main() {
     test(
       'Invalid course pages do not overwrite the agenda',
       () => HttpOverrides.runWithHttpOverrides(() async {
-        await controller.connect(credential);
+        await controller.connect(account);
         malformedPage = true;
         await expectLater(controller.synchronize(), throwsFormatException);
         expect(agenda.entries, isEmpty);
@@ -399,7 +382,7 @@ void main() {
     test(
       'Cancel closes the request before any task is imported',
       () => HttpOverrides.runWithHttpOverrides(() async {
-        await controller.connect(credential);
+        await controller.connect(account);
         waiting = Completer<void>();
         final done = expectLater(
           controller.synchronize(),
@@ -417,7 +400,7 @@ void main() {
     test(
       'Disconnect during a read prevents late results from restoring the account',
       () => HttpOverrides.runWithHttpOverrides(() async {
-        await controller.connect(credential);
+        await controller.connect(account);
         waiting = Completer<void>();
         final done = expectLater(
           controller.synchronize(),

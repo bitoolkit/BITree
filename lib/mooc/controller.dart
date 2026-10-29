@@ -43,45 +43,45 @@ class MoocController extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> connect(MoocCredentials credentials) =>
-      _run('登录 MOOC', credentials, (api, token) async {
-        final account = await api.member();
-        token.check();
-        await _storage.write(account);
-        _account = account;
-        _expired = false;
-      });
+  Future<void> connect(MoocAccount account) => _run('登录 MOOC', (token) async {
+    token.check();
+    await _storage.write(account);
+    _account = account;
+    _expired = false;
+  });
 
   Future<MoocImportResult?> synchronize() async {
     final account = _account;
     if (account == null) throw const MoocLoginRequired();
-    return _run('更新 MOOC DDL', account.credentials, (api, token) async {
-      final verified = await api.member();
-      if (verified.id != account.id) throw const MoocLoginRequired();
-      final result = await api.readDeadlines(account.id, (message) {
-        _progress = message;
-        _notify();
-      });
-      token.check();
-      final next = MoocAccount(
-        id: verified.id,
-        name: verified.name,
-        credentials: await api.credentials(),
-      );
-      token.check();
-      await _storage.write(next);
-      token.check();
-      if (!await _agenda.mergeDeadlines(result.entries)) return null;
-      _account = next;
-      _expired = false;
-      return result;
+    return _run('更新 MOOC DDL', (token) async {
+      final api = MoocApi(account.credentials, token);
+      try {
+        final result = await api.readDeadlines(account.id, (message) {
+          _progress = message;
+          _notify();
+        });
+        token.check();
+        final next = MoocAccount(
+          id: account.id,
+          name: account.name,
+          credentials: await api.credentials(),
+        );
+        token.check();
+        await _storage.write(next);
+        token.check();
+        if (!await _agenda.mergeDeadlines(result.entries)) return null;
+        _account = next;
+        _expired = false;
+        return result;
+      } finally {
+        api.close();
+      }
     });
   }
 
   Future<T> _run<T>(
     String label,
-    MoocCredentials credentials,
-    Future<T> Function(MoocApi, CancellationToken) operation,
+    Future<T> Function(CancellationToken) operation,
   ) async {
     if (busy || _disposed) throw const MoocFailure('MOOC 正在处理请求，请稍后重试。');
     final token = CancellationToken();
@@ -89,11 +89,10 @@ class MoocController extends ChangeNotifier {
     _request = token;
     _finished = finished.future;
     _error = null;
-    _progress = label == '登录 MOOC' ? '正在验证登录…' : '正在读取课程…';
+    _progress = label == '登录 MOOC' ? '正在保存登录…' : '正在读取课程…';
     _notify();
-    final api = MoocApi(credentials, token);
     try {
-      return await operation(api, token);
+      return await operation(token);
     } on RequestCancelled {
       rethrow;
     } catch (error, stack) {
@@ -106,7 +105,6 @@ class MoocController extends ChangeNotifier {
       AppDiagnostics.instance.error(label, error, stack);
       rethrow;
     } finally {
-      api.close();
       _request = null;
       _finished = null;
       _progress = '';

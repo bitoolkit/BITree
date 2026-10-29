@@ -294,10 +294,13 @@ class _CookieSheetState extends State<_CookieSheet> {
       _error = null;
     });
     try {
-      await widget.controller.connect(
-        MoocCredentials.fromCookieHeader(_text.text),
+      final cookies = MoocCredentials.cookiesFromHeader(_text.text);
+      final success = await loginToMooc(
+        context,
+        widget.controller,
+        initialCookies: cookies,
       );
-      if (mounted) Navigator.pop(context, true);
+      if (success && mounted) Navigator.pop(context, true);
     } on RequestCancelled {
       if (mounted) setState(() => _error = '已取消连接');
     } catch (error) {
@@ -325,7 +328,7 @@ class _CookieSheetState extends State<_CookieSheet> {
     formKey: _form,
     saving: _saving,
     onSave: _save,
-    saveLabel: Text(_saving ? '验证中…' : '连接'),
+    saveLabel: Text(_saving ? '登录中…' : '连接'),
     error: _error,
     child: Column(
       mainAxisSize: MainAxisSize.min,
@@ -349,11 +352,6 @@ class _CookieSheetState extends State<_CookieSheet> {
               value == null || value.trim().isEmpty ? '请粘贴 Cookie' : null,
         ),
         const SizedBox(height: 8),
-        if (_saving)
-          TextButton(
-            onPressed: widget.controller.cancel,
-            child: const Text('取消连接'),
-          ),
         TextButton(
           onPressed: () => openExternalLink(
             context,

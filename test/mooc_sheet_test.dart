@@ -6,10 +6,13 @@ import 'package:bitree/school/ui/school_import_button.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:webview_all/webview_all.dart';
 
+import 'support/mooc_browser.dart';
 import 'support/test_app.dart';
 
 void main() {
+  setUp(() => WebViewPlatform.instance = TestMoocBrowser());
   Future<void> pump(
     WidgetTester tester,
     TestAppController model, {
