@@ -16,25 +16,25 @@ void main() {
       final first = TestAppController(preferences: preferences);
       await first.initialize();
       expect(first.developerMode, isFalse);
-      expect(first.darkCoursePalette, DarkCoursePalette.standard);
+      expect(first.paletteIdFor(Brightness.dark), isNull);
       first.unlockDeveloperMode();
       expect(first.developerMode, isTrue);
       final writes = [
-        first.setDarkCoursePalette(DarkCoursePalette.mocha),
-        first.setDarkCoursePalette(DarkCoursePalette.macchiato),
-        first.setDarkCoursePalette(DarkCoursePalette.frappe),
+        first.setCoursePalette(Brightness.dark, 'mocha'),
+        first.setCoursePalette(Brightness.dark, 'macchiato'),
+        first.setCoursePalette(Brightness.dark, 'frappe'),
       ];
       await Future.wait(writes);
 
       final second = TestAppController(preferences: preferences);
       await second.initialize();
       expect(second.developerMode, isFalse);
-      expect(second.darkCoursePalette, DarkCoursePalette.frappe);
-      await second.setDarkCoursePalette(DarkCoursePalette.standard);
+      expect(second.paletteIdFor(Brightness.dark), 'frappe');
+      await second.setCoursePalette(Brightness.dark, null);
 
       final third = TestAppController(preferences: preferences);
       await third.initialize();
-      expect(third.darkCoursePalette, DarkCoursePalette.standard);
+      expect(third.paletteFor(Brightness.dark), isNull);
     },
   );
 
@@ -49,22 +49,22 @@ void main() {
         first.setWidgetUseSystemPalette(true),
         first.setWidgetUseSystemPalette(false),
         first.setWidgetUseSystemPalette(true),
-        first.setDarkCoursePalette(DarkCoursePalette.mocha),
+        first.setCoursePalette(Brightness.dark, 'mocha'),
       ]);
 
       final second = TestAppController(preferences: preferences);
       await second.initialize();
       expect(second.widgetUseSystemPalette, isTrue);
-      expect(second.darkCoursePalette, DarkCoursePalette.mocha);
+      expect(second.paletteIdFor(Brightness.dark), 'mocha');
       expect(second.developerMode, isFalse);
-      await second.setDarkCoursePalette(DarkCoursePalette.standard);
+      await second.setCoursePalette(Brightness.dark, null);
       expect(second.widgetUseSystemPalette, isTrue);
       await second.setWidgetUseSystemPalette(false);
 
       final third = TestAppController(preferences: preferences);
       await third.initialize();
       expect(third.widgetUseSystemPalette, isFalse);
-      expect(third.darkCoursePalette, DarkCoursePalette.standard);
+      expect(third.paletteFor(Brightness.dark), isNull);
     },
   );
 
@@ -73,7 +73,7 @@ void main() {
     await preferences.setString('darkCoursePalette', 'retired-palette');
     final controller = TestAppController(preferences: preferences);
     await controller.initialize();
-    expect(controller.darkCoursePalette, DarkCoursePalette.standard);
+    expect(controller.paletteFor(Brightness.dark), isNull);
     expect(controller.developerMode, isFalse);
   });
 
@@ -94,6 +94,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final controller = TestAppController();
+    await controller.loadCoursePalettes();
     await controller.setTheme(ThemeMode.dark);
     await tester.pumpWidget(BitreeApp(controller: controller));
     await tester.tap(
@@ -141,7 +142,7 @@ void main() {
       -200,
       scrollable: scrollable,
     );
-    expect(find.text('默认'), findsOneWidget);
+    expect(find.text('默认'), findsNWidgets(2));
     final systemPaletteSwitch = find.widgetWithText(
       SwitchListTile,
       '小组件使用系统调色板',
@@ -174,12 +175,12 @@ void main() {
     await tester.tap(find.widgetWithText(AppMenuItemButton, 'Mocha'));
     await tester.pumpAndSettle();
     expect(find.text('Mocha'), findsOneWidget);
-    expect(controller.darkCoursePalette, DarkCoursePalette.mocha);
+    expect(controller.paletteIdFor(Brightness.dark), 'mocha');
     expect(controller.widgetUseSystemPalette, isTrue);
     final theme = Theme.of(tester.element(find.byType(SettingsScreen)));
     expect(
-      theme.extension<CoursePaletteTheme>()!.darkPalette,
-      DarkCoursePalette.mocha,
+      theme.extension<CoursePaletteTheme>()!.palette,
+      same(controller.paletteFor(Brightness.dark)),
     );
     expect(theme.colorScheme.surface, const Color(0xFF171717));
     expect(theme.colorScheme.surfaceContainer, const Color(0xFF282828));

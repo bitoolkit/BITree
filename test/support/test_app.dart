@@ -14,6 +14,8 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'course_palettes.dart';
+
 class MemoryScheduleStore extends ScheduleStore {
   MemoryScheduleStore({
     List<SemesterSchedule> schedules = const [],
@@ -120,6 +122,7 @@ class TestAppController extends AppController {
     MemoryPreferences? preferences,
     super.systemPaletteSource,
   }) : super(
+         coursePaletteLoader: () async => testPalettes(),
          store: MemoryScheduleStore(schedules: schedules, selected: schedule),
          school: SchoolService(),
          schoolStorage: schoolStorage ?? MemorySchoolStorage(),

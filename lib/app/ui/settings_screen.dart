@@ -10,11 +10,11 @@ import '../../school/ui/school_screen.dart';
 import '../../ui/app_menu_anchor.dart';
 import '../../ui/app_menu_trigger.dart';
 import '../../ui/app_page.dart';
-import '../../ui/course_palette.dart';
 import '../../ui/external_link.dart';
 import '../../updates/version.dart';
 import '../controller.dart';
 import 'logs_screen.dart';
+import 'palette_settings.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -288,33 +288,7 @@ class SettingsScreen extends StatelessWidget {
           ]),
           if (controller.developerMode)
             section('更多设置', [
-              LayoutBuilder(
-                builder: (context, constraints) => AppMenuAnchor(
-                  menuWidth: constraints.maxWidth,
-                  menuChildren: [
-                    for (final palette in DarkCoursePalette.values)
-                      Semantics(
-                        selected: controller.darkCoursePalette == palette,
-                        child: AppMenuItemButton(
-                          onPressed: () =>
-                              controller.setDarkCoursePalette(palette),
-                          trailingIcon: controller.darkCoursePalette == palette
-                              ? const Icon(Icons.check_rounded, size: 18)
-                              : const SizedBox(width: 18),
-                          child: Text(palette.label),
-                        ),
-                      ),
-                  ],
-                  builder: (context, menu, isOpen) => ListTile(
-                    contentPadding: tilePadding,
-                    leading: const Icon(Icons.palette_outlined),
-                    title: const Text('深色模式调色板'),
-                    subtitle: Text(controller.darkCoursePalette.label),
-                    trailing: AppMenuArrow(isOpen: isOpen),
-                    onTap: () => isOpen ? menu.close() : menu.open(),
-                  ),
-                ),
-              ),
+              PaletteSettings(controller: controller),
               SwitchListTile(
                 contentPadding: tilePadding,
                 secondary: const Icon(Icons.auto_awesome_outlined),

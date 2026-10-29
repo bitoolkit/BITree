@@ -9,6 +9,8 @@ import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/course_palettes.dart';
+
 void main() {
   test('Building aliases, wing codes, room numbers and full-width text', () {
     const rooms = {
@@ -174,9 +176,14 @@ void main() {
   testWidgets(
     'Optional palettes preserve surfaces and export matching opaque widget course colours',
     (tester) async {
-      for (final palette in DarkCoursePalette.values) {
-        final widgetColors = palette.widgetColors;
-        if (palette == DarkCoursePalette.standard) {
+      for (final palette in <CoursePalette?>[
+        null,
+        ...testPalettes().values,
+        lightTestPalette(),
+      ]) {
+        final paletteName = palette?.name;
+        final widgetColors = palette?.widgetColors ?? <String, List<int>>{};
+        if (palette == null) {
           expect(widgetColors, isEmpty);
         } else {
           expect(
@@ -187,16 +194,16 @@ void main() {
               'surface',
             ]),
           );
-          expect(widgetColors['surface']!.first, switch (palette) {
-            DarkCoursePalette.mocha => 0xFF1E1E2E,
-            DarkCoursePalette.macchiato => 0xFF24273A,
-            DarkCoursePalette.frappe => 0xFF303446,
-            DarkCoursePalette.standard => throw StateError('default'),
+          expect(widgetColors['surface']!.first, switch (palette.name) {
+            'Mocha' => 0xFF1E1E2E,
+            'Macchiato' => 0xFF24273A,
+            'Frappé' => 0xFF303446,
+            _ => 0xFFF8F8F8,
           });
         }
         for (final brightness in Brightness.values) {
           final originalTheme = bitreeTheme(brightness);
-          final theme = bitreeTheme(brightness, darkCoursePalette: palette);
+          final theme = bitreeTheme(brightness, coursePalette: palette);
           expect(theme.colorScheme, originalTheme.colorScheme);
           expect(
             theme.scaffoldBackgroundColor,
@@ -224,19 +231,19 @@ void main() {
                       room: building.name,
                     );
                     final colors = courseColors(context, course);
-                    if (brightness == Brightness.dark &&
-                        palette != DarkCoursePalette.standard) {
+                    if (brightness == palette?.brightness) {
                       expect(
                         widgetColors[building.area?.name ?? 'neutral'],
                         [colors.fill.toARGB32(), colors.text.toARGB32()],
                         reason: '${building.name} uses the same widget colours',
                       );
                     }
-                    if (brightness == Brightness.light) {
+                    if (brightness == Brightness.light &&
+                        palette?.brightness != brightness) {
                       expect(colors.fill, Color(building.light.fill));
                       expect(colors.text, Color(building.light.text));
                       expect(colors.accent, Color(building.light.accent));
-                    } else if (palette == DarkCoursePalette.standard) {
+                    } else if (palette?.brightness != brightness) {
                       expect(
                         colors.fill,
                         Color.lerp(
@@ -250,25 +257,21 @@ void main() {
                     } else {
                       expect(
                         colors.text,
-                        Color(switch (palette) {
-                          DarkCoursePalette.mocha => 0xFFCDD6F4,
-                          DarkCoursePalette.macchiato => 0xFFCAD3F5,
-                          DarkCoursePalette.frappe => 0xFFC6D0F5,
-                          DarkCoursePalette.standard => throw StateError(
-                            'default',
-                          ),
+                        Color(switch (paletteName) {
+                          'Mocha' => 0xFFCDD6F4,
+                          'Macchiato' => 0xFFCAD3F5,
+                          'Frappé' => 0xFFC6D0F5,
+                          _ => 0xFF242424,
                         }),
                       );
                       if (building.area == CampusArea.wencui) {
                         expect(
                           colors.accent,
-                          Color(switch (palette) {
-                            DarkCoursePalette.mocha => 0xFFA6E3A1,
-                            DarkCoursePalette.macchiato => 0xFFA6DA95,
-                            DarkCoursePalette.frappe => 0xFFA6D189,
-                            DarkCoursePalette.standard => throw StateError(
-                              'default',
-                            ),
+                          Color(switch (paletteName) {
+                            'Mocha' => 0xFFA6E3A1,
+                            'Macchiato' => 0xFFA6DA95,
+                            'Frappé' => 0xFFA6D189,
+                            _ => 0xFF336633,
                           }),
                         );
                       }

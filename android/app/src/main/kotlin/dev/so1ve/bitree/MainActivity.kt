@@ -36,8 +36,11 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "dev.so1ve.bitree/widget")
             .setMethodCallHandler { call, result ->
                 if (call.method == "update") {
+                    call.argument<Map<String, List<Number>>>("lightCourseColors")?.let {
+                        BuildingColors.savePalette(this, false, it)
+                    }
                     call.argument<Map<String, List<Number>>>("darkCourseColors")?.let {
-                        BuildingColors.saveDarkPalette(this, it)
+                        BuildingColors.savePalette(this, true, it)
                     }
                     call.argument<Boolean>("useSystemPalette")?.let {
                         WidgetColors.saveUseSystemPalette(this, it)

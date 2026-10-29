@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -27,7 +29,9 @@ class AppController extends ChangeNotifier {
     required this.agenda,
     required this.academics,
     SystemPaletteSource? systemPaletteSource,
-  }) : _systemPaletteSource = systemPaletteSource ?? SystemPaletteSource(),
+    Future<Map<String, CoursePalette>> Function()? coursePaletteLoader,
+  }) : _coursePaletteLoader = coursePaletteLoader ?? CoursePalette.loadBuiltins,
+       _systemPaletteSource = systemPaletteSource ?? SystemPaletteSource(),
        timetable = TimetableController(store) {
     this.school = SchoolController(
       service: school,
@@ -53,7 +57,10 @@ class AppController extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   bool _developerMode = false;
   bool _widgetUseSystemPalette = false;
-  DarkCoursePalette _darkCoursePalette = DarkCoursePalette.standard;
+  final Future<Map<String, CoursePalette>> Function() _coursePaletteLoader;
+  final Map<String, CoursePalette> _palettes = {};
+  final Map<Brightness, String?> _paletteSelections = {};
+  Future<void>? _paletteSettingsLoad;
   Future<void> _coursePaletteWrite = Future<void>.value();
   final SystemPaletteSource _systemPaletteSource;
   bool _globalUseSystemPalette = false;
@@ -67,7 +74,17 @@ class AppController extends ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
   bool get developerMode => _developerMode;
   bool get widgetUseSystemPalette => _widgetUseSystemPalette;
-  DarkCoursePalette get darkCoursePalette => _darkCoursePalette;
+  Map<String, CoursePalette> palettesFor(Brightness brightness) => {
+    for (final entry in _palettes.entries)
+      if (entry.value.brightness == brightness) entry.key: entry.value,
+  };
+  Map<String, CoursePalette> get customPalettes => {
+    for (final entry in _palettes.entries)
+      if (!CoursePalette.builtinIds.contains(entry.key)) entry.key: entry.value,
+  };
+  String? paletteIdFor(Brightness brightness) => _paletteSelections[brightness];
+  CoursePalette? paletteFor(Brightness brightness) =>
+      _palettes[paletteIdFor(brightness)];
   bool get globalUseSystemPalette => _globalUseSystemPalette;
   SystemPalette? get systemPalette =>
       _globalUseSystemPalette ? _systemPalette : null;
@@ -82,16 +99,7 @@ class AppController extends ChangeNotifier {
     } catch (failure, stack) {
       AppDiagnostics.instance.report('读取外观设置', failure, stack);
     }
-    try {
-      final savedPalette = await _preferences.getString('darkCoursePalette');
-      _darkCoursePalette =
-          DarkCoursePalette.values
-              .where((palette) => palette.name == savedPalette)
-              .firstOrNull ??
-          DarkCoursePalette.standard;
-    } catch (failure, stack) {
-      AppDiagnostics.instance.report('读取深色课程配色', failure, stack);
-    }
+    await loadCoursePalettes();
     try {
       _widgetUseSystemPalette =
           await _preferences.getBool('widgetUseSystemPalette') ?? false;
@@ -107,7 +115,8 @@ class AppController extends ChangeNotifier {
     }
     await _refreshSystemPalette();
     await updateDesktopWidget(
-      darkCourseColors: _darkCoursePalette.widgetColors,
+      lightCourseColors: paletteFor(Brightness.light)?.widgetColors ?? {},
+      darkCourseColors: paletteFor(Brightness.dark)?.widgetColors ?? {},
       useSystemPalette: _widgetUseSystemPalette,
     );
     try {
@@ -145,42 +154,145 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setDarkCoursePalette(DarkCoursePalette value) {
-    _darkCoursePalette = value;
-    final useSystemPalette = _widgetUseSystemPalette;
-    notifyListeners();
-    _coursePaletteWrite = _coursePaletteWrite.then((_) async {
-      try {
-        await _preferences.setString('darkCoursePalette', value.name);
-        await updateDesktopWidget(
-          darkCourseColors: value.widgetColors,
-          useSystemPalette: useSystemPalette,
-        );
-      } catch (failure, stack) {
-        AppDiagnostics.instance.report('保存深色课程配色', failure, stack);
+  Future<void> loadCoursePalettes() =>
+      _paletteSettingsLoad ??= _loadCoursePalettes();
+
+  Future<void> _loadCoursePalettes() async {
+    try {
+      _palettes.addAll(await _coursePaletteLoader());
+      final saved = await _preferences.getString('coursePalettes');
+      if (saved == null) {
+        // Preserve choices made before JSON palettes were introduced.
+        final legacy = await _preferences.getString('darkCoursePalette');
+        if (_palettes.containsKey(legacy)) {
+          _paletteSelections[Brightness.dark] = legacy;
+        }
+      } else {
+        final json = jsonDecode(saved) as Map<String, dynamic>;
+        final custom = json['custom'] as Map<String, dynamic>;
+        for (final entry in custom.entries) {
+          try {
+            if (CoursePalette.builtinIds.contains(entry.key)) continue;
+            _palettes[entry.key] = CoursePalette.fromJson(entry.value);
+          } catch (failure, stack) {
+            AppDiagnostics.instance.report('读取自定义配色', failure, stack);
+          }
+        }
+        for (final brightness in Brightness.values) {
+          final id = json[brightness.name];
+          if (id is String && _palettes[id]?.brightness == brightness) {
+            _paletteSelections[brightness] = id;
+          }
+        }
       }
-    });
-    return _coursePaletteWrite;
+    } catch (failure, stack) {
+      AppDiagnostics.instance.report('读取调色板设置', failure, stack);
+    }
+    if (!_disposed) notifyListeners();
   }
 
-  Future<void> setWidgetUseSystemPalette(bool value) {
-    _widgetUseSystemPalette = value;
-    final palette = _darkCoursePalette;
-    notifyListeners();
-    // Share the palette write queue so rapid changes reach native code in order.
-    _coursePaletteWrite = _coursePaletteWrite.then((_) async {
-      try {
-        await _preferences.setBool('widgetUseSystemPalette', value);
-        await updateDesktopWidget(
-          darkCourseColors: palette.widgetColors,
-          useSystemPalette: value,
-        );
-      } catch (failure, stack) {
-        AppDiagnostics.instance.report('保存小组件调色板设置', failure, stack);
-      }
-    });
-    return _coursePaletteWrite;
+  Future<void> _saveCoursePalettes(
+    Map<String, CoursePalette> palettes,
+    Map<Brightness, String?> selections,
+  ) => _preferences.setString(
+    'coursePalettes',
+    jsonEncode({
+      for (final brightness in Brightness.values)
+        brightness.name: selections[brightness],
+      'custom': {
+        for (final entry in palettes.entries)
+          if (!CoursePalette.builtinIds.contains(entry.key))
+            entry.key: entry.value.toJson(),
+      },
+    }),
+  );
+
+  Future<void> _syncWidgetPalettes() => updateDesktopWidget(
+    lightCourseColors: paletteFor(Brightness.light)?.widgetColors ?? {},
+    darkCourseColors: paletteFor(Brightness.dark)?.widgetColors ?? {},
+    useSystemPalette: _widgetUseSystemPalette,
+  );
+
+  // One queue keeps imports, deletions and rapid selections in order. Keep the
+  // queue usable after a failed write while allowing import failures to reach UI.
+  Future<void> _queuePaletteWrite(Future<void> Function() operation) {
+    final result = _coursePaletteWrite.then((_) => operation());
+    _coursePaletteWrite = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return result;
   }
+
+  Future<void> setCoursePalette(Brightness brightness, String? id) =>
+      _queuePaletteWrite(() async {
+        await loadCoursePalettes();
+        if (id != null && _palettes[id]?.brightness != brightness) {
+          throw const FormatException('此配色不适用于所选的明暗模式。');
+        }
+        final selections = {..._paletteSelections, brightness: id};
+        try {
+          await _saveCoursePalettes(_palettes, selections);
+          _paletteSelections[brightness] = id;
+          if (!_disposed) notifyListeners();
+          await _syncWidgetPalettes();
+        } catch (failure, stack) {
+          AppDiagnostics.instance.report('保存调色板设置', failure, stack);
+        }
+      });
+
+  Future<void> importCoursePalette(String source) async {
+    // Validate the whole file before touching either selection or persistence.
+    final palette = CoursePalette.parse(source);
+    await _queuePaletteWrite(() async {
+      await loadCoursePalettes();
+      var suffix = DateTime.now().microsecondsSinceEpoch;
+      while (_palettes.containsKey('custom-$suffix')) {
+        suffix++;
+      }
+      final id = 'custom-$suffix';
+      final palettes = {..._palettes, id: palette};
+      final selections = {..._paletteSelections, palette.brightness: id};
+      await _saveCoursePalettes(palettes, selections);
+      _palettes[id] = palette;
+      _paletteSelections[palette.brightness] = id;
+      if (!_disposed) notifyListeners();
+      await _syncWidgetPalettes();
+    });
+  }
+
+  Future<void> deleteCoursePalette(String id) => _queuePaletteWrite(() async {
+    await loadCoursePalettes();
+    if (!customPalettes.containsKey(id)) return;
+    final palettes = {..._palettes}..remove(id);
+    final selections = {
+      for (final entry in _paletteSelections.entries)
+        entry.key: entry.value == id ? null : entry.value,
+    };
+    try {
+      await _saveCoursePalettes(palettes, selections);
+      _palettes.remove(id);
+      _paletteSelections
+        ..clear()
+        ..addAll(selections);
+      if (!_disposed) notifyListeners();
+      await _syncWidgetPalettes();
+    } catch (failure, stack) {
+      AppDiagnostics.instance.report('删除自定义配色', failure, stack);
+    }
+  });
+
+  Future<void> setWidgetUseSystemPalette(bool value) =>
+      _queuePaletteWrite(() async {
+        try {
+          await _preferences.setBool('widgetUseSystemPalette', value);
+          _widgetUseSystemPalette = value;
+          if (!_disposed) notifyListeners();
+          await _syncWidgetPalettes();
+        } catch (failure, stack) {
+          AppDiagnostics.instance.report('保存小组件调色板设置', failure, stack);
+        }
+      });
 
   Future<void> setGlobalUseSystemPalette(bool value) async {
     _globalPaletteChosen = true;

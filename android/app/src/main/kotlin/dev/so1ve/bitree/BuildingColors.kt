@@ -18,25 +18,25 @@ internal object BuildingColors {
     private data class Table(val neutral: Palette, val rules: List<Rule>)
 
     private var table: Table? = null
-    private var darkColors: Map<String, IntArray>? = null
+    private val customColors = mutableMapOf<Boolean, Map<String, IntArray>>()
     private const val PREFERENCES = "widget_appearance"
-    private const val DARK_COLORS = "darkCourseColors"
+    private fun colorsKey(dark: Boolean) = if (dark) "darkCourseColors" else "lightCourseColors"
     private val otherCampuses = Regex("中关村|西山|珠海|雄安|怀来")
     private val spacing = Regex("[\\s\\u00A0\\u3000·._\\-—–（）()\\[\\]【】]")
 
-    fun saveDarkPalette(context: Context, colors: Map<String, List<Number>>) {
+    fun savePalette(context: Context, dark: Boolean, colors: Map<String, List<Number>>) {
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit()
-            .putString(DARK_COLORS, JSONObject(colors).toString()).apply()
-        darkColors = colors.mapValues { (_, values) ->
+            .putString(colorsKey(dark), JSONObject(colors).toString()).apply()
+        customColors[dark] = colors.mapValues { (_, values) ->
             values.map { it.toInt() }.toIntArray()
         }
     }
 
-    private fun readDarkPalette(context: Context): Map<String, IntArray> {
-        return darkColors ?: run {
+    private fun readPalette(context: Context, dark: Boolean): Map<String, IntArray> {
+        return customColors[dark] ?: run {
             try {
                 val saved = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-                    .getString(DARK_COLORS, "{}") ?: "{}"
+                    .getString(colorsKey(dark), "{}") ?: "{}"
                 val json = JSONObject(saved)
                 json.keys().asSequence().associateWith { area ->
                     val values = json.getJSONArray(area)
@@ -46,14 +46,14 @@ internal object BuildingColors {
             } catch (error: Exception) {
                 Log.w("BITree", "无法读取桌面组件的课程配色", error)
                 emptyMap()
-            }.also { darkColors = it }
+            }.also { customColors[dark] = it }
         }
     }
 
     fun widgetBackground(context: Context): Int {
         val fallback = context.getColor(R.color.widget_surface)
         if (!isDark(context)) return fallback
-        return readDarkPalette(context)["surface"]?.firstOrNull() ?: fallback
+        return readPalette(context, true)["surface"]?.firstOrNull() ?: fallback
     }
 
     private fun isDark(context: Context): Boolean =
@@ -81,8 +81,9 @@ internal object BuildingColors {
         val building = buildings.singleOrNull()
         val palette = building?.palette ?: data.neutral
         WidgetColors.course(context, building?.area)?.let { return it }
-        if (!isDark(context)) return palette.light
-        return readDarkPalette(context)[building?.area ?: "neutral"] ?: palette.dark
+        val dark = isDark(context)
+        return readPalette(context, dark)[building?.area ?: "neutral"]
+            ?: if (dark) palette.dark else palette.light
     }
 
     private fun read(context: Context): Table {

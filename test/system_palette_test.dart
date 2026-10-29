@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:bitree/agenda/deadline_source.dart';
 import 'package:bitree/agenda/model.dart';
@@ -13,6 +14,7 @@ import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/course_palettes.dart';
 import 'support/system_palette.dart';
 import 'support/test_app.dart';
 
@@ -65,7 +67,7 @@ void main() {
       expect(first.globalUseSystemPalette, isFalse);
       expect(first.systemPalette, isNull);
       expect(source.reads, 0);
-      await first.setDarkCoursePalette(DarkCoursePalette.mocha);
+      await first.setCoursePalette(Brightness.dark, 'mocha');
       await Future.wait([
         first.setGlobalUseSystemPalette(true),
         first.setGlobalUseSystemPalette(false),
@@ -81,12 +83,12 @@ void main() {
       await second.initialize();
       expect(second.globalUseSystemPalette, isTrue);
       expect(second.systemPalette, same(source.palette));
-      expect(second.darkCoursePalette, DarkCoursePalette.mocha);
+      expect(second.paletteIdFor(Brightness.dark), 'mocha');
       expect(second.developerMode, isFalse);
       expect(second.widgetUseSystemPalette, isFalse);
       await second.setGlobalUseSystemPalette(false);
       expect(second.systemPalette, isNull);
-      expect(second.darkCoursePalette, DarkCoursePalette.mocha);
+      expect(second.paletteIdFor(Brightness.dark), 'mocha');
 
       final third = TestAppController(preferences: preferences);
       await third.initialize();
@@ -174,7 +176,10 @@ void main() {
         await controller.setTheme(
           brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light,
         );
-        await controller.setDarkCoursePalette(DarkCoursePalette.mocha);
+        await controller.setCoursePalette(Brightness.dark, 'mocha');
+        await controller.importCoursePalette(
+          jsonEncode(lightTestPalette().toJson()),
+        );
         await tester.pumpWidget(BitreeApp(controller: controller));
         await tester.tap(
           find.descendant(
@@ -233,8 +238,8 @@ void main() {
           isNot(originalTheme.scaffoldBackgroundColor),
         );
         expect(
-          theme.extension<CoursePaletteTheme>()!.darkPalette,
-          DarkCoursePalette.mocha,
+          theme.extension<CoursePaletteTheme>()!.palette,
+          controller.paletteFor(brightness),
         );
         final colors = courseColors(context(), course);
         expect(

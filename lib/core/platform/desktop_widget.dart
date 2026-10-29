@@ -5,10 +5,11 @@ import 'package:flutter/services.dart';
 import '../diagnostics.dart';
 
 /// Refreshes the native widget after a persisted change. A widget failure does
-/// not turn a completed data write into a failed save. Supply [darkCourseColors]
-/// to persist a new palette, or an empty map to restore native default colours.
+/// not turn a completed data write into a failed save. Supply course colour maps
+/// to persist palettes, or empty maps to restore native default colours.
 /// Content-only refreshes leave the saved appearance unchanged.
 Future<void> updateDesktopWidget({
+  Map<String, List<int>>? lightCourseColors,
   Map<String, List<int>>? darkCourseColors,
   bool? useSystemPalette,
 }) async {
@@ -16,9 +17,12 @@ Future<void> updateDesktopWidget({
   try {
     await const MethodChannel('dev.so1ve.bitree/widget').invokeMethod<void>(
       'update',
-      darkCourseColors == null && useSystemPalette == null
+      lightCourseColors == null &&
+              darkCourseColors == null &&
+              useSystemPalette == null
           ? null
           : {
+              'lightCourseColors': ?lightCourseColors,
               'darkCourseColors': ?darkCourseColors,
               'useSystemPalette': ?useSystemPalette,
             },

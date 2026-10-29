@@ -60,11 +60,12 @@ class BitreeApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: bitreeTheme(
           Brightness.light,
+          coursePalette: controller.paletteFor(Brightness.light),
           systemPalette: controller.systemPalette,
         ),
         darkTheme: bitreeTheme(
           Brightness.dark,
-          darkCoursePalette: controller.darkCoursePalette,
+          coursePalette: controller.paletteFor(Brightness.dark),
           systemPalette: controller.systemPalette,
         ),
         themeMode: controller.themeMode,

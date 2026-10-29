@@ -1,119 +1,120 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../schedule/building_palette.dart';
 import 'system_palette.dart';
 
-enum DarkCoursePalette {
-  standard('默认'),
-  mocha('Mocha'),
-  macchiato('Macchiato'),
-  frappe('Frappé');
+/// A block-only palette. Page surfaces and controls keep the app's ColorScheme.
+class CoursePalette {
+  CoursePalette._(this.name, this.brightness, Map<String, int> colors)
+    : _colors = Map.unmodifiable(colors);
 
-  const DarkCoursePalette(this.label);
+  factory CoursePalette.parse(String source) {
+    final Object? json;
+    try {
+      json = jsonDecode(source);
+    } on FormatException {
+      throw const FormatException('配色文件不是有效的 JSON。');
+    }
+    return CoursePalette.fromJson(json);
+  }
 
-  final String label;
+  factory CoursePalette.fromJson(Object? json) {
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('配色文件必须是一个 JSON 对象。');
+    }
+    final name = json['name'];
+    if (name is! String || name.trim().isEmpty) {
+      throw const FormatException('name 必须是非空名称。');
+    }
+    final brightness = switch (json['brightness']) {
+      'light' => Brightness.light,
+      'dark' => Brightness.dark,
+      _ => throw const FormatException('brightness 必须是 light 或 dark。'),
+    };
+    final colors = <String, int>{};
+    for (final key in colorKeys) {
+      final value = json[key];
+      if (value is! String ||
+          value.length != 7 ||
+          !RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(value)) {
+        throw FormatException('$key 必须是不透明的 #RRGGBB 颜色。');
+      }
+      colors[key] = 0xFF000000 | int.parse(value.substring(1), radix: 16);
+    }
+    return CoursePalette._(name.trim(), brightness, colors);
+  }
 
-  BuildingColorValues colorsFor(BuildingPalette building) =>
-      _colorsForArea(building.area) ?? building.dark;
+  static const colorKeys = [
+    'base',
+    'text',
+    'northTeaching',
+    'wencui',
+    'southScience',
+    'eastFacilities',
+    'southEngineering',
+    'neutral',
+    'agenda',
+  ];
+  static const builtinIds = ['mocha', 'macchiato', 'frappe'];
 
-  /// Catppuccin Surface 0 / Text / Lavender for ordinary agenda blocks.
-  /// https://github.com/catppuccin/catppuccin/blob/main/docs/style-guide.md
-  BuildingColorValues? get agendaColors => switch (this) {
-    standard => null,
-    mocha => (fill: 0xFF313244, text: 0xFFCDD6F4, accent: 0xFFB4BEFE),
-    macchiato => (fill: 0xFF363A4F, text: 0xFFCAD3F5, accent: 0xFFB7BDF8),
-    frappe => (fill: 0xFF414559, text: 0xFFC6D0F5, accent: 0xFFBABBF1),
+  static Future<Map<String, CoursePalette>> loadBuiltins() async => {
+    for (final id in builtinIds)
+      id: CoursePalette.parse(
+        await rootBundle.loadString('assets/palettes/$id.json'),
+      ),
   };
 
-  /// Opaque colour pairs for native courses by area, plus a surface pair.
-  /// An empty map restores the widget's default colours.
-  Map<String, List<int>> get widgetColors {
-    final surface = _colorsForArea(null);
-    if (surface == null) return {};
-    final result = <String, List<int>>{
-      'surface': [surface.fill, surface.text],
-    };
-    for (final area in <CampusArea?>[...CampusArea.values, null]) {
-      final colors = _colorsForArea(area);
-      if (colors == null) continue;
-      result[area?.name ?? 'neutral'] = [
-        Color.lerp(Color(colors.fill), Color(colors.accent), 0.24)!.toARGB32(),
-        colors.text,
-      ];
-    }
-    return result;
-  }
+  final String name;
+  final Brightness brightness;
+  final Map<String, int> _colors;
 
-  BuildingColorValues? _colorsForArea(CampusArea? area) {
-    // Catppuccin's Base, Text and area accents. Keep the generated building
-    // table intact so both renderers can restore their default colours.
-    final colors = switch (this) {
-      standard => null,
-      mocha => (
-        base: 0xFF1E1E2E,
-        text: 0xFFCDD6F4,
-        blue: 0xFF89B4FA,
-        green: 0xFFA6E3A1,
-        yellow: 0xFFF9E2AF,
-        mauve: 0xFFCBA6F7,
-        peach: 0xFFFAB387,
-        neutral: 0xFFBAC2DE,
-      ),
-      macchiato => (
-        base: 0xFF24273A,
-        text: 0xFFCAD3F5,
-        blue: 0xFF8AADF4,
-        green: 0xFFA6DA95,
-        yellow: 0xFFEED49F,
-        mauve: 0xFFC6A0F6,
-        peach: 0xFFF5A97F,
-        neutral: 0xFFB8C0E0,
-      ),
-      frappe => (
-        base: 0xFF303446,
-        text: 0xFFC6D0F5,
-        blue: 0xFF8CAAEE,
-        green: 0xFFA6D189,
-        yellow: 0xFFE5C890,
-        mauve: 0xFFCA9EE6,
-        peach: 0xFFEF9F76,
-        neutral: 0xFFB5BFE2,
-      ),
-    };
-    if (colors == null) return null;
-    return (
-      fill: colors.base,
-      text: colors.text,
-      accent: switch (area) {
-        CampusArea.northTeaching => colors.blue,
-        CampusArea.wencui => colors.green,
-        CampusArea.southScience => colors.yellow,
-        CampusArea.eastFacilities => colors.mauve,
-        CampusArea.southEngineering => colors.peach,
-        null => colors.neutral,
-      },
-    );
-  }
+  Map<String, Object> toJson() => {
+    'name': name,
+    'brightness': brightness.name,
+    for (final key in colorKeys)
+      key:
+          '#${(_colors[key]! & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}',
+  };
+
+  BuildingColorValues _blockColors(String key) => (
+    fill: Color.lerp(
+      Color(_colors['base']!),
+      Color(_colors[key]!),
+      0.24,
+    )!.toARGB32(),
+    text: _colors['text']!,
+    accent: _colors[key]!,
+  );
+
+  BuildingColorValues colorsFor(CampusArea? area) =>
+      _blockColors(area?.name ?? 'neutral');
+
+  BuildingColorValues get agendaColors => _blockColors('agenda');
+
+  /// Final opaque course fills, shared with the native widget renderer.
+  Map<String, List<int>> get widgetColors => {
+    'surface': [_colors['base']!, _colors['text']!],
+    for (final area in <CampusArea?>[...CampusArea.values, null])
+      area?.name ?? 'neutral': [colorsFor(area).fill, colorsFor(area).text],
+  };
 }
 
-/// Resolve a block-only override without changing the app's ColorScheme.
-/// System colours take priority; Catppuccin only applies in dark mode.
 BuildingColorValues? agendaPaletteColors(ThemeData theme) {
-  if (theme.brightness != Brightness.dark ||
-      theme.extension<SystemPaletteTheme>() != null) {
-    return null;
-  }
-  return theme.extension<CoursePaletteTheme>()?.darkPalette.agendaColors;
+  if (theme.extension<SystemPaletteTheme>() != null) return null;
+  return theme.extension<CoursePaletteTheme>()?.palette?.agendaColors;
 }
 
 class CoursePaletteTheme extends ThemeExtension<CoursePaletteTheme> {
-  const CoursePaletteTheme(this.darkPalette);
+  const CoursePaletteTheme(this.palette);
 
-  final DarkCoursePalette darkPalette;
+  final CoursePalette? palette;
 
   @override
-  CoursePaletteTheme copyWith({DarkCoursePalette? darkPalette}) =>
-      CoursePaletteTheme(darkPalette ?? this.darkPalette);
+  CoursePaletteTheme copyWith({CoursePalette? palette}) =>
+      CoursePaletteTheme(palette ?? this.palette);
 
   @override
   CoursePaletteTheme lerp(CoursePaletteTheme? other, double t) =>

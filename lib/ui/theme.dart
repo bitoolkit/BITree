@@ -10,7 +10,7 @@ const copper = Color(0xFFA85E3E);
 
 ThemeData bitreeTheme(
   Brightness brightness, {
-  DarkCoursePalette darkCoursePalette = DarkCoursePalette.standard,
+  CoursePalette? coursePalette,
   SystemPalette? systemPalette,
 }) {
   final dark = brightness == Brightness.dark;
@@ -60,7 +60,9 @@ ThemeData bitreeTheme(
   return ThemeData(
     useMaterial3: true,
     extensions: [
-      CoursePaletteTheme(darkCoursePalette),
+      CoursePaletteTheme(
+        coursePalette?.brightness == brightness ? coursePalette : null,
+      ),
       if (systemPalette != null) SystemPaletteTheme(systemPalette),
     ],
     colorScheme: scheme,
@@ -305,14 +307,12 @@ courseColors(BuildContext context, Course course) {
       elapsedFill: Color.lerp(colors.fill, colors.accent, dark ? 0.16 : 0.32)!,
     );
   }
-  final darkPalette =
-      theme.extension<CoursePaletteTheme>()?.darkPalette ??
-      DarkCoursePalette.standard;
-  final colors = dark ? darkPalette.colorsFor(palette) : palette.light;
+  final custom = theme.extension<CoursePaletteTheme>()?.palette;
+  final colors =
+      custom?.colorsFor(palette.area) ?? (dark ? palette.dark : palette.light);
   final accent = Color(colors.accent);
-  // Solid course blocks need more colour than the subtle timeline fades.
-  // Resolve the fill here so row bands and today's column cannot tint it.
-  final fill = dark
+  // Custom palettes already contain the final mixed block fill.
+  final fill = dark && custom == null
       ? Color.lerp(Color(colors.fill), accent, 0.24)!
       : Color(colors.fill);
   final text = Color(colors.text);

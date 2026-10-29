@@ -11,6 +11,7 @@ import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/course_palettes.dart';
 import 'support/system_palette.dart';
 import 'support/test_app.dart';
 
@@ -23,27 +24,35 @@ double _contrast(Color a, Color b) {
 }
 
 void main() {
-  test('Agenda colours match Catppuccin Surface 0, Text and Lavender', () {
-    expect(DarkCoursePalette.standard.agendaColors, isNull);
-    for (final (palette, fill, text, accent) in [
-      (DarkCoursePalette.mocha, 0xFF313244, 0xFFCDD6F4, 0xFFB4BEFE),
-      (DarkCoursePalette.macchiato, 0xFF363A4F, 0xFFCAD3F5, 0xFFB7BDF8),
-      (DarkCoursePalette.frappe, 0xFF414559, 0xFFC6D0F5, 0xFFBABBF1),
+  final palettes = testPalettes();
+  test('Agenda colours mix Base with Lavender and share Text', () {
+    for (final (id, base, text, accent) in [
+      ('mocha', 0xFF1E1E2E, 0xFFCDD6F4, 0xFFB4BEFE),
+      ('macchiato', 0xFF24273A, 0xFFCAD3F5, 0xFFB7BDF8),
+      ('frappe', 0xFF303446, 0xFFC6D0F5, 0xFFBABBF1),
     ]) {
-      expect(palette.agendaColors, (fill: fill, text: text, accent: accent));
+      expect(palettes[id]!.agendaColors, (
+        fill: Color.lerp(Color(base), Color(accent), 0.24)!.toARGB32(),
+        text: text,
+        accent: accent,
+      ));
     }
   });
 
   for (final brightness in Brightness.values) {
     for (final system in [false, true]) {
-      for (final palette in DarkCoursePalette.values) {
+      for (final palette in <CoursePalette?>[
+        null,
+        ...palettes.values,
+        lightTestPalette(),
+      ]) {
         testWidgets(
-          'Home and timeline event blocks stay visible with ${palette.label}, system=$system, $brightness',
+          'Home and timeline event blocks stay visible with ${palette?.name ?? 'default'}, system=$system, $brightness',
           (tester) async {
             final systemPalette = system ? testSystemPalette() : null;
             final theme = bitreeTheme(
               brightness,
-              darkCoursePalette: palette,
+              coursePalette: palette,
               systemPalette: systemPalette,
             );
             final original = bitreeTheme(
@@ -56,8 +65,9 @@ void main() {
               original.scaffoldBackgroundColor,
             );
             expect(theme.textTheme, original.textTheme);
-            final cat = brightness == Brightness.dark && !system
-                ? palette.agendaColors
+            final paletteColors = palette?.agendaColors;
+            final cat = brightness == palette?.brightness && !system
+                ? paletteColors
                 : null;
             final scheme = theme.colorScheme;
             final controller = TestAppController();
