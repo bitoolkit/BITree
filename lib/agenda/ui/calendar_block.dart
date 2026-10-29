@@ -42,10 +42,12 @@ class CalendarBlockTile extends StatelessWidget {
     }
     final scheme = Theme.of(context).colorScheme;
     final exam = items.any((item) => item.entry?.kind == AgendaKind.exam);
-    final background = exam
-        ? scheme.errorContainer
-        : scheme.surfaceContainerLow;
-    final foreground = exam ? scheme.onErrorContainer : scheme.onSurface;
+    // Tone-based roles keep event blocks visible under the system palette too;
+    // the 1px primary outline, not the subtle container fill, carries contrast.
+    final background = exam ? scheme.errorContainer : scheme.primaryContainer;
+    final foreground = exam
+        ? scheme.onErrorContainer
+        : scheme.onPrimaryContainer;
     final summary = items
         .map((item) => '${item.kindLabel} ${item.title}\n${item.timeLabel}')
         .join('\n');
@@ -60,8 +62,8 @@ class CalendarBlockTile extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: AppCorners.compact,
             side: BorderSide(
-              color: exam ? scheme.error : scheme.outlineVariant,
-              width: exam ? 1 : 0.7,
+              color: exam ? scheme.error : scheme.primary,
+              width: 1,
             ),
           ),
           clipBehavior: Clip.antiAlias,
