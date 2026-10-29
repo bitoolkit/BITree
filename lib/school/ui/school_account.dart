@@ -112,7 +112,10 @@ class _SchoolAccountState extends State<SchoolAccount> {
                 ),
               ],
             )
-          : const Icon(Icons.chevron_right_rounded, size: 20),
+          : const SizedBox.square(
+              dimension: 48,
+              child: Center(child: Icon(Icons.chevron_right_rounded, size: 20)),
+            ),
       onTap: canTap ? () => _perform(onTap) : null,
     );
   }

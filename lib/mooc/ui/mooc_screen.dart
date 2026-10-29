@@ -28,8 +28,8 @@ class MoocAccountTile extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: controller,
     builder: (context, _) => ListTile(
-      contentPadding: const EdgeInsets.symmetric(vertical: 2),
-      leading: const Icon(Icons.school_outlined),
+      contentPadding: const EdgeInsets.symmetric(vertical: 4),
+      leading: const Icon(Icons.school_outlined, size: 36),
       title: const Text('中国大学MOOC'),
       subtitle: Text(
         [
@@ -37,7 +37,10 @@ class MoocAccountTile extends StatelessWidget {
           controller.status,
         ].whereType<String>().join(' · '),
       ),
-      trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+      trailing: const SizedBox.square(
+        dimension: 48,
+        child: Center(child: Icon(Icons.chevron_right_rounded, size: 20)),
+      ),
       onTap: () => openMooc(context, controller),
     ),
   );
