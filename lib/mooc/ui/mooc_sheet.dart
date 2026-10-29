@@ -3,22 +3,24 @@ import 'package:flutter/material.dart';
 import '../../core/async/cancelable_request.dart';
 import '../../core/error_message.dart';
 import '../../ui/app_notice.dart';
+import '../../ui/design.dart';
 import '../../ui/editor_sheet.dart';
 import '../../ui/external_link.dart';
+import '../../ui/sheet_layout.dart';
 import '../api.dart';
 import '../controller.dart';
 import '../credentials.dart';
 import 'login.dart';
 
-Future<void> openMooc(
+Future<void> showMoocAccount(
   BuildContext context,
   MoocController controller, {
   bool synchronize = false,
-}) => Navigator.of(context).push(
-  MaterialPageRoute<void>(
-    builder: (_) =>
-        MoocScreen(controller: controller, synchronize: synchronize),
-  ),
+}) => showModalBottomSheet<void>(
+  context: context,
+  useSafeArea: true,
+  isScrollControlled: true,
+  builder: (_) => _MoocSheet(controller: controller, synchronize: synchronize),
 );
 
 class MoocAccountTile extends StatelessWidget {
@@ -41,24 +43,20 @@ class MoocAccountTile extends StatelessWidget {
         dimension: 48,
         child: Center(child: Icon(Icons.chevron_right_rounded, size: 20)),
       ),
-      onTap: () => openMooc(context, controller),
+      onTap: () => showMoocAccount(context, controller),
     ),
   );
 }
 
-class MoocScreen extends StatefulWidget {
-  const MoocScreen({
-    super.key,
-    required this.controller,
-    this.synchronize = false,
-  });
+class _MoocSheet extends StatefulWidget {
+  const _MoocSheet({required this.controller, this.synchronize = false});
   final MoocController controller;
   final bool synchronize;
   @override
-  State<MoocScreen> createState() => _MoocScreenState();
+  State<_MoocSheet> createState() => _MoocSheetState();
 }
 
-class _MoocScreenState extends State<MoocScreen> {
+class _MoocSheetState extends State<_MoocSheet> {
   MoocImportResult? _result;
   String? _error;
   bool _loginOpen = false;
@@ -153,109 +151,121 @@ class _MoocScreenState extends State<MoocScreen> {
     builder: (context, _) {
       final model = widget.controller;
       final theme = Theme.of(context);
-      return Scaffold(
-        appBar: AppBar(title: const Text('中国大学MOOC')),
-        body: SafeArea(
-          top: false,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 640),
-              child: ListView(
-                padding: const EdgeInsets.all(24),
-                shrinkWrap: true,
-                children: [
-                  if (model.account case final account?) ...[
-                    Text(account.name, style: theme.textTheme.titleLarge),
-                    const SizedBox(height: 4),
-                    Text(model.status, style: theme.textTheme.bodyMedium),
-                    const SizedBox(height: 24),
-                  ],
-                  if (model.needsLogin) ...[
-                    const Text('登录后同步 MOOC 和 SPOC 的作业、测验、考试与互评截止时间。'),
-                    const SizedBox(height: 20),
-                  ],
-                  FilledButton.icon(
-                    onPressed: model.busy || _loginOpen
-                        ? null
-                        : model.needsLogin
-                        ? _login
-                        : _sync,
-                    icon: Icon(
-                      model.needsLogin
-                          ? Icons.login_rounded
-                          : Icons.sync_rounded,
-                    ),
-                    label: Text(model.needsLogin ? '登录中国大学MOOC' : '同步 DDL'),
+      return SafeArea(
+        top: false,
+        child: SheetLayout(
+          header: SheetHeader(
+            title: const Text('中国大学MOOC'),
+            actions: [
+              IconButton(
+                tooltip: '关闭',
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close_rounded, size: 20),
+              ),
+            ],
+          ),
+          content: Padding(
+            padding: appSheetContentPadding,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (model.account case final account?) ...[
+                  Text(account.name, style: theme.textTheme.titleLarge),
+                  const SizedBox(height: 4),
+                  Text(model.status, style: theme.textTheme.bodyMedium),
+                  const SizedBox(height: 16),
+                ],
+                if (model.needsLogin) ...[
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.login_rounded),
+                    title: const Text('网页登录'),
+                    subtitle: const Text('手机号、邮箱、验证码或扫码'),
+                    trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+                    onTap: model.busy || _loginOpen ? null : _login,
                   ),
-                  if (model.busy) ...[
-                    const SizedBox(height: 20),
-                    const LinearProgressIndicator(),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(child: Text(model.progress)),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.key_outlined),
+                    title: const Text('使用 Cookie'),
+                    subtitle: const Text('备用登录方式'),
+                    trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+                    onTap: model.busy || _loginOpen ? null : _cookie,
+                  ),
+                ] else
+                  FilledButton.icon(
+                    onPressed: model.busy || _loginOpen ? null : _sync,
+                    icon: const Icon(Icons.sync_rounded),
+                    label: const Text('同步 DDL'),
+                  ),
+                if (model.busy) ...[
+                  const SizedBox(height: 20),
+                  const LinearProgressIndicator(),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(child: Text(model.progress)),
+                      TextButton(
+                        onPressed: model.cancel,
+                        child: const Text('取消'),
+                      ),
+                    ],
+                  ),
+                ] else if (model.account != null) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 4,
+                    children: [
+                      if (!model.needsLogin)
                         TextButton(
-                          onPressed: model.cancel,
-                          child: const Text('取消'),
+                          onPressed: _loginOpen ? null : _login,
+                          child: const Text('重新登录'),
                         ),
-                      ],
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 4,
-                      children: [
-                        if (!model.needsLogin)
-                          TextButton(
-                            onPressed: _loginOpen ? null : _login,
-                            child: const Text('重新登录'),
-                          ),
+                      if (!model.needsLogin)
                         TextButton(
                           onPressed: _loginOpen ? null : _cookie,
                           child: const Text('使用 Cookie'),
                         ),
-                        if (model.account != null)
-                          TextButton(
-                            onPressed: _loginOpen ? null : _disconnect,
-                            child: const Text('退出账号'),
-                          ),
-                      ],
-                    ),
-                  ],
-                  if (_error ?? model.error case final error?)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Text(
-                        error,
-                        style: TextStyle(color: theme.colorScheme.error),
+                      TextButton(
+                        onPressed: _loginOpen ? null : _disconnect,
+                        child: const Text('退出账号'),
                       ),
-                    ),
-                  if (_result case final result?) ...[
-                    const SizedBox(height: 24),
-                    Text(
-                      '已同步 ${result.entries.length} 条 DDL',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 6),
-                    Text('读取了 ${result.courseCount} 门课程'),
-                    if (result.failures.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        '以下课程未能同步，可重新尝试',
-                        style: TextStyle(color: theme.colorScheme.error),
-                      ),
-                      for (final failure in result.failures)
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(failure.course),
-                          subtitle: Text(failure.message),
-                        ),
                     ],
+                  ),
+                ],
+                if (_error ?? model.error case final error?)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Text(
+                      error,
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                  ),
+                if (_result case final result?) ...[
+                  const SizedBox(height: 24),
+                  Text(
+                    '已同步 ${result.entries.length} 条 DDL',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 6),
+                  Text('读取了 ${result.courseCount} 门课程'),
+                  if (result.failures.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      '以下课程未能同步，可重新尝试',
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                    for (final failure in result.failures)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(failure.course),
+                        subtitle: Text(failure.message),
+                      ),
                   ],
                 ],
-              ),
+              ],
             ),
           ),
         ),

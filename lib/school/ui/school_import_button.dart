@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../agenda/ui/deleted_deadlines.dart';
 import '../../agenda/ui/physics_lab_import.dart';
 import '../../app/controller.dart';
-import '../../mooc/ui/mooc_screen.dart';
+import '../../mooc/ui/mooc_sheet.dart';
 import '../../ui/app_menu_anchor.dart';
 import 'school_screen.dart';
 
@@ -81,7 +81,11 @@ class SchoolImportButton extends StatelessWidget {
                   controller.agenda.busy ||
                   controller.mooc.busy
               ? null
-              : () => openMooc(context, controller.mooc, synchronize: true),
+              : () => showMoocAccount(
+                  context,
+                  controller.mooc,
+                  synchronize: true,
+                ),
           child: const Text('同步中国大学MOOC DDL'),
         ),
         const Divider(),

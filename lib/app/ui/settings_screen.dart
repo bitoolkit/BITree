@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../agenda/deadline_clear_scope.dart';
 import '../../agenda/ui/clear_deadlines_dialog.dart';
-import '../../mooc/ui/mooc_screen.dart';
+import '../../mooc/ui/mooc_sheet.dart';
 import '../../schedule/ui/week_range_dialog.dart';
 import '../../school/ui/school_account.dart';
 import '../../school/ui/school_screen.dart';
