@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../schedule/building_palette.dart';
-import '../../ui/system_palette.dart';
 import '../deadline_source.dart';
 import '../model.dart';
 import '../physics_lab_deadlines.dart';
@@ -14,16 +13,6 @@ import '../physics_lab_deadlines.dart';
 ) {
   final theme = Theme.of(context);
   final scheme = theme.colorScheme;
-  // Pending, overdue DDLs take priority over source colors. Completed DDLs
-  // cannot be overdue, so they retain the faded source palette below.
-  if (entry.overdue(now)) {
-    return (
-      fill: scheme.errorContainer,
-      text: scheme.onErrorContainer,
-      accent: scheme.error,
-    );
-  }
-
   final paletteName = switch (entry.kind) {
     AgendaKind.exam => '物理实验中心',
     AgendaKind.deadline =>
@@ -45,15 +34,7 @@ import '../physics_lab_deadlines.dart';
   final fillAlpha = fadeAll ? 0.5 : (finished ? 0.55 : 1.0);
   final foregroundAlpha = fadeAll ? 0.5 : 1.0;
   if (palette != null) {
-    final system = theme.extension<SystemPaletteTheme>()?.palette;
-    if (system != null) {
-      final colors = system.courseColors(palette.area, theme.brightness);
-      return (
-        fill: colors.fill.withValues(alpha: fillAlpha),
-        text: colors.text.withValues(alpha: foregroundAlpha),
-        accent: colors.accent.withValues(alpha: foregroundAlpha),
-      );
-    }
+    // Keep source colours recognizable even when the app uses system colours.
     final values = theme.brightness == Brightness.dark
         ? palette.dark
         : palette.light;

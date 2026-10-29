@@ -165,7 +165,7 @@ void main() {
 
   for (final brightness in Brightness.values) {
     testWidgets(
-      'Global palette updates the app, courses and agenda and restores $brightness colours',
+      'Global palette updates the app and courses, preserves agenda source colours and restores $brightness colours',
       (tester) async {
         final palette = testSystemPalette();
         final controller = TestAppController(
@@ -209,6 +209,13 @@ void main() {
             startsAt: now.add(const Duration(days: 1)),
             source: DeadlineSource.lexue,
           ),
+          AgendaEntry(
+            id: 'eclass',
+            title: 'eClass 作业',
+            kind: AgendaKind.deadline,
+            startsAt: now.add(const Duration(days: 1)),
+            source: DeadlineSource.eclass,
+          ),
         ];
         final originalTheme = Theme.of(context());
         final originalCourse = courseColors(context(), course);
@@ -237,8 +244,8 @@ void main() {
         expect(colors.fill, isNot(originalCourse.fill));
         for (var i = 0; i < entries.length; i++) {
           expect(
-            agendaTimelineColors(context(), entries[i], now).fill,
-            isNot(originalAgenda[i].fill),
+            agendaTimelineColors(context(), entries[i], now),
+            originalAgenda[i],
           );
         }
         final overdue = entries.last.copyWith();
@@ -247,8 +254,8 @@ void main() {
             context(),
             overdue,
             now.add(const Duration(days: 2)),
-          ).fill,
-          theme.colorScheme.errorContainer,
+          ),
+          originalAgenda.last,
         );
         expect(
           agendaTimelineColors(
