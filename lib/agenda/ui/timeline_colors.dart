@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../schedule/building_palette.dart';
+import '../../ui/course_palette.dart';
 import '../deadline_source.dart';
 import '../model.dart';
 import '../physics_lab_deadlines.dart';
@@ -42,6 +43,15 @@ import '../physics_lab_deadlines.dart';
       fill: Color(values.fill).withValues(alpha: fillAlpha),
       text: Color(values.text).withValues(alpha: foregroundAlpha),
       accent: Color(values.accent).withValues(alpha: foregroundAlpha),
+    );
+  }
+
+  final blockPalette = agendaPaletteColors(theme);
+  if (blockPalette != null) {
+    return (
+      fill: Color(blockPalette.fill).withValues(alpha: fillAlpha),
+      text: Color(blockPalette.text).withValues(alpha: foregroundAlpha),
+      accent: Color(blockPalette.accent).withValues(alpha: foregroundAlpha),
     );
   }
 

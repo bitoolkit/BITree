@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/controller.dart';
 import '../../schedule/ui/conflicting_courses.dart';
 import '../../schedule/ui/course_tile.dart';
+import '../../ui/course_palette.dart';
 import '../../ui/design.dart';
 import '../calendar.dart';
 import '../model.dart';
@@ -40,14 +41,26 @@ class CalendarBlockTile extends StatelessWidget {
               date: items.first.startsAt,
             );
     }
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final exam = items.any((item) => item.entry?.kind == AgendaKind.exam);
-    // Tone-based roles keep event blocks visible under the system palette too;
-    // the 1px primary outline, not the subtle container fill, carries contrast.
-    final background = exam ? scheme.errorContainer : scheme.primaryContainer;
+    final palette = agendaPaletteColors(theme);
+    // The outline carries contrast for subtle fills in both palette modes.
+    final background = exam
+        ? scheme.errorContainer
+        : palette == null
+        ? scheme.primaryContainer
+        : Color(palette.fill);
     final foreground = exam
         ? scheme.onErrorContainer
-        : scheme.onPrimaryContainer;
+        : palette == null
+        ? scheme.onPrimaryContainer
+        : Color(palette.text);
+    final outline = exam
+        ? scheme.error
+        : palette == null
+        ? scheme.primary
+        : Color(palette.accent);
     final summary = items
         .map((item) => '${item.kindLabel} ${item.title}\n${item.timeLabel}')
         .join('\n');
@@ -61,10 +74,7 @@ class CalendarBlockTile extends StatelessWidget {
           color: background,
           shape: RoundedRectangleBorder(
             borderRadius: AppCorners.compact,
-            side: BorderSide(
-              color: exam ? scheme.error : scheme.primary,
-              width: 1,
-            ),
+            side: BorderSide(color: outline, width: 1),
           ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(

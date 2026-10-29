@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../schedule/building_palette.dart';
+import 'system_palette.dart';
 
 enum DarkCoursePalette {
   standard('默认'),
@@ -14,6 +15,15 @@ enum DarkCoursePalette {
 
   BuildingColorValues colorsFor(BuildingPalette building) =>
       _colorsForArea(building.area) ?? building.dark;
+
+  /// Catppuccin Surface 0 / Text / Lavender for ordinary agenda blocks.
+  /// https://github.com/catppuccin/catppuccin/blob/main/docs/style-guide.md
+  BuildingColorValues? get agendaColors => switch (this) {
+    standard => null,
+    mocha => (fill: 0xFF313244, text: 0xFFCDD6F4, accent: 0xFFB4BEFE),
+    macchiato => (fill: 0xFF363A4F, text: 0xFFCAD3F5, accent: 0xFFB7BDF8),
+    frappe => (fill: 0xFF414559, text: 0xFFC6D0F5, accent: 0xFFBABBF1),
+  };
 
   /// Opaque colour pairs for native courses by area, plus a surface pair.
   /// An empty map restores the widget's default colours.
@@ -84,6 +94,16 @@ enum DarkCoursePalette {
       },
     );
   }
+}
+
+/// Resolve a block-only override without changing the app's ColorScheme.
+/// System colours take priority; Catppuccin only applies in dark mode.
+BuildingColorValues? agendaPaletteColors(ThemeData theme) {
+  if (theme.brightness != Brightness.dark ||
+      theme.extension<SystemPaletteTheme>() != null) {
+    return null;
+  }
+  return theme.extension<CoursePaletteTheme>()?.darkPalette.agendaColors;
 }
 
 class CoursePaletteTheme extends ThemeExtension<CoursePaletteTheme> {

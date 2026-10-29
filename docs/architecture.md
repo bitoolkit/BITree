@@ -61,6 +61,8 @@ DDL 绘制与布局分离：右端为 `dueAt`，左侧渐隐，屏幕宽度为�
 
 主页课表网格中的日程块不复用时间轴的楼宇来源色：普通活动使用 `primaryContainer` 背景、`onPrimaryContainer` 文字和 1px `primary` 边框，考试使用 `errorContainer`／`onErrorContainer`／`error`。浅色模式下容器色与页面底色天然接近，可见性由 tone 固定的边框和文字承担，因此开启全局系统调色板后仍能辨认；不使用 `outlineVariant` 等低对比细分隔色。
 
+关闭全局系统调色板且处于深色模式时，Mocha／Macchiato／Frappé 仅覆盖课程与日程块，不修改页面背景或全局 `ColorScheme`。主页普通日程块与时间轴中的普通活动、无平台来源的手动 DDL 统一使用 Catppuccin 官方 Surface 0／Text／Lavender，分别为 Mocha `#313244`／`#CDD6F4`／`#B4BEFE`、Macchiato `#363A4F`／`#CAD3F5`／`#B7BDF8`、Frappé `#414559`／`#C6D0F5`／`#BABBF1`。参考 [Catppuccin palette](https://github.com/catppuccin/palette/blob/main/palette.json) 与 [style guide](https://github.com/catppuccin/catppuccin/blob/main/docs/style-guide.md)，Lavender 用作应用内日程块的强调边框。时间轴中的平台作业、物理实验与考试继续保留来源映射，逾期右侧条和主页考试沿用错误色；完成淡化规则不变。浅色模式或开启全局系统调色板时不应用 Cat 日程色。
+
 操作方式：拖动或普通滚轮横向浏览时间，双指捏合、`Ctrl + 滚轮` 或滑条连续缩放；上下拖动或 `Shift + 滚轮` 浏览泳道。时间轴隐藏显式与桌面自动添加的纵向滚动条，仍保留纵向滚动和惯性。单指或鼠标拖动释放后，使用 Flutter 的摩擦物理模拟继续滑行；缩放、新输入、隐藏视图或离开页面时停止惯性，触控板自身的惯性输入不额外叠加甩动。「今天」按钮回到今日居中。时间轴不包在完成状态的 `SwipePager` 内，避免横向时间导航触发状态切页。
 
 ## 空教室查询
