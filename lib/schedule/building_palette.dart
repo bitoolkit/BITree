@@ -4,16 +4,34 @@ part 'building_palette.g.dart';
 
 typedef BuildingColorValues = ({int fill, int text, int accent});
 
+enum CampusArea {
+  northTeaching,
+  wencui,
+  southScience,
+  eastFacilities,
+  southEngineering,
+}
+
 class BuildingPalette {
   const BuildingPalette({
     required this.name,
     required this.light,
     required this.dark,
+    this.area,
   });
 
   final String name;
+  final CampusArea? area;
   final BuildingColorValues light;
   final BuildingColorValues dark;
+}
+
+/// Looks up a palette by its canonical building name, without room matching.
+BuildingPalette? buildingPaletteNamed(String name) {
+  for (final (_, palette) in _buildingData) {
+    if (palette.name == name) return palette;
+  }
+  return null;
 }
 
 final _rules = [

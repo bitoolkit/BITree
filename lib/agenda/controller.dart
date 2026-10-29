@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
 
 import '../core/diagnostics.dart';
+import '../schedule/model.dart';
+import 'deadline_clear_scope.dart';
 import 'model.dart';
+import 'physics_lab_deadlines.dart';
 import 'store.dart';
 
 class AgendaController extends ChangeNotifier {
@@ -89,6 +92,72 @@ class AgendaController extends ChangeNotifier {
       );
     }
     return _write(entries.values.toList());
+  }
+
+  int countDeadlines(DeadlineClearScope scope) =>
+      _entries.where(scope.includes).length;
+
+  Set<String> deadlineIdsIn(Iterable<DeadlineClearScope> scopes) {
+    final selected = scopes.toSet();
+    return {
+      for (final entry in _entries)
+        if (selected.any((scope) => scope.includes(entry))) entry.id,
+    };
+  }
+
+  int countDeadlinesIn(Iterable<DeadlineClearScope> scopes) =>
+      deadlineIdsIn(scopes).length;
+
+  /// Delete selected origins in one write, never partially one group at a time.
+  /// The dialog supplies the exact set it displayed before the final click.
+  Future<bool> clearDeadlines(
+    Iterable<DeadlineClearScope> scopes, {
+    Set<String>? expectedIds,
+  }) async {
+    final ids = deadlineIdsIn(scopes);
+    if (expectedIds != null && !setEquals(ids, expectedIds)) {
+      AppDiagnostics.instance.notice('待删除的 DDL 已变化，请检查后重新确认。');
+      return false;
+    }
+    if (ids.isEmpty) {
+      return false;
+    }
+    return _write(
+      _entries
+          .where((entry) => !entry.isDeadline || !ids.contains(entry.id))
+          .toList(),
+    );
+  }
+
+  /// Refresh this semester's generated records, keeping edits and tombstones.
+  /// Only new entries are auto-completed when already past due at import time.
+  /// Returns the matched generated count, or null when persistence fails.
+  Future<int?> updatePhysicsLabDeadlines(
+    SemesterSchedule schedule, {
+    DateTime? now,
+  }) async {
+    final importedAt = now ?? campusNow();
+    final incoming = physicsLabDeadlines(schedule);
+    final savedById = {for (final entry in _entries) entry.id: entry};
+    final next = <String, AgendaEntry>{
+      for (final entry in _entries)
+        if (!isPhysicsLabDeadline(entry) ||
+            entry.term != schedule.term ||
+            entry.local ||
+            entry.done ||
+            entry.deleted)
+          entry.id: entry,
+    };
+    for (final entry in incoming) {
+      final saved = savedById[entry.id];
+      next[entry.id] = saved?.local == true
+          ? saved!
+          : entry.copyWith(
+              done: saved?.done ?? entry.dueAt.isBefore(importedAt),
+              deleted: saved?.deleted ?? false,
+            );
+    }
+    return await _write(next.values.toList()) ? incoming.length : null;
   }
 
   Future<bool> _write(List<AgendaEntry> next) async {

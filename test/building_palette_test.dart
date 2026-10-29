@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:bitree/schedule/building_palette.dart';
+import 'package:bitree/schedule/model.dart';
+import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -69,6 +71,7 @@ void main() {
       for (final alias in (row['aliases'] as List).cast<String>()) {
         final palette = matchCampusBuilding('$alias 101')!;
         expect(palette.name, row['name'], reason: alias);
+        expect(palette.area?.name, row['area']);
         expect([
           palette.light.fill,
           palette.light.text,
@@ -148,6 +151,87 @@ void main() {
       }
     }
   });
+
+  test('Teaching areas have recognizable colour families', () {
+    final north = matchCampusBuilding('综教B103')!;
+    final east = matchCampusBuilding('文萃F704')!;
+    final south = matchCampusBuilding('理教楼105')!;
+    expect(north.area, CampusArea.northTeaching);
+    expect(east.area, CampusArea.wencui);
+    expect(south.area, CampusArea.southScience);
+    expect(matchCampusBuilding('文萃J501')!.area, east.area);
+    expect(matchCampusBuilding('物理实验306')!.area, south.area);
+    for (final (a, b) in [(north, east), (east, south), (south, north)]) {
+      expect(_distance(a.light.fill, b.light.fill), greaterThan(0.075));
+      expect(_distance(a.dark.fill, b.dark.fill), greaterThan(0.05));
+    }
+  });
+
+  testWidgets(
+    'Course colours stay opaque and readable before and during class',
+    (tester) async {
+      for (final brightness in Brightness.values) {
+        await tester.pumpWidget(
+          MaterialApp(
+            key: ValueKey(brightness),
+            theme: bitreeTheme(brightness),
+            home: Builder(
+              builder: (context) {
+                for (final row in [
+                  ...buildings,
+                  {'name': '地点待定'},
+                ]) {
+                  final course = Course(
+                    id: 'course',
+                    name: '测试课程',
+                    weekday: 1,
+                    startSection: 1,
+                    endSection: 2,
+                    weeks: [1],
+                    room: row['name'] as String,
+                  );
+                  final colors = courseColors(context, course);
+                  for (final (foreground, background) in [
+                    (colors.text, colors.fill),
+                    (colors.secondaryText, colors.fill),
+                    (colors.text, colors.elapsedFill),
+                  ]) {
+                    expect(foreground.a, 1);
+                    expect(background.a, 1);
+                    final a = foreground.computeLuminance();
+                    final b = background.computeLuminance();
+                    expect(
+                      (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05),
+                      greaterThanOrEqualTo(4.5),
+                      reason: '${row['name']} $brightness',
+                    );
+                  }
+                  if (brightness == Brightness.dark) {
+                    final column = Theme.of(context)
+                        .colorScheme
+                        .surfaceContainer;
+                    expect(
+                      (colors.fill.computeLuminance() + 0.05) /
+                          (column.computeLuminance() + 0.05),
+                      greaterThanOrEqualTo(1.5),
+                      reason: '${row['name']} separates from today’s column',
+                    );
+                  }
+                  expect(
+                    colors.elapsedFill.computeLuminance(),
+                    brightness == Brightness.light
+                        ? lessThan(colors.fill.computeLuminance())
+                        : greaterThan(colors.fill.computeLuminance()),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        );
+      }
+    },
+  );
 }
 
 double _distance(int first, int second) {

@@ -22,21 +22,20 @@ class AppRelease {
   }) {
     final url = Uri.parse(release['html_url'] as String);
     var downloadUrl = url;
-    final architecture = switch (abi) {
-      Abi.androidArm => 'armeabi-v7a',
-      Abi.androidArm64 => 'arm64-v8a',
-      Abi.androidX64 => 'x86_64',
-      _ => null,
+    final suffixes = switch (abi) {
+      Abi.androidArm64 => [
+        '-android-arm64-v8a.apk',
+        '-android-arm64-v8a-debug-signed.apk',
+      ],
+      Abi.linuxX64 => ['-linux-x64.tar.xz'],
+      Abi.linuxArm64 => ['-linux-arm64.tar.xz'],
+      _ => <String>[],
     };
-    if (architecture != null) {
+    if (suffixes.isNotEmpty) {
       final assets = (release['assets'] as List).cast<Map<String, dynamic>>();
-      for (final suffix in ['', '-debug-signed']) {
+      for (final suffix in suffixes) {
         final asset = assets
-            .where(
-              (asset) => (asset['name'] as String).endsWith(
-                '-android-$architecture$suffix.apk',
-              ),
-            )
+            .where((asset) => (asset['name'] as String).endsWith(suffix))
             .firstOrNull;
         if (asset != null) {
           downloadUrl = Uri.parse(asset['browser_download_url'] as String);
@@ -86,11 +85,11 @@ Future<List<AppRelease>> availableAppReleases(
     final [stable, releases] = await Future.wait([
       _readJson(
         client,
-        Uri.https('api.github.com', '/repos/so1ve/bitree/releases/latest'),
+        Uri.https('api.github.com', '/repos/bitoolkit/bitree/releases/latest'),
       ),
       _readJson(
         client,
-        Uri.https('api.github.com', '/repos/so1ve/bitree/releases'),
+        Uri.https('api.github.com', '/repos/bitoolkit/bitree/releases'),
       ),
     ]);
     final dev = (releases as List?)
@@ -160,7 +159,10 @@ Future<AppRelease?> _developmentUpdate(
 }) async {
   if (release == null || release['draft'] == true) return null;
 
-  final suffix = '-${Platform.operatingSystem}-update.json';
+  final platform = Abi.current() == Abi.linuxArm64
+      ? 'linux-arm64'
+      : Platform.operatingSystem;
+  final suffix = '-$platform-update.json';
   final asset = (release['assets'] as List)
       .cast<Map<String, dynamic>>()
       .where((asset) => (asset['name'] as String).endsWith(suffix))
@@ -221,7 +223,7 @@ Future<String> _updateNotes(HttpClient client, String base, String head) async {
   Future<Map<String, dynamic>> readPage(int page) async {
     final url = Uri.https(
       'api.github.com',
-      '/repos/so1ve/bitree/compare/$base...$head',
+      '/repos/bitoolkit/bitree/compare/$base...$head',
       {'per_page': '$pageSize', 'page': '$page'},
     );
     final comparison = await _readJson(client, url) as Map<String, dynamic>?;
@@ -256,7 +258,7 @@ Future<String> _updateNotes(HttpClient client, String base, String head) async {
           '([${(commit['sha'] as String).substring(0, 7)}](${commit['html_url']}))',
     if (total > preview.length)
       '\n另有 ${total - preview.length} 项变更，'
-          '[查看完整变更](https://github.com/so1ve/bitree/compare/$base...$head)。',
+          '[查看完整变更](https://github.com/bitoolkit/bitree/compare/$base...$head)。',
   ];
   return notes.join('\n');
 }

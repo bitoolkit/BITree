@@ -42,9 +42,18 @@ runs:
       run: |
         "${env:ProgramFiles(x86)}\Inno Setup 6" >> $env:GITHUB_PATH
     - uses: subosito/flutter-action@v2
+      if: ${{ runner.os != 'Linux' || runner.arch != 'ARM64' }}
       with:
         flutter-version: '3.47.7'
         channel: stable
+        cache: true
+        pub-cache: true
+    # The release manifest has no Linux arm64 archive for this version, so check out the tag from git
+    - uses: subosito/flutter-action@v2
+      if: ${{ runner.os == 'Linux' && runner.arch == 'ARM64' }}
+      with:
+        flutter-version: '3.47.7'
+        channel: master
         cache: true
         pub-cache: true
     - name: Select Android NDK
@@ -139,31 +148,15 @@ runs:
       if: ${{ !cancelled() }}
       uses: actions/upload-artifact@v7
       with:
-        name: debug-symbols-${{ inputs.target }}-${{ inputs.version }}
+        name: debug-symbols-${{ inputs.target }}-${{ runner.arch }}-${{ inputs.version }}
         path: build/symbols/
         if-no-files-found: warn
         retention-days: 90
-    - name: Upload Android armeabi-v7a APK
-      if: ${{ !cancelled() && inputs.target == 'android' }}
-      uses: actions/upload-artifact@v7
-      with:
-        path: dist/*-android-armeabi-v7a*.apk
-        archive: false
-        if-no-files-found: warn
-        retention-days: 14
     - name: Upload Android arm64-v8a APK
       if: ${{ !cancelled() && inputs.target == 'android' }}
       uses: actions/upload-artifact@v7
       with:
         path: dist/*-android-arm64-v8a*.apk
-        archive: false
-        if-no-files-found: warn
-        retention-days: 14
-    - name: Upload Android x86_64 APK
-      if: ${{ !cancelled() && inputs.target == 'android' }}
-      uses: actions/upload-artifact@v7
-      with:
-        path: dist/*-android-x86_64*.apk
         archive: false
         if-no-files-found: warn
         retention-days: 14

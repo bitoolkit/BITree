@@ -5,7 +5,6 @@ import 'dart:typed_data';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart';
 
-import '../agenda/deadline_source.dart';
 import '../core/async/cancelable_request.dart';
 import '../core/diagnostics.dart';
 import 'crypto.dart';
@@ -20,9 +19,12 @@ class SchoolLogin {
   SchoolLogin(this.session, this.verify);
 
   final SchoolSession session;
-  final VerifySchoolLogin verify;
+  final VerifySchoolLogin? verify;
   static final _sso = Uri.https('sso.bit.edu.cn');
   Uri _referer = _sso.resolve('/cas/login');
+
+  VerifySchoolLogin _verification(SchoolVerificationKind kind) =>
+      verify ?? (throw SchoolVerificationRequired(kind));
 
   Future<SchoolCredentials> _credentials(SchoolCredentials? provided) async {
     final account = provided ?? await session.storage.readCredentials();
@@ -30,15 +32,14 @@ class SchoolLogin {
     return account;
   }
 
-  Future<SchoolResponse> openLearningPlatform(
-    DeadlineSource source, {
+  Future<SchoolResponse> openService(
+    Uri entry, {
     SchoolCredentials? credentials,
   }) async {
-    final response = await session.request(source.loginPage);
+    final response = await session.request(entry);
     if (!isSchoolLogin(response.url)) return response;
-    final service = Uri.parse(response.url.queryParameters['service']!);
     final account = await _credentials(credentials);
-    final callback = await _authenticate(account, service, loginPage: response);
+    final callback = await _authenticate(account, entry, loginPage: response);
     return _openCallback(callback);
   }
 
@@ -113,17 +114,19 @@ class SchoolLogin {
     Uri service, {
     SchoolResponse? loginPage,
   }) async {
-    final pageResponse =
-        loginPage ??
-        await _request(
-          _sso
-              .resolve('/cas/login')
-              .replace(queryParameters: {'service': service.toString()}),
-          followRedirects: false,
-        );
+    final pageResponse = await _followLoginRedirects(
+      loginPage ??
+          await _request(
+            _sso
+                .resolve('/cas/login')
+                .replace(queryParameters: {'service': service.toString()}),
+            followRedirects: false,
+          ),
+    );
     if (pageResponse.location != null) return _callback(pageResponse);
     final page = _LoginPage(pageResponse);
     _referer = pageResponse.url;
+    if (page.requiresSms) return _secondFactor(credentials.username, page);
 
     final captchaInfo = await _json(
       '/cas/api/protected/user/findCaptchaCount/${Uri.encodeComponent(credentials.username)}',
@@ -138,15 +141,18 @@ class SchoolLogin {
     }
 
     final captchaRequired = captcha['captchaInvisible'] == true;
-    final captchaCode = captchaRequired
-        ? await verify(
-            SchoolImageVerification(
-              image: await _captchaImage(captcha),
-              reload: loadCaptcha,
-            ),
-          )
-        : '';
-    if (captchaCode == null) throw const RequestCancelled();
+    var captchaCode = '';
+    if (captchaRequired) {
+      final verify = _verification(SchoolVerificationKind.image);
+      final code = await verify(
+        SchoolImageVerification(
+          image: await _captchaImage(captcha),
+          reload: loadCaptcha,
+        ),
+      );
+      if (code == null) throw const RequestCancelled();
+      captchaCode = code;
+    }
     session.checkActive();
 
     final key = base64Decode(page.cryptoKey);
@@ -179,23 +185,38 @@ class SchoolLogin {
         'riskEngine': 'true',
       });
     }
-    final response = await _request(
-      page.action,
-      form: form,
-      followRedirects: false,
-      checkStatus: false,
+    final response = await _followLoginRedirects(
+      await _request(
+        page.action,
+        form: form,
+        followRedirects: false,
+        checkStatus: false,
+      ),
     );
     final secondFactor = _LoginPage(response);
-    if (secondFactor.field('user-object-id').isNotEmpty &&
-        (response.text.contains('secondSmsLoginForm') ||
-            response.text.contains('second-auth-tip') ||
-            response.text.contains('cas-gateway'))) {
+    if (secondFactor.requiresSms) {
       return _secondFactor(credentials.username, secondFactor);
     }
     return _callback(response);
   }
 
+  Future<SchoolResponse> _followLoginRedirects(SchoolResponse response) async {
+    for (var redirects = 0; redirects <= 10; redirects++) {
+      final next = response.location;
+      if (response.status < 300 ||
+          response.status >= 400 ||
+          next == null ||
+          !isSchoolLogin(next)) {
+        return response;
+      }
+      _referer = response.url;
+      response = await _request(next, followRedirects: false);
+    }
+    throw const SchoolRequestError('学校登录反复跳转，请稍后重试。');
+  }
+
   Future<Uri> _secondFactor(String username, _LoginPage page) async {
+    final verify = _verification(SchoolVerificationKind.sms);
     _referer = _sso.resolve('/cas/');
     final key = schoolRandomBytes(16);
     final encrypted = await _request(
@@ -354,28 +375,46 @@ class SchoolLogin {
       'language': jsonEncode('zh-CN'),
       'screenResolution': '[956,1470]',
     };
-    final result = await _json(
-      '/ustc-rba-front/fp',
-      body: {
-        for (final entry in values.entries)
-          entry.key:
-              [
-                'fonts',
-                'deviceMemory',
-                'hardwareConcurrency',
-                'cpuClass',
-              ].contains(entry.key)
-              ? schoolSha256(entry.value)
-              : entry.value,
-        'localgroupId': group,
-        'fingerprint': schoolSha256(values.values.join()),
-        'cookieValue': device,
-        'userAgent': SchoolSession.userAgent,
-        'platformAuthenticator': 'support',
-      },
-    );
-    final token = result['responsetoken'] as String;
-    return {'token': token, 'groupId': group};
+    try {
+      final response = await _request(
+        _sso.resolve('/ustc-rba-front/fp'),
+        jsonBody: {
+          for (final entry in values.entries)
+            entry.key:
+                [
+                  'fonts',
+                  'deviceMemory',
+                  'hardwareConcurrency',
+                  'cpuClass',
+                ].contains(entry.key)
+                ? schoolSha256(entry.value)
+                : entry.value,
+          'localgroupId': group,
+          'fingerprint': schoolSha256(values.values.join()),
+          'cookieValue': device,
+          'userAgent': SchoolSession.userAgent,
+          'platformAuthenticator': 'support',
+        },
+      );
+      final result = jsonDecode(response.text);
+      if (result case {'responsetoken': final String token}
+          when token.isNotEmpty) {
+        return {'token': token, 'groupId': group};
+      }
+      throw const FormatException('学校风控接口未返回有效 token');
+    } catch (failure) {
+      session.checkActive();
+      if (failure is! SchoolRequestError &&
+          failure is! SchoolConnectionError &&
+          failure is! FormatException) {
+        rethrow;
+      }
+      // The school's login page submits this exact payload when fingerprint
+      // collection fails; CAS still decides whether authentication or SMS passes.
+      final detail = failure is FormatException ? failure.message : '$failure';
+      AppDiagnostics.instance.info('学校风控采集失败，将在登录时提交采集失败状态，由学校继续验证：$detail');
+      return {'error': true};
+    }
   }
 
   Future<Map<String, dynamic>> _json(String path, {Object? body}) async =>
@@ -420,6 +459,13 @@ class _LoginPage {
 
   final Document document;
   final Uri url;
+
+  bool get requiresSms =>
+      field('user-object-id').isNotEmpty &&
+      document.querySelector(
+            '#secondSmsLoginForm, #second-auth-tip, .cas-gateway, #cas-gateway',
+          ) !=
+          null;
 
   String field(String id) {
     final element = document.getElementById(id);

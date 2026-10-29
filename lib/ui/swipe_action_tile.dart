@@ -95,39 +95,41 @@ class _SwipeActionTileState extends State<SwipeActionTile> {
     builder: (context, constraints) {
       final threshold = (_threshold / constraints.maxWidth).clamp(0.0, 1.0);
       final right = widget.rightAction;
-      return AbsorbPointer(
-        absorbing: _running,
-        child: Dismissible(
-          key: _dismissKey,
-          direction: !widget.enabled && !_running
-              ? DismissDirection.none
-              : right == null
-              ? DismissDirection.endToStart
-              : DismissDirection.horizontal,
-          dismissThresholds: {
-            DismissDirection.startToEnd: threshold,
-            DismissDirection.endToStart: threshold,
-          },
-          movementDuration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
-          resizeDuration: null,
-          confirmDismiss: _invoke,
-          onUpdate: (details) {
-            if (_ready == details.reached) return;
-            setState(() => _ready = details.reached);
-            if (_ready) HapticFeedback.selectionClick();
-          },
-          background: _background(
-            right ?? widget.leftAction,
-            right == null ? Alignment.centerRight : Alignment.centerLeft,
-          ),
-          secondaryBackground: right == null
-              ? null
-              : _background(widget.leftAction, Alignment.centerRight),
-          child: Material(
-            color: Theme.of(context).colorScheme.surface,
-            child: widget.child,
+      return ClipRect(
+        child: AbsorbPointer(
+          absorbing: _running,
+          child: Dismissible(
+            key: _dismissKey,
+            direction: !widget.enabled && !_running
+                ? DismissDirection.none
+                : right == null
+                ? DismissDirection.endToStart
+                : DismissDirection.horizontal,
+            dismissThresholds: {
+              DismissDirection.startToEnd: threshold,
+              DismissDirection.endToStart: threshold,
+            },
+            movementDuration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 180),
+            resizeDuration: null,
+            confirmDismiss: _invoke,
+            onUpdate: (details) {
+              if (_ready == details.reached) return;
+              setState(() => _ready = details.reached);
+              if (_ready) HapticFeedback.selectionClick();
+            },
+            background: _background(
+              right ?? widget.leftAction,
+              right == null ? Alignment.centerRight : Alignment.centerLeft,
+            ),
+            secondaryBackground: right == null
+                ? null
+                : _background(widget.leftAction, Alignment.centerRight),
+            child: Material(
+              type: MaterialType.transparency,
+              child: widget.child,
+            ),
           ),
         ),
       );

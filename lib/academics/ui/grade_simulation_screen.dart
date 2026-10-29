@@ -238,7 +238,7 @@ class _GradeSimulationScreenState extends State<GradeSimulationScreen> {
             onChanged: (value) => setState(() => _replaceRetakes = value!),
           ),
           Text(
-            _replaceRetakes ? '试算不会修改已导入成绩。' : '本次试算同时计入原成绩和重修成绩，不采用学校的最高成绩规则。',
+            _replaceRetakes ? '试算不会修改已同步成绩。' : '本次试算同时计入原成绩和重修成绩，不采用学校的最高成绩规则。',
             style: theme.textTheme.bodySmall,
           ),
         ],

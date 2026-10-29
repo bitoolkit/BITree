@@ -16,7 +16,7 @@ class SchoolAccess {
   SchoolConnection? _connection;
 
   Future<T> read<T>(
-    VerifySchoolLogin verify,
+    VerifySchoolLogin? verify,
     Future<T> Function(SchoolSession) operation, {
     CancellationToken? cancellation,
     Uri? service,
@@ -42,11 +42,14 @@ class SchoolAccess {
     VerifySchoolLogin verify,
     Future<T> Function(SchoolSession, SchoolResponse) operation,
   ) => _run(source.loginPage, (session) async {
-    final page = await SchoolLogin(
-      session,
-      verify,
-    ).openLearningPlatform(source);
-    return operation(session, page);
+    final login = SchoolLogin(session, verify);
+    Future<T> read() async =>
+        operation(session, await login.openService(source.loginPage));
+    try {
+      return await read();
+    } on SessionExpired {
+      return read();
+    }
   });
 
   Future<void> signIn(
@@ -61,7 +64,7 @@ class SchoolAccess {
       if (source == null) {
         await login.signIn(credentials);
       } else {
-        await login.openLearningPlatform(source, credentials: credentials);
+        await login.openService(source.loginPage, credentials: credentials);
       }
       session.checkActive();
       await _storage.saveCredentials(credentials);

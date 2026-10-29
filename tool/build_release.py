@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import platform
 import shutil
 import subprocess
 import tarfile
@@ -30,12 +31,13 @@ def build_flutter(target, flags, *arguments):
 def build_android(flags, prefix):
     suffix = "" if Path("android/key.properties").exists() else "-debug-signed"
 
-    build_flutter("apk", flags, "--split-per-abi")
-    for apk in Path("build/app/outputs/flutter-apk").glob("*.apk"):
-        abi = apk.stem.removeprefix("app-").removesuffix("-release")
-        shutil.copy2(apk, f"dist/{prefix}-android-{abi}{suffix}.apk")
+    build_flutter("apk", flags, "--split-per-abi", "--target-platform=android-arm64")
+    shutil.copy2(
+        "build/app/outputs/flutter-apk/app-arm64-v8a-release.apk",
+        f"dist/{prefix}-android-arm64-v8a{suffix}.apk",
+    )
 
-    build_flutter("appbundle", flags)
+    build_flutter("appbundle", flags, "--target-platform=android-arm64")
     shutil.copy2(
         "build/app/outputs/bundle/release/app-release.aab",
         f"dist/{prefix}-android{suffix}.aab",
@@ -43,9 +45,13 @@ def build_android(flags, prefix):
 
 
 def build_linux(flags, prefix):
-    build_flutter("linux", flags)
-    with tarfile.open(f"dist/{prefix}-linux-x64.tar.xz", "w:xz", preset=9) as archive:
-        archive.add("build/linux/x64/release/bundle", arcname="BITree")
+    architecture = {"x86_64": "x64", "aarch64": "arm64"}[platform.machine()]
+    build_flutter("linux", flags, f"--target-platform=linux-{architecture}")
+    with tarfile.open(
+        f"dist/{prefix}-linux-{architecture}.tar.xz", "w:xz", preset=9
+    ) as archive:
+        archive.add(f"build/linux/{architecture}/release/bundle", arcname="BITree")
+    return architecture
 
 
 def build_windows(flags, prefix, native_version):
@@ -119,12 +125,14 @@ def main():
         f"--dart-define=BITREE_BUILD_TIME={built_at}",
     ]
     prefix = f"BITree-{args.version}"
+    metadata_platform = args.platform
 
     match args.platform:
         case "android":
             build_android(flags, prefix)
         case "linux":
-            build_linux(flags, prefix)
+            if build_linux(flags, prefix) == "arm64":
+                metadata_platform = "linux-arm64"
         case "windows":
             build_windows(flags, prefix, args.native_version)
         case "macos":
@@ -132,7 +140,7 @@ def main():
         case "ios":
             build_ios(flags, prefix)
 
-    Path(f"dist/{prefix}-{args.platform}-update.json").write_text(
+    Path(f"dist/{prefix}-{metadata_platform}-update.json").write_text(
         json.dumps({"version": args.version, "builtAt": built_at}) + "\n",
         encoding="utf-8",
     )

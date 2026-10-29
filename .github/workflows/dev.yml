@@ -37,6 +37,8 @@ jobs:
             runner: ubuntu-24.04
           - target: linux
             runner: ubuntu-24.04
+          - target: linux
+            runner: ubuntu-24.04-arm
           - target: windows
             runner: windows-2022
           - target: macos

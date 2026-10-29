@@ -33,10 +33,11 @@ void main() {
   };
   diagnostics.info('启动 BITree（${Platform.operatingSystem}）');
 
+  final schoolStorage = SchoolStorage();
   final controller = AppController(
     store: ScheduleStore(),
     school: SchoolService(),
-    schoolStorage: SchoolStorage(),
+    schoolStorage: schoolStorage,
     preferences: SharedPreferencesAsync(),
     agenda: AgendaController(AgendaStore()),
     academics: AcademicController(AcademicStore()),

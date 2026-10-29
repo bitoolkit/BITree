@@ -14,11 +14,13 @@ class CalendarBlockTile extends StatelessWidget {
     required this.items,
     required this.controller,
     required this.isToday,
+    this.courseProgress,
   });
 
   final List<CalendarItem> items;
   final AppController controller;
   final bool isToday;
+  final double? courseProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -28,11 +30,14 @@ class CalendarBlockTile extends StatelessWidget {
               course: items.single.course!,
               controller: controller,
               isToday: isToday,
+              date: items.single.startsAt,
+              progress: courseProgress,
             )
           : ConflictingCourses(
               courses: items.map((item) => item.course!).toList(),
               controller: controller,
               isToday: isToday,
+              date: items.first.startsAt,
             );
     }
     final scheme = Theme.of(context).colorScheme;
@@ -64,76 +69,66 @@ class CalendarBlockTile extends StatelessWidget {
             onTap: () => items.length == 1
                 ? openCalendarItem(context, controller, items.single)
                 : showCalendarItems(context, controller, '选择安排', items),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                border: Border(
-                  left: BorderSide(
-                    color: exam ? scheme.error : scheme.primary,
-                    width: 3,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final scale = MediaQuery.textScalerOf(context).scale(1);
+                final detailed = constraints.maxHeight >= 90 * scale;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 6,
                   ),
-                ),
-              ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final scale = MediaQuery.textScalerOf(context).scale(1);
-                  final detailed = constraints.maxHeight >= 90 * scale;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 6,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (constraints.maxHeight >= 48 * scale &&
-                            (exam || items.length > 1)) ...[
-                          Text(
-                            items.length == 1 ? '考试' : '${items.length} 项',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10,
-                              height: 1.2,
-                              color: foreground,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                        ],
-                        Flexible(
-                          child: Text(
-                            items.map((item) => item.title).join(' / '),
-                            textAlign: TextAlign.start,
-                            maxLines: detailed ? 4 : 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1.25,
-                              fontWeight: FontWeight.w600,
-                              color: foreground,
-                            ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (constraints.maxHeight >= 48 * scale &&
+                          (exam || items.length > 1)) ...[
+                        Text(
+                          items.length == 1 ? '考试' : '${items.length} 项',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10,
+                            height: 1.2,
+                            color: foreground,
                           ),
                         ),
-                        if (detailed &&
-                            items.length == 1 &&
-                            items.single.location.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            items.single.location,
-                            textAlign: TextAlign.start,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              height: 1.2,
-                              color: foreground,
-                            ),
-                          ),
-                        ],
+                        const SizedBox(height: 3),
                       ],
-                    ),
-                  );
-                },
-              ),
+                      Flexible(
+                        child: Text(
+                          items.map((item) => item.title).join(' / '),
+                          textAlign: TextAlign.start,
+                          maxLines: detailed ? 4 : 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.25,
+                            fontWeight: FontWeight.w600,
+                            color: foreground,
+                          ),
+                        ),
+                      ),
+                      if (detailed &&
+                          items.length == 1 &&
+                          items.single.location.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          items.single.location,
+                          textAlign: TextAlign.start,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            height: 1.2,
+                            color: foreground,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ),

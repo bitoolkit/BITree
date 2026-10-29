@@ -13,11 +13,13 @@ class ConflictingCourses extends StatelessWidget {
     required this.courses,
     required this.controller,
     required this.isToday,
+    this.date,
   });
 
   final List<Course> courses;
   final AppController controller;
   final bool isToday;
+  final DateTime? date;
 
   Future<void> _selectCourse(BuildContext context) async {
     final selected = await showModalBottomSheet<Course>(
@@ -74,7 +76,7 @@ class ConflictingCourses extends StatelessWidget {
       ),
     );
     if (selected != null && context.mounted) {
-      await showCourse(context, controller, selected);
+      await showCourse(context, controller, selected, date: date);
     }
   }
 

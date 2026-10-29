@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:bitree/agenda/controller.dart';
+import 'package:bitree/agenda/deadline_clear_scope.dart';
 import 'package:bitree/agenda/deadline_source.dart';
 import 'package:bitree/agenda/model.dart';
 import 'package:bitree/core/async/cancelable_request.dart';
@@ -116,6 +117,12 @@ void main() {
       expect(review.startsAt, due.add(const Duration(days: 3)));
       expect(review.notes, contains('开始：'));
       expect(review.source, DeadlineSource.mooc);
+      expect(
+        DeadlineClearScope.values.where(
+          (scope) => scope.includes(review.copyWith(done: true, deleted: true)),
+        ),
+        [DeadlineClearScope.mooc],
+      );
       expect(review.course, course.name);
       expect(review.url!.path, '/spoc/learn/7');
       expect(AgendaEntry.fromJson(review.toJson()).id, review.id);

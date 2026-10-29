@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:bitree/updates/release.dart';
@@ -11,7 +12,7 @@ import 'support/test_app.dart';
 Map<String, dynamic> _release({required bool development}) => {
   'tag_name': development ? 'v0.3.0-dev' : 'v0.3.0',
   'html_url':
-      'https://github.com/so1ve/bitree/releases/tag/${development ? 'v0.3.0-dev' : 'v0.3.0'}',
+      'https://github.com/bitoolkit/bitree/releases/tag/${development ? 'v0.3.0-dev' : 'v0.3.0'}',
   'body': '## Unreleased\n\n- 已安装的旧变更\n- 更早的历史变更',
   'published_at': '2026-10-27T10:00:00Z',
   'prerelease': development,
@@ -21,6 +22,12 @@ Map<String, dynamic> _release({required bool development}) => {
             'name': 'BITree-${Platform.operatingSystem}-update.json',
             'browser_download_url': 'https://downloads.example/update.json',
           },
+          if (Platform.isLinux)
+            {
+              'name': 'BITree-linux-arm64-update.json',
+              'browser_download_url':
+                  'https://downloads.example/arm64-update.json',
+            },
         ]
       : [],
 };
@@ -30,7 +37,7 @@ List<Map<String, dynamic>> _commits(int count, {String head = '3333333'}) => [
     {
       'sha': (index == count ? head : index.toRadixString(16).padLeft(7, '0'))
           .padRight(40, '0'),
-      'html_url': 'https://github.com/so1ve/bitree/commit/change-$index',
+      'html_url': 'https://github.com/bitoolkit/bitree/commit/change-$index',
       'commit': {'message': '变更 $index\n\n提交正文不应进入摘要'},
     },
 ];
@@ -61,15 +68,16 @@ void main() {
       requests.add(request.uri);
       Object? data;
       switch (request.uri.path) {
-        case '/api.github.com/repos/so1ve/bitree/releases/latest':
+        case '/api.github.com/repos/bitoolkit/bitree/releases/latest':
           request.response.statusCode = stable == null
               ? HttpStatus.notFound
               : discoveryStatus;
           data = stable;
-        case '/api.github.com/repos/so1ve/bitree/releases':
+        case '/api.github.com/repos/bitoolkit/bitree/releases':
           request.response.statusCode = discoveryStatus;
           data = [?development];
         case '/downloads.example/update.json':
+        case '/downloads.example/arm64-update.json':
           data = {
             'version': developmentVersion,
             'builtAt': '2026-10-27T09:00:00Z',
@@ -109,6 +117,26 @@ void main() {
         () => availableAppReleases(installed, builtAt: builtAt),
         network,
       );
+
+  if (Platform.isLinux) {
+    test(
+      'Metadata for another Linux architecture does not announce an update',
+      () async {
+        final other = Abi.current() == Abi.linuxArm64 ? 'linux' : 'linux-arm64';
+        development!['assets'] = [
+          {
+            'name': 'BITree-$other-update.json',
+            'browser_download_url': 'https://downloads.example/update.json',
+          },
+        ];
+        expect(await read('v0.3.0-dev.1111111'), isEmpty);
+        expect(
+          requests.where((url) => url.path.startsWith('/downloads.example/')),
+          isEmpty,
+        );
+      },
+    );
+  }
 
   test(
     'Development notes compare exact installed and downloaded commits',
@@ -194,7 +222,7 @@ void main() {
           expect(
             release.notes,
             contains(
-              'https://github.com/so1ve/bitree/compare/1111111...3333333',
+              'https://github.com/bitoolkit/bitree/compare/1111111...3333333',
             ),
           );
         }

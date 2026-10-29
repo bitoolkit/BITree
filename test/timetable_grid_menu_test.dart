@@ -38,7 +38,7 @@ void main() {
   );
   final addCourse = find.widgetWithText(MenuItemButton, '添加课程');
 
-  Future<void> showGrid(
+  Future<TestAppController> showGrid(
     WidgetTester tester, {
     VoidCallback? onOutsideTap,
     Size size = const Size(800, 1000),
@@ -88,6 +88,7 @@ void main() {
         ),
       ),
     );
+    return controller;
   }
 
   Offset cell(WidgetTester tester, int day, int section) {
@@ -105,6 +106,17 @@ void main() {
     await tester.tapAt(cell(tester, day, section));
     await tester.pumpAndSettle();
     expect(addCourse, findsOneWidget);
+    expect(
+      tester
+          .widgetList<Text>(
+            find.descendant(
+              of: find.byType(MenuItemButton),
+              matching: find.byType(Text),
+            ),
+          )
+          .map((label) => label.data),
+      ['添加课程', '添加日程', '添加 DDL'],
+    );
   }
 
   void expectClosed(WidgetTester tester) {
@@ -147,6 +159,15 @@ void main() {
         await tester.pumpAndSettle();
         expectClosed(tester);
         expect(find.byType(BottomSheet), findsOneWidget);
+        if (occupied.day == 4) {
+          expect(
+            find.descendant(
+              of: find.byType(BottomSheet),
+              matching: find.text(course.name),
+            ),
+            findsOneWidget,
+          );
+        }
       },
     );
   }
@@ -177,8 +198,18 @@ void main() {
       await gesture.up();
       for (var frame = 0; frame < 15; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
-        expect(find.text('添加 DDL'), findsNothing);
         if (panel.evaluate().isEmpty) break;
+        expect(
+          tester
+              .widgetList<Text>(
+                find.descendant(
+                  of: find.byType(MenuItemButton),
+                  matching: find.byType(Text),
+                ),
+              )
+              .map((label) => label.data),
+          ['添加课程', '添加日程', '添加 DDL'],
+        );
         final closing = tester.getRect(panel);
         expect(closing.height, lessThanOrEqualTo(height));
         expect(closing.left, closeTo(opened.left, 0.1));
@@ -393,6 +424,33 @@ void main() {
       );
       expect(tester.widget<AppDropdownField<int>>(finder).value, field.$2);
     }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('The DDL shortcut saves the selected time and semester', (
+    tester,
+  ) async {
+    final controller = await showGrid(tester);
+    await openMenu(tester, day: 6, section: 6);
+    await tester.tap(find.widgetWithText(MenuItemButton, '添加 DDL'));
+    await tester.pumpAndSettle();
+    expect(find.text('添加DDL'), findsOneWidget);
+    expect(find.text('截止'), findsOneWidget);
+    expect(find.text('结束'), findsNothing);
+    final name = find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.decoration?.labelText == '名称',
+    );
+    await tester.enterText(name, '实验报告');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+    final entry = controller.agenda.entries
+        .where((entry) => entry.isDeadline)
+        .single;
+    expect(entry.title, '实验报告');
+    expect(entry.startsAt, DateTime.utc(2026, 11, 1, 13, 20));
+    expect(entry.endsAt, isNull);
+    expect(entry.term, schedule.term);
+    expect(find.byType(BottomSheet), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

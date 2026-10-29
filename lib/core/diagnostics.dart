@@ -147,7 +147,7 @@ class AppDiagnostics {
       )
       .replaceAllMapped(
         RegExp(
-          r'''((?:password|passwd|token|ticket|sesskey|username|execution|captcha_code|captcha_payload|risk_payload|密码|学号)["']?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;]+)''',
+          r'''((?:password|passwd|api[_-]?key|token|ticket|sesskey|username|execution|captcha_code|captcha_payload|risk_payload|密码|学号)["']?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;]+)''',
           caseSensitive: false,
         ),
         (match) => '${match[1]}[已隐藏]',

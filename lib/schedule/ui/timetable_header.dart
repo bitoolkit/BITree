@@ -109,46 +109,34 @@ class _DateHeading extends StatelessWidget {
               const SizedBox(height: 2),
               FittedBox(
                 fit: BoxFit.scaleDown,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: current ? scheme.primary : null,
-                    borderRadius: AppCorners.control,
-                  ),
-                  child: Text(
-                    '${date.day}',
-                    style: TextStyle(
-                      fontSize: 20,
-                      height: 1.15,
-                      fontWeight: current ? FontWeight.w600 : FontWeight.w500,
-                      color: current ? scheme.onPrimary : scheme.onSurface,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 3),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 1,
-                  ),
-                  decoration: agendaCount > 0
-                      ? BoxDecoration(
-                          color: scheme.primaryContainer,
-                          borderRadius: AppCorners.compact,
-                        )
-                      : null,
-                  child: Text(
-                    agendaCount > 0 ? '$agendaCount项' : ' ',
-                    style: TextStyle(
-                      fontSize: 11,
-                      height: 1.2,
-                      color: scheme.onPrimaryContainer,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                  child: Badge(
+                    isLabelVisible: agendaCount > 0,
+                    label: Text('$agendaCount'),
+                    backgroundColor: scheme.primaryContainer,
+                    textColor: scheme.onPrimaryContainer,
+                    textStyle: const TextStyle(fontSize: 10, height: 1.2),
+                    largeSize: 16,
+                    offset: const Offset(4, -4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: current ? scheme.primary : null,
+                        borderRadius: AppCorners.control,
+                      ),
+                      child: Text(
+                        '${date.day}',
+                        style: TextStyle(
+                          fontSize: 20,
+                          height: 1.15,
+                          fontWeight: current ? FontWeight.w600 : FontWeight.w500,
+                          color: current ? scheme.onPrimary : scheme.onSurface,
+                        ),
+                      ),
                     ),
                   ),
                 ),

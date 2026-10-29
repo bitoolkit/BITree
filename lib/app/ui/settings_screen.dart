@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../agenda/deadline_clear_scope.dart';
+import '../../agenda/ui/clear_deadlines_dialog.dart';
 import '../../mooc/ui/mooc_screen.dart';
 import '../../schedule/ui/week_range_dialog.dart';
 import '../../school/ui/school_account.dart';
@@ -128,12 +130,33 @@ class SettingsScreen extends StatelessWidget {
             children: [
               const Text('面向北京理工大学的本地跨平台工具集。'),
               const SizedBox(height: 12),
-              DefaultTextStyle(
-                style: theme.textTheme.bodySmall!,
-                child: const Wrap(
-                  spacing: 12,
-                  runSpacing: 4,
-                  children: [Text('Made by Ray'), Text('Unlicense')],
+              Semantics(
+                link: true,
+                child: InkWell(
+                  onTap: () => openExternalLink(
+                    dialogContext,
+                    Uri.https('github.com', '/bitoolkit'),
+                    failureTitle: '无法打开 BIToolkit',
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          const TextSpan(text: 'Unlicense. Made by '),
+                          TextSpan(
+                            text: 'BIToolkit',
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                          const TextSpan(text: ' with ♥️'),
+                        ],
+                      ),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -158,7 +181,7 @@ class SettingsScreen extends StatelessWidget {
             TextButton(
               onPressed: () => openExternalLink(
                 dialogContext,
-                Uri.https('github.com', '/so1ve/bitree'),
+                Uri.https('github.com', '/bitoolkit/bitree'),
                 failureTitle: '无法打开 GitHub',
               ),
               child: const Text('GitHub'),
@@ -178,13 +201,16 @@ class SettingsScreen extends StatelessWidget {
     listenable: Listenable.merge([
       controller,
       controller.timetable,
-      controller.school,
+      controller.agenda,
     ]),
     builder: (context, _) => _build(context),
   );
 
   Widget _build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final deadlineCount = controller.agenda.countDeadlinesIn(
+      DeadlineClearScope.values,
+    );
 
     Widget section(String title, List<Widget> children) => Padding(
       padding: const EdgeInsets.only(top: 24),
@@ -282,6 +308,23 @@ class SettingsScreen extends StatelessWidget {
                     : () => _clearSchedule(context),
               ),
             ]),
+          section('本地日程', [
+            ListTile(
+              contentPadding: tilePadding,
+              leading: Icon(Icons.delete_outline_rounded, color: scheme.error),
+              title: Text('删除 DDL', style: TextStyle(color: scheme.error)),
+              subtitle: Text(
+                '可勾选手动创建、大物实验、乐学和新延河课堂来源\n'
+                '共 $deadlineCount 条（所有学期，含已完成、已删除）',
+              ),
+              onTap:
+                  !controller.agenda.ready ||
+                      controller.agenda.busy ||
+                      deadlineCount == 0
+                  ? null
+                  : () => showClearDeadlines(context, controller.agenda),
+            ),
+          ]),
           section('应用', [
             ListTile(
               contentPadding: tilePadding,
