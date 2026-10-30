@@ -13,6 +13,17 @@ import 'support/test_app.dart';
 
 void main() {
   setUp(() => WebViewPlatform.instance = TestMoocBrowser());
+  MemoryMoocStorage signedInStorage() =>
+      MemoryMoocStorage()
+        ..account = MoocAccount(
+          id: '8',
+          name: '姓名很长的中国大学MOOC 测试账号',
+          credentials: MoocCredentials(
+            userAgent: 'test',
+            cookies: [Cookie('NTESSTUDYSI', 'csrf')],
+          ),
+        );
+
   Future<void> pump(
     WidgetTester tester,
     TestAppController model, {
@@ -63,18 +74,27 @@ void main() {
     );
   }
 
+  testWidgets('Connected account actions fit without repeating its status', (
+    tester,
+  ) async {
+    final model = TestAppController(moocStorage: signedInStorage());
+    await pump(tester, model, scale: 1.4);
+    expect(find.textContaining('已连接'), findsNothing);
+    for (final action in ['同步 DDL', '重新登录', '使用 Cookie', '退出账号']) {
+      await tester.ensureVisible(find.text(action));
+      expect(find.text(action).hitTestable(), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byTooltip('关闭'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('已连接'), findsNothing);
+    expect(find.text(model.mooc.account!.name), findsOneWidget);
+  });
+
   testWidgets('Disconnect keeps imported data and removes the saved account', (
     tester,
   ) async {
-    final storage = MemoryMoocStorage()
-      ..account = MoocAccount(
-        id: '8',
-        name: '姓名很长的中国大学MOOC 测试账号',
-        credentials: MoocCredentials(
-          userAgent: 'test',
-          cookies: [Cookie('NTESSTUDYSI', 'csrf')],
-        ),
-      );
+    final storage = signedInStorage();
     final model = TestAppController(moocStorage: storage);
     await pump(tester, model, scale: 1.3);
     expect(find.text('同步 DDL'), findsOneWidget);
