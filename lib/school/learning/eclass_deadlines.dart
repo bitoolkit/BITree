@@ -1,5 +1,6 @@
 import '../../agenda/deadline_source.dart';
 import '../../agenda/model.dart';
+import '../../core/json.dart';
 import '../errors.dart';
 import '../session.dart';
 
@@ -35,48 +36,76 @@ Future<List<AgendaEntry>> fetchEclassDeadlines(SchoolSession session) async {
         'conditions': {},
       },
     );
-    final rows = (response['courses'] as List).cast<Map<String, dynamic>>();
+    final rows = [
+      for (final value in jsonListField(response, 'courses'))
+        jsonObject(value, 'courses[]'),
+    ];
     courses.addAll(rows);
-    final pages = response['pages'] as num?;
+    final pagesValue = response['pages'];
+    final pages = pagesValue == null
+        ? null
+        : pagesValue is num
+        ? pagesValue
+        : throw const FormatException('pages 格式不正确');
     if (pages != null ? page >= pages : rows.length < 100) break;
     page++;
   }
 
   final result = <AgendaEntry>[];
   for (final course in courses) {
-    final courseId = course['id'];
+    final courseId = _identifier(course['id'], 'course.id');
+    final coursePath = Uri.encodeComponent(courseId);
     final response = await _eclassJson(
       session,
-      '/api/courses/$courseId/activities',
+      '/api/courses/$coursePath/activities',
     );
-    for (final task in (response['activities'] as List).cast<Map>()) {
+    for (final value in jsonListField(response, 'activities')) {
+      final task = jsonObject(value, 'activities[]');
       final homework =
           task['submit_times'] != null ||
           task['is_review_homework'] != null ||
           task['late_submission_count'] != null;
       if (task['type'] == 'material' || !homework) continue;
-      final deadline = (task['end_time'] ?? task['visible_end_at']) as String?;
+      final deadline = jsonStringOrNull(
+        task['end_time'] ?? task['visible_end_at'],
+        'activity deadline',
+      );
       if (deadline == null || deadline.isEmpty || deadline == 'null') continue;
-      final id = task['id'].toString();
-      final detail = await _eclassJson(session, '/api/activities/$id');
+      final id = _identifier(task['id'], 'activity.id');
+      final detail = await _eclassJson(
+        session,
+        '/api/activities/${Uri.encodeComponent(id)}',
+      );
       result.add(
         AgendaEntry(
           id: 'eclass-$id',
-          title: task['title'] as String? ?? '未命名作业',
+          title: jsonStringOrNull(task['title'], 'activity.title') ?? '未命名作业',
           kind: AgendaKind.deadline,
           startsAt: _eclassDate(deadline),
-          done: (detail['user_submit_count'] as num) > 0,
-          course: course['name'] as String,
+          done:
+              (jsonIntOrNull(
+                    detail['user_submit_count'],
+                    'user_submit_count',
+                  ) ??
+                  0) >
+              0,
+          course: jsonStringField(course, 'name'),
           source: DeadlineSource.eclass,
           local: false,
           url: DeadlineSource.eclass.origin.resolve(
-            '/course/$courseId/learning-activity/full-screen#/$id',
+            '/course/$coursePath/learning-activity/full-screen#/$id',
           ),
         ),
       );
     }
   }
   return result;
+}
+
+String _identifier(Object? value, String field) {
+  if (value is String && value.isNotEmpty) return value;
+  if (value is int) return '$value';
+  throw FormatException('$field 格式不正确');
 }
 
 DateTime _eclassDate(String value) {

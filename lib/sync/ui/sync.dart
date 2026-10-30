@@ -10,6 +10,7 @@ import '../../ui/app_notice.dart';
 import '../../ui/design.dart';
 import '../../ui/sheet_layout.dart';
 import '../controller.dart';
+import 'sync_text.dart';
 
 final _progressSheets = <SyncController, Future<void>>{};
 
@@ -101,77 +102,79 @@ class _CustomSyncSheetState extends State<_CustomSyncSheet> {
   late final _selected = widget.app.sync.defaultTargets;
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    top: false,
-    child: SheetLayout(
-      header: SheetHeader(
-        title: const Text('自定义同步'),
-        actions: [
-          IconButton(
-            tooltip: '关闭',
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.close_rounded, size: 20),
-          ),
-        ],
-      ),
-      content: Padding(
-        padding: appSheetContentPadding,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '已选 ${_selected.length} 项',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () =>
-                      setState(() => _selected.addAll(SyncTarget.values)),
-                  child: const Text('全选'),
-                ),
-                TextButton(
-                  onPressed: () => setState(_selected.clear),
-                  child: const Text('清空'),
-                ),
-              ],
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: SheetLayout(
+        header: SheetHeader(
+          title: const Text('自定义同步'),
+          actions: [
+            IconButton(
+              tooltip: '关闭',
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close_rounded, size: 20),
             ),
-            for (final target in SyncTarget.values) ...[
-              if (target == SyncTarget.lexue) const Divider(),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: Text(target.title),
-                subtitle:
-                    target == SyncTarget.mooc && widget.app.mooc.needsLogin
-                    ? const Text('未登录，选择后登录')
-                    : null,
-                value: _selected.contains(target),
-                onChanged: (checked) => setState(() {
-                  if (checked == true) {
-                    _selected.add(target);
-                  } else {
-                    _selected.remove(target);
-                  }
-                }),
-              ),
-            ],
           ],
         ),
-      ),
-      actions: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-        child: FilledButton(
-          onPressed: _selected.isEmpty
-              ? null
-              : () => Navigator.pop(context, _selected),
-          child: const Text('同步所选内容'),
+        content: Padding(
+          padding: appSheetContentPadding,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '已选 ${_selected.length} 项',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        setState(() => _selected.addAll(SyncTarget.values)),
+                    child: const Text('全选'),
+                  ),
+                  TextButton(
+                    onPressed: () => setState(_selected.clear),
+                    child: const Text('清空'),
+                  ),
+                ],
+              ),
+              for (final target in SyncTarget.values) ...[
+                if (target == SyncTarget.lexue) const Divider(),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: Text(target.title),
+                  subtitle:
+                      target == SyncTarget.mooc && widget.app.mooc.needsLogin
+                      ? const Text('未登录，选择后登录')
+                      : null,
+                  value: _selected.contains(target),
+                  onChanged: (checked) => setState(() {
+                    if (checked == true) {
+                      _selected.add(target);
+                    } else {
+                      _selected.remove(target);
+                    }
+                  }),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+          child: FilledButton(
+            onPressed: _selected.isEmpty
+                ? null
+                : () => Navigator.pop(context, _selected),
+            child: const Text('同步所选内容'),
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _SyncProgressSheet extends StatefulWidget {
@@ -268,21 +271,30 @@ class _SyncProgressSheetState extends State<_SyncProgressSheet> {
                                   ),
                                 )
                               : Icon(
-                                  switch (results[target]?.status) {
-                                    SyncStatus.synced =>
+                                  switch (results[target]?.outcome) {
+                                    SyncOutcome.synced =>
                                       Icons.check_circle_outline_rounded,
-                                    SyncStatus.failed ||
-                                    SyncStatus.needsAuthentication =>
+                                    SyncOutcome.failed ||
+                                    SyncOutcome.needsLogin ||
+                                    SyncOutcome.needsVerification ||
+                                    SyncOutcome.saveFailed =>
                                       Icons.error_outline_rounded,
-                                    SyncStatus.cancelled => Icons.close_rounded,
+                                    SyncOutcome.cancelled =>
+                                      Icons.close_rounded,
+                                    SyncOutcome.noSchedule =>
+                                      Icons.event_busy_rounded,
                                     null => Icons.schedule_rounded,
                                   },
                                   size: 20,
                                   color:
-                                      results[target]?.status ==
-                                              SyncStatus.failed ||
-                                          results[target]?.status ==
-                                              SyncStatus.needsAuthentication
+                                      results[target]?.outcome ==
+                                              SyncOutcome.failed ||
+                                          results[target]?.outcome ==
+                                              SyncOutcome.needsLogin ||
+                                          results[target]?.outcome ==
+                                              SyncOutcome.needsVerification ||
+                                          results[target]?.outcome ==
+                                              SyncOutcome.saveFailed
                                       ? theme.colorScheme.error
                                       : theme.colorScheme.onSurfaceVariant,
                                 ),
@@ -297,7 +309,7 @@ class _SyncProgressSheetState extends State<_SyncProgressSheet> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                model.progress(target),
+                                syncProgressText(model, target),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),

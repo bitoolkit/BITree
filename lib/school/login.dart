@@ -7,6 +7,7 @@ import 'package:html/parser.dart';
 
 import '../core/async/cancelable_request.dart';
 import '../core/diagnostics.dart';
+import '../core/json.dart';
 import 'crypto.dart';
 import 'errors.dart';
 import 'network.dart';
@@ -53,7 +54,14 @@ class SchoolLogin {
       followRedirects: false,
       anonymous: session.network == SchoolNetwork.campus,
     );
-    final service = preflight.location!.queryParameters['service']!;
+    final location = preflight.location;
+    if (location == null) {
+      throw const SchoolRequestError('学校登录入口未返回认证地址。');
+    }
+    final service = location.queryParameters['service'];
+    if (service == null || service.isEmpty) {
+      throw const SchoolRequestError('学校登录入口未返回有效服务地址。');
+    }
     final callback = await _authenticate(account, Uri.parse(service));
     await _openCallback(callback);
     try {
@@ -131,12 +139,12 @@ class SchoolLogin {
     final captchaInfo = await _json(
       '/cas/api/protected/user/findCaptchaCount/${Uri.encodeComponent(credentials.username)}',
     );
-    var captcha = captchaInfo['data'] as Map<String, dynamic>;
+    var captcha = jsonObjectField(captchaInfo, 'data');
     Future<Uint8List> loadCaptcha() async {
       final result = await _json(
         '/cas/api/protected/user/findCaptchaCount/${Uri.encodeComponent(credentials.username)}',
       );
-      captcha = result['data'] as Map<String, dynamic>;
+      captcha = jsonObjectField(result, 'data');
       return _captchaImage(captcha);
     }
 
@@ -227,11 +235,12 @@ class SchoolLogin {
       ),
       headers: {'hasCrypto': 'true', 'privateKey': encryptSchoolKey(key)},
     );
-    final data =
-        (jsonDecode(decryptSchoolValue(encrypted.text, key)) as Map)['data']
-            as Map;
-    final phoneId = data['tel'] as String;
-    final maskedPhone = data['maskTel'] as String;
+    final data = jsonObjectField(
+      jsonObject(jsonDecode(decryptSchoolValue(encrypted.text, key)), '短信验证响应'),
+      'data',
+    );
+    final phoneId = jsonStringField(data, 'tel');
+    final maskedPhone = jsonStringField(data, 'maskTel');
     final code = await verify(
       SchoolSmsVerification(
         phone: maskedPhone,
@@ -290,10 +299,9 @@ class SchoolLogin {
   }
 
   Uri _callback(SchoolResponse response) {
-    if (response.location != null &&
-        response.status >= 300 &&
-        response.status < 400) {
-      return response.location!;
+    final location = response.location;
+    if (location != null && response.status >= 300 && response.status < 400) {
+      return location;
     }
     final page = _LoginPage(response);
     final code = page.field('login-error-code');
@@ -329,7 +337,7 @@ class SchoolLogin {
   }
 
   Future<Uint8List> _captchaImage(Map<String, dynamic> captcha) async {
-    final url = captcha['captchaUrl'] as String;
+    final url = jsonStringField(captcha, 'captchaUrl');
     if (url.startsWith('data:')) return UriData.parse(url).contentAsBytes();
     return (await _request(_sso.resolve('/cas/').resolve(url))).bytes;
   }
@@ -402,7 +410,7 @@ class SchoolLogin {
         return {'token': token, 'groupId': group};
       }
       throw const FormatException('学校风控接口未返回有效 token');
-    } catch (failure) {
+    } on Exception catch (failure) {
       session.checkActive();
       if (failure is! SchoolRequestError &&
           failure is! SchoolConnectionError &&
@@ -472,11 +480,14 @@ class _LoginPage {
     return (element?.attributes['value'] ?? element?.text ?? '').trim();
   }
 
-  String get execution =>
-      document.getElementById('login-page-flowkey')!.text.trim();
-  String get cryptoKey => document.getElementById('login-croypto')!.text.trim();
+  String get execution => _element('login-page-flowkey').text.trim();
+  String get cryptoKey => _element('login-croypto').text.trim();
   Uri get action {
-    final target = document.querySelector('form')!.attributes['action'];
+    final form = document.querySelector('form');
+    if (form == null) {
+      throw const FormatException('学校登录页面缺少登录表单');
+    }
+    final target = form.attributes['action'];
     final action = target == null || target.trim().isEmpty
         ? url
         : url.resolve(target);
@@ -485,4 +496,7 @@ class _LoginPage {
     }
     return action;
   }
+
+  Element _element(String id) =>
+      document.getElementById(id) ?? (throw FormatException('学校登录页面缺少 $id'));
 }

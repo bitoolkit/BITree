@@ -114,7 +114,7 @@ class _MoocLoginState extends State<_MoocLogin> {
             : MoocCredentials.origin.resolve('/home.htm'),
       );
       _startChecking();
-    } catch (error, stack) {
+    } on Exception catch (error, stack) {
       AppDiagnostics.instance.error('打开 MOOC 登录页', error, stack);
       if (mounted) {
         setState(() {
@@ -202,7 +202,7 @@ class _MoocLoginState extends State<_MoocLogin> {
       Navigator.pop(context, true);
     } on RequestCancelled {
       // Leaving the login page cancels unfinished work.
-    } catch (error, stack) {
+    } on Exception catch (error, stack) {
       _poll?.cancel();
       if (widget.controller.error == null) {
         AppDiagnostics.instance.error('读取 MOOC 网页登录', error, stack);

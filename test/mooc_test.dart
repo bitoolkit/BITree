@@ -19,6 +19,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/http.dart';
 import 'support/test_app.dart';
 
+class _FailingAgendaStore extends MemoryAgendaStore {
+  @override
+  Future<void> write(List<AgendaEntry> entries) async {
+    throw const FileSystemException('agenda write failed');
+  }
+}
+
+class _DelayedClearMoocStorage extends MemoryMoocStorage {
+  final clearStarted = Completer<void>();
+  final releaseClear = Completer<void>();
+
+  @override
+  Future<void> clear() async {
+    clearStarted.complete();
+    await releaseClear.future;
+    await super.clear();
+  }
+}
+
 final due = DateTime.utc(2026, 11, 2, 23, 59);
 int timestamp(DateTime beijing) =>
     beijing.subtract(const Duration(hours: 8)).millisecondsSinceEpoch;
@@ -457,7 +476,6 @@ void main() {
         expect(rotated.expires!.isAfter(DateTime.now()), isTrue);
         expect(rotated.sameSite, SameSite.lax);
         expect(pages, ['1:1', '1:2', '2:1']);
-        expect(first.courseCount, 10);
         expect(first.entries, hasLength(20));
         expect(first.failures, isEmpty);
         final saved = agenda.entries.first;
@@ -521,7 +539,6 @@ void main() {
         await controller.connect(account);
         brokenReview = true;
         final result = (await controller.synchronize())!;
-        expect(result.courseCount, 9);
         expect(result.failures.single.course, '课程 10');
         expect(agenda.entries, hasLength(18));
         expect(
@@ -555,7 +572,6 @@ void main() {
         await controller.connect(account);
         brokenCourse = true;
         final result = (await controller.synchronize())!;
-        expect(result.courseCount, 9);
         expect(result.failures.single.course, '课程 10');
         expect(agenda.entries, hasLength(18));
       }, network),
@@ -568,6 +584,28 @@ void main() {
         malformedPage = true;
         await expectLater(controller.synchronize(), throwsFormatException);
         expect(agenda.entries, isEmpty);
+      }, network),
+    );
+
+    test(
+      'A rotated session remains active when agenda persistence fails',
+      () => HttpOverrides.runWithHttpOverrides(() async {
+        final failingAgenda = AgendaController(_FailingAgendaStore());
+        final syncing = MoocController(storage: storage, agenda: failingAgenda);
+        addTearDown(failingAgenda.dispose);
+        addTearDown(syncing.dispose);
+
+        await syncing.connect(account);
+        expect(await syncing.synchronize(), isNull);
+        expect(
+          storage.account!.credentials.cookies.join(';'),
+          contains('NTESSTUDYSI=rotated'),
+        );
+        expect(
+          syncing.account!.credentials.cookies.join(';'),
+          contains('NTESSTUDYSI=rotated'),
+        );
+        expect(syncing.needsLogin, isFalse);
       }, network),
     );
 
@@ -606,5 +644,46 @@ void main() {
         expect(agenda.entries, isEmpty);
       }, network),
     );
+
+    test('A connect queued behind disconnect keeps the new account', () async {
+      final delayedStorage = _DelayedClearMoocStorage()
+        ..account = MoocAccount(
+          id: 'old',
+          name: '旧账号',
+          credentials: MoocCredentials(
+            userAgent: 'old',
+            cookies: [Cookie('NTESSTUDYSI', 'old')],
+          ),
+        );
+      final localAgenda = AgendaController(MemoryAgendaStore());
+      final lifecycle = MoocController(
+        storage: delayedStorage,
+        agenda: localAgenda,
+      );
+      addTearDown(localAgenda.dispose);
+      addTearDown(lifecycle.dispose);
+      await lifecycle.load();
+
+      final disconnecting = lifecycle.disconnect();
+      await delayedStorage.clearStarted.future;
+      final next = MoocAccount(
+        id: 'new',
+        name: '新账号',
+        credentials: MoocCredentials(
+          userAgent: 'new',
+          cookies: [Cookie('NTESSTUDYSI', 'new')],
+        ),
+      );
+      final connecting = lifecycle.connect(next);
+      expect(lifecycle.busy, isTrue);
+
+      delayedStorage.releaseClear.complete();
+      await disconnecting;
+      await connecting;
+
+      expect(lifecycle.account?.id, 'new');
+      expect(delayedStorage.account?.id, 'new');
+      expect(lifecycle.busy, isFalse);
+    });
   });
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/diagnostics.dart';
+import '../../core/error_message.dart';
 import '../verification.dart';
 
 Future<String?> verifySchoolLogin(
@@ -34,6 +35,7 @@ class _VerificationDialogState extends State<_VerificationDialog> {
   bool _submitting = false;
   int _resendSeconds = 0;
   Timer? _timer;
+  String? _error;
 
   @override
   void initState() {
@@ -48,6 +50,7 @@ class _VerificationDialogState extends State<_VerificationDialog> {
   Future<void> _refresh() async {
     setState(() {
       _loading = true;
+      _error = null;
     });
     try {
       switch (widget.request) {
@@ -64,8 +67,9 @@ class _VerificationDialogState extends State<_VerificationDialog> {
             setState(() => _resendSeconds--);
           });
       }
-    } catch (failure, stack) {
-      AppDiagnostics.instance.report('获取登录验证码', failure, stack);
+    } on Exception catch (failure, stack) {
+      AppDiagnostics.instance.error('获取登录验证码', failure, stack);
+      if (mounted) setState(() => _error = errorMessage(failure));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -75,6 +79,7 @@ class _VerificationDialogState extends State<_VerificationDialog> {
     if (_submitting || _loading || !_form.currentState!.validate()) return;
     setState(() {
       _submitting = true;
+      _error = null;
     });
     try {
       final code = _code.text.trim();
@@ -82,8 +87,9 @@ class _VerificationDialogState extends State<_VerificationDialog> {
         await checkCode(code);
       }
       if (mounted) Navigator.pop(context, code);
-    } catch (failure, stack) {
-      AppDiagnostics.instance.report('校验登录验证码', failure, stack);
+    } on Exception catch (failure, stack) {
+      AppDiagnostics.instance.error('校验登录验证码', failure, stack);
+      if (mounted) setState(() => _error = errorMessage(failure));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -156,6 +162,11 @@ class _VerificationDialogState extends State<_VerificationDialog> {
                 ),
               ),
             ),
+            if (_error case final error?)
+              Text(
+                error,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
           ],
         ),
       ),

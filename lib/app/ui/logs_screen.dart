@@ -36,7 +36,7 @@ class _LogsScreenState extends State<LogsScreen> {
     try {
       final preview = await AppDiagnostics.instance.recentLines();
       if (mounted) setState(() => _preview = preview);
-    } catch (failure, stack) {
+    } on Exception catch (failure, stack) {
       AppDiagnostics.instance.report('读取日志', failure, stack);
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -56,7 +56,7 @@ class _LogsScreenState extends State<LogsScreen> {
         dialogTitle: '导出日志',
       );
       if (mounted && saved != null) showAppNotice(context, '已导出日志');
-    } catch (failure, stack) {
+    } on Exception catch (failure, stack) {
       AppDiagnostics.instance.report('导出日志', failure, stack);
     } finally {
       if (mounted) setState(() => _exporting = false);

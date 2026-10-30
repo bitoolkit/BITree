@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/async/cancelable_request.dart';
 import '../core/diagnostics.dart';
 import '../schedule/model.dart';
 import 'deadline_clear_scope.dart';
@@ -14,10 +15,10 @@ class AgendaController extends ChangeNotifier {
 
   final AgendaStore _store;
   List<AgendaEntry> _entries = const [];
+  Future<void> _operations = Future<void>.value();
   bool _ready = false;
   bool _busy = false;
-  Future<void> _imports = Future<void>.value();
-  Completer<void>? _writing;
+  bool _disposed = false;
 
   bool get ready => _ready;
   bool get busy => _busy;
@@ -34,91 +35,83 @@ class AgendaController extends ChangeNotifier {
           .toList()
         ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
 
-  Future<void> load() async {
-    if (_busy) return;
+  Future<void> load() => _serialize(() async {
+    if (_disposed) return;
     _busy = true;
     _ready = false;
-    notifyListeners();
+    _notify();
     try {
       _entries = List.unmodifiable(await _store.read());
       _ready = true;
-    } catch (failure, stack) {
+    } on Exception catch (failure, stack) {
       AppDiagnostics.instance.report('读取日程', failure, stack);
     } finally {
       _busy = false;
-      notifyListeners();
+      _notify();
     }
-  }
+  });
 
-  Future<bool> save(AgendaEntry entry) =>
-      _write([..._entries.where((item) => item.id != entry.id), entry]);
+  Future<bool> save(AgendaEntry entry) => _write(
+    (entries) => [...entries.where((item) => item.id != entry.id), entry],
+  );
 
-  Future<bool> restore(AgendaEntry entry) {
-    final current =
-        _entries.where((item) => item.id == entry.id).firstOrNull ?? entry;
-    return save(current.copyWith(deleted: false));
-  }
+  Future<bool> restore(AgendaEntry entry) => _write(
+    (entries) => [
+      for (final item in entries)
+        item.id == entry.id ? item.copyWith(deleted: false) : item,
+      if (!entries.any((item) => item.id == entry.id))
+        entry.copyWith(deleted: false),
+    ],
+  );
 
-  Future<bool> delete(AgendaEntry entry) => _write([
-    for (final item in _entries)
-      if (item.id != entry.id)
-        item
-      else if (item.isDeadline)
-        item.copyWith(deleted: true),
-  ]);
+  Future<bool> delete(AgendaEntry entry) => _write(
+    (entries) => [
+      for (final item in entries)
+        if (item.id != entry.id)
+          item
+        else if (item.isDeadline)
+          item.copyWith(deleted: true),
+    ],
+  );
 
-  Future<bool> restoreDeletedDeadlines() =>
-      _write([for (final entry in _entries) entry.copyWith(deleted: false)]);
+  Future<bool> restoreDeletedDeadlines() => _write(
+    (entries) => [for (final entry in entries) entry.copyWith(deleted: false)],
+  );
 
   Future<bool> replaceExams(
     String term,
     List<AgendaEntry> exams, {
     void Function()? checkActive,
-  }) => _import(() {
-    checkActive?.call();
+  }) => _write((entries) {
     final edited = {
-      for (final entry in _entries)
+      for (final entry in entries)
         if (entry.kind == AgendaKind.exam && entry.term == term && entry.local)
           entry.id,
     };
-    return _write([
-      ..._entries.where(
+    return [
+      ...entries.where(
         (entry) =>
             entry.kind != AgendaKind.exam || entry.term != term || entry.local,
       ),
       ...exams.where((entry) => !edited.contains(entry.id)),
-    ]);
-  });
+    ];
+  }, checkActive: checkActive);
 
   Future<bool> mergeDeadlines(
     List<AgendaEntry> incoming, {
     void Function()? checkActive,
-  }) => _import(() {
-    checkActive?.call();
-    final entries = {for (final entry in _entries) entry.id: entry};
+  }) => _write((entries) {
+    final byId = {for (final entry in entries) entry.id: entry};
     for (final entry in incoming) {
-      final saved = entries[entry.id];
-      final next = saved?.local == true ? saved! : entry;
-      entries[entry.id] = next.copyWith(
+      final saved = byId[entry.id];
+      final next = saved != null && saved.local ? saved : entry;
+      byId[entry.id] = next.copyWith(
         done: entry.done || saved?.done == true,
         deleted: saved?.deleted ?? false,
       );
     }
-    return _write(entries.values.toList());
-  });
-
-  // Concurrent platform reads merge against the latest saved entries. Local
-  // edits that finish while a platform is reading are included in that merge.
-  Future<T> _import<T>(Future<T> Function() write) {
-    final result = _imports.then((_) async {
-      while (_writing != null) {
-        await _writing!.future;
-      }
-      return write();
-    });
-    _imports = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
-    return result;
-  }
+    return byId.values.toList();
+  }, checkActive: checkActive);
 
   int countDeadlines(DeadlineClearScope scope) =>
       _entries.where(scope.includes).length;
@@ -139,20 +132,22 @@ class AgendaController extends ChangeNotifier {
   Future<bool> clearDeadlines(
     Iterable<DeadlineClearScope> scopes, {
     Set<String>? expectedIds,
-  }) async {
-    final ids = deadlineIdsIn(scopes);
-    if (expectedIds != null && !setEquals(ids, expectedIds)) {
-      AppDiagnostics.instance.notice('待删除的 DDL 已变化，请检查后重新确认。');
-      return false;
-    }
-    if (ids.isEmpty) {
-      return false;
-    }
-    return _write(
-      _entries
+  }) {
+    final selected = scopes.toSet();
+    return _write((entries) {
+      final ids = {
+        for (final entry in entries)
+          if (selected.any((scope) => scope.includes(entry))) entry.id,
+      };
+      if (expectedIds != null && !setEquals(ids, expectedIds)) {
+        AppDiagnostics.instance.notice('待删除的 DDL 已变化，请检查后重新确认。');
+        return null;
+      }
+      if (ids.isEmpty) return null;
+      return entries
           .where((entry) => !entry.isDeadline || !ids.contains(entry.id))
-          .toList(),
-    );
+          .toList();
+    });
   }
 
   /// Refresh this semester's generated records, keeping edits and tombstones.
@@ -162,7 +157,11 @@ class AgendaController extends ChangeNotifier {
     SemesterSchedule schedule, {
     DateTime? now,
     void Function()? checkActive,
-  }) => _import(() async {
+  }) => _serialize(() async {
+    if (!_ready) {
+      _reportNotReady();
+      return null;
+    }
     checkActive?.call();
     final importedAt = now ?? campusNow();
     final incoming = physicsLabDeadlines(schedule);
@@ -178,39 +177,75 @@ class AgendaController extends ChangeNotifier {
     };
     for (final entry in incoming) {
       final saved = savedById[entry.id];
-      next[entry.id] = saved?.local == true
-          ? saved!
+      next[entry.id] = saved != null && saved.local
+          ? saved
           : entry.copyWith(
               done: saved?.done ?? entry.dueAt.isBefore(importedAt),
               deleted: saved?.deleted ?? false,
             );
     }
-    return await _write(next.values.toList()) ? incoming.length : null;
+    final saved = await _commit(next.values.toList(), checkActive: checkActive);
+    return saved ? incoming.length : null;
   });
 
-  Future<bool> _write(List<AgendaEntry> next) async {
-    if (!_ready || _busy) {
-      AppDiagnostics.instance.notice(
-        _busy ? '日程正在保存，请稍后重试。' : '日程尚未加载，请先重新加载日程。',
-      );
+  Future<bool> _write(
+    List<AgendaEntry>? Function(List<AgendaEntry> entries) transform, {
+    void Function()? checkActive,
+  }) => _serialize(() async {
+    if (!_ready) {
+      _reportNotReady();
       return false;
     }
+    checkActive?.call();
+    final next = transform(_entries);
+    if (next == null) return false;
+    return _commit(next, checkActive: checkActive);
+  });
+
+  Future<bool> _commit(
+    List<AgendaEntry> next, {
+    void Function()? checkActive,
+  }) async {
     _busy = true;
-    final writing = Completer<void>();
-    _writing = writing;
-    notifyListeners();
+    _notify();
     try {
+      checkActive?.call();
       await _store.write(next);
       _entries = List.unmodifiable(next);
       return true;
-    } catch (failure, stack) {
+    } on RequestCancelled {
+      rethrow;
+    } on Exception catch (failure, stack) {
       AppDiagnostics.instance.report('保存日程', failure, stack);
       return false;
     } finally {
       _busy = false;
-      _writing = null;
-      writing.complete();
-      notifyListeners();
+      _notify();
     }
+  }
+
+  Future<T> _serialize<T>(Future<T> Function() operation) {
+    final result = _operations.then((_) => operation());
+    _operations = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return result;
+  }
+
+  void _reportNotReady() {
+    if (!_disposed) {
+      AppDiagnostics.instance.notice('日程尚未加载，请先重新加载日程。');
+    }
+  }
+
+  void _notify() {
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }

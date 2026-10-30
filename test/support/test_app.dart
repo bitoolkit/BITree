@@ -29,13 +29,15 @@ class MemoryScheduleStore extends ScheduleStore {
   String? selectedTerm;
 
   @override
-  Future<({String? selectedTerm, Map<String, SemesterSchedule> schedules})>
-  read() async => (selectedTerm: selectedTerm, schedules: Map.of(schedules));
+  Future<ScheduleLibrary> read() async =>
+      (selectedTerm: selectedTerm, schedules: Map.of(schedules));
 
   @override
-  Future<void> write(SemesterSchedule schedule) async {
-    schedules[schedule.term] = schedule;
-    selectedTerm = schedule.term;
+  Future<void> write(ScheduleLibrary library) async {
+    schedules
+      ..clear()
+      ..addAll(library.schedules);
+    selectedTerm = library.selectedTerm;
   }
 
   @override

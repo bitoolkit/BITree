@@ -7,7 +7,10 @@ import '../core/async/cancelable_request.dart';
 import '../core/diagnostics.dart';
 import 'api.dart';
 import 'credentials.dart';
+import 'progress.dart';
 import 'storage.dart';
+
+enum MoocStatus { connected, signedOut, expired }
 
 class MoocController extends ChangeNotifier {
   MoocController({required this._storage, required this._agenda});
@@ -17,47 +20,52 @@ class MoocController extends ChangeNotifier {
   MoocAccount? _account;
   CancellationToken? _request;
   Future<void>? _finished;
+  Future<void> _lifecycle = Future<void>.value();
+  int _pendingLifecycle = 0;
   bool _disposed = false;
   bool _expired = false;
   String? _error;
-  String _progress = '';
+  MoocProgress? _progress;
 
   MoocAccount? get account => _account;
-  bool get busy => _request != null;
+  bool get busy => _request != null || _pendingLifecycle > 0;
   bool get needsLogin => _account == null || _expired;
   String? get error => _error;
-  String get progress => _progress;
-  String get status => _expired
-      ? '需要重新登录'
+  MoocProgress? get progress => _progress;
+  MoocStatus get status => _expired
+      ? MoocStatus.expired
       : _account == null
-      ? '未登录'
-      : '已连接';
+      ? MoocStatus.signedOut
+      : MoocStatus.connected;
 
-  Future<void> load() async {
+  Future<void> load() => _queue(() async {
     try {
       _account = await _storage.read();
-    } catch (error, stack) {
+      _error = null;
+    } on Exception catch (error, stack) {
       _error = '无法读取 MOOC 登录信息，请重新登录。';
       AppDiagnostics.instance.error('读取 MOOC 账号', error, stack);
     }
-    _notify();
-  }
-
-  Future<void> connect(MoocAccount account) => _run('登录 MOOC', (token) async {
-    token.check();
-    await _storage.write(account);
-    _account = account;
-    _expired = false;
   });
+
+  Future<void> connect(MoocAccount account) => _queue(
+    () => _run('登录 MOOC', (token) async {
+      token.check();
+      await _storage.write(account);
+      _account = account;
+      _expired = false;
+    }),
+  );
 
   Future<MoocImportResult?> synchronize() async {
     final account = _account;
     if (account == null) throw const MoocLoginRequired();
+    if (busy) throw const MoocFailure('MOOC 正在处理请求，请稍后重试。');
     return _run('更新 MOOC DDL', (token) async {
       final api = MoocApi(account.credentials, token);
       try {
-        final result = await api.readDeadlines(account.id, (message) {
-          _progress = message;
+        final result = await api.readDeadlines(account.id, (progress) {
+          _progress = progress;
           _notify();
         });
         token.check();
@@ -68,7 +76,8 @@ class MoocController extends ChangeNotifier {
         );
         token.check();
         await _storage.write(next);
-        token.check();
+        _account = next;
+        _expired = false;
         if (!await _agenda.mergeDeadlines(
           result.entries,
           checkActive: token.check,
@@ -76,8 +85,6 @@ class MoocController extends ChangeNotifier {
           _error = '未能保存同步结果，请稍后重试。';
           return null;
         }
-        _account = next;
-        _expired = false;
         return result;
       } finally {
         api.close();
@@ -89,19 +96,20 @@ class MoocController extends ChangeNotifier {
     String label,
     Future<T> Function(CancellationToken) operation,
   ) async {
-    if (busy || _disposed) throw const MoocFailure('MOOC 正在处理请求，请稍后重试。');
+    if (_request != null || _disposed) {
+      throw const MoocFailure('MOOC 正在处理请求，请稍后重试。');
+    }
     final token = CancellationToken();
     final finished = Completer<void>();
     _request = token;
     _finished = finished.future;
     _error = null;
-    _progress = label == '登录 MOOC' ? '正在保存登录…' : '正在读取课程…';
     _notify();
     try {
       return await operation(token);
     } on RequestCancelled {
       rethrow;
-    } catch (error, stack) {
+    } on Exception catch (error, stack) {
       if (error is MoocLoginRequired) _expired = _account != null;
       _error = switch (error) {
         MoocFailure(:final message) => message,
@@ -113,7 +121,7 @@ class MoocController extends ChangeNotifier {
     } finally {
       _request = null;
       _finished = null;
-      _progress = '';
+      _progress = null;
       finished.complete();
       _notify();
     }
@@ -121,7 +129,7 @@ class MoocController extends ChangeNotifier {
 
   void cancel() => _request?.cancel();
 
-  Future<void> disconnect() async {
+  Future<void> disconnect() => _queue(() async {
     final finished = _finished;
     cancel();
     await finished;
@@ -129,7 +137,23 @@ class MoocController extends ChangeNotifier {
     _account = null;
     _expired = false;
     _error = null;
+  });
+
+  Future<T> _queue<T>(Future<T> Function() operation) {
+    if (_disposed) {
+      throw const MoocFailure('MOOC 状态已关闭。');
+    }
+    _pendingLifecycle++;
     _notify();
+    final result = _lifecycle.then((_) => operation());
+    _lifecycle = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return result.whenComplete(() {
+      _pendingLifecycle--;
+      _notify();
+    });
   }
 
   void _notify() {

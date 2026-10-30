@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/controller.dart';
 import '../../sync/controller.dart';
 import '../../sync/ui/sync.dart';
+import '../../sync/ui/sync_text.dart';
 import '../../ui/app_dropdown_field.dart';
 import '../model.dart';
 import 'academic_common.dart';
@@ -65,7 +66,7 @@ class _GradesScreenState extends State<GradesScreen> {
           else if (record.gradesUpdatedAt == null)
             AcademicEmpty(
               title: '还没有同步成绩',
-              label: SyncTarget.grades.label,
+              label: SyncTarget.grades.actionLabel,
               onPressed: () =>
                   startSync(context, controller, targets: {SyncTarget.grades}),
             )

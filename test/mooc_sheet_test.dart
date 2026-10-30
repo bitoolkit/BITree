@@ -267,7 +267,10 @@ void main() {
         await tester.tap(find.text('收起'));
         await tester.pumpAndSettle();
       } else {
-        expect(model.sync.results[SyncTarget.mooc]?.status, SyncStatus.synced);
+        expect(
+          model.sync.results[SyncTarget.mooc]?.outcome,
+          SyncOutcome.synced,
+        );
       }
       expect(tester.takeException(), isNull);
     });

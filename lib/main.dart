@@ -29,7 +29,7 @@ void main() {
   };
   WidgetsBinding.instance.platformDispatcher.onError = (failure, stack) {
     diagnostics.report('未处理的异常', failure, stack);
-    return true;
+    return false;
   };
   diagnostics.info('启动 BITree（${Platform.operatingSystem}）');
 

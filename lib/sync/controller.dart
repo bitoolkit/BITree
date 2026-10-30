@@ -6,29 +6,42 @@ import '../agenda/controller.dart';
 import '../agenda/deadline_source.dart';
 import '../core/async/cancelable_request.dart';
 import '../mooc/controller.dart';
+import '../mooc/progress.dart';
 import '../schedule/controller.dart';
 import '../school/controller.dart';
 
 enum SyncTarget {
-  schedule('课表', '同步课表'),
-  exams('考试安排', '同步考试安排'),
-  grades('成绩', '同步成绩'),
-  studyPlan('学分进度', '同步学分进度'),
-  lexue('乐学 DDL', '同步乐学 DDL', DeadlineSource.lexue),
-  eclass('新延河课堂 DDL', '同步新延河课堂 DDL', DeadlineSource.eclass),
-  mooc('中国大学MOOC DDL', '同步中国大学MOOC DDL', DeadlineSource.mooc),
-  physicsLab('大物实验 DDL', '更新大物实验 DDL');
+  schedule,
+  exams,
+  grades,
+  studyPlan,
+  lexue(DeadlineSource.lexue),
+  eclass(DeadlineSource.eclass),
+  mooc(DeadlineSource.mooc),
+  physicsLab;
 
-  const SyncTarget(this.title, this.label, [this.source]);
-  final String title;
-  final String label;
+  const SyncTarget([this.source]);
   final DeadlineSource? source;
   bool get isSchool => this != mooc && this != physicsLab;
 }
 
-enum SyncStatus { synced, failed, needsAuthentication, cancelled }
+enum SyncOutcome {
+  synced,
+  failed,
+  needsLogin,
+  needsVerification,
+  cancelled,
+  noSchedule,
+  saveFailed,
+}
 
-typedef SyncResult = ({SyncStatus status, String message});
+class SyncResult {
+  const SyncResult(this.outcome, {this.count, this.detail});
+
+  final SyncOutcome outcome;
+  final int? count;
+  final String? detail;
+}
 
 /// Owns one synchronization round. School reads share a session and run in
 /// sequence; MOOC runs alongside them. There is no persistent task queue.
@@ -57,6 +70,8 @@ class SyncController extends ChangeNotifier {
 
   bool get busy => _operation != null;
   bool get cancelled => _cancelled;
+  bool get waitingForSchool => _school.busy;
+  MoocProgress? get moocProgress => _mooc.progress;
   String? get term => _term;
   List<SyncTarget> get targets => _targets;
   Map<SyncTarget, SyncResult> get results => Map.unmodifiable(_results);
@@ -66,18 +81,9 @@ class SyncController extends ChangeNotifier {
   };
   Set<SyncTarget> get incompleteTargets => {
     for (final target in _targets)
-      if (_results[target]?.status != SyncStatus.synced) target,
+      if (_results[target]?.outcome != SyncOutcome.synced) target,
   };
   bool isRunning(SyncTarget target) => _running.contains(target);
-
-  String progress(SyncTarget target) {
-    if (_results[target] case final result?) return result.message;
-    if (_running.contains(target)) {
-      if (_cancelled) return '正在取消…';
-      return target == SyncTarget.mooc ? _mooc.progress : '正在同步…';
-    }
-    return target.isSchool && _school.busy ? '等待学校请求完成' : '等待同步';
-  }
 
   Future<bool> synchronize(Set<SyncTarget> selected, {String? term}) {
     if (_operation case final current?) return current;
@@ -106,7 +112,7 @@ class SyncController extends ChangeNotifier {
         for (final target in _targets) {
           _results.putIfAbsent(
             target,
-            () => (status: SyncStatus.cancelled, message: '已取消'),
+            () => const SyncResult(SyncOutcome.cancelled),
           );
         }
       }
@@ -125,11 +131,10 @@ class SyncController extends ChangeNotifier {
       if (_school.verificationRequired ||
           _school.loginExpired ||
           _school.username == null) {
-        _results[target] = (
-          status: SyncStatus.needsAuthentication,
-          message: _school.verificationRequired
-              ? _school.accountStatus.label
-              : '需要登录学校账号',
+        _results[target] = SyncResult(
+          _school.verificationRequired
+              ? SyncOutcome.needsVerification
+              : SyncOutcome.needsLogin,
         );
         _notify();
         continue;
@@ -142,24 +147,26 @@ class SyncController extends ChangeNotifier {
           SyncTarget.exams => _school.importExams(term: term),
           SyncTarget.grades => _school.importGrades(),
           SyncTarget.studyPlan => _school.importStudyPlan(),
-          SyncTarget.lexue ||
-          SyncTarget.eclass => _school.importDeadlines(source: target.source),
+          SyncTarget.lexue => _school.importDeadlines(
+            source: DeadlineSource.lexue,
+          ),
+          SyncTarget.eclass => _school.importDeadlines(
+            source: DeadlineSource.eclass,
+          ),
           _ => throw StateError('不是学校同步内容'),
         };
-        final status = _cancelled
-            ? SyncStatus.cancelled
+        final outcome = _cancelled
+            ? SyncOutcome.cancelled
             : success
-            ? SyncStatus.synced
+            ? SyncOutcome.synced
             : _school.verificationRequired || _school.loginExpired
-            ? SyncStatus.needsAuthentication
-            : SyncStatus.failed;
-        _results[target] = (
-          status: status,
-          message: _cancelled
-              ? '已取消'
-              : success
-              ? '已同步'
-              : _school.error ?? '同步未完成，请重试',
+            ? _school.verificationRequired
+                  ? SyncOutcome.needsVerification
+                  : SyncOutcome.needsLogin
+            : SyncOutcome.failed;
+        _results[target] = SyncResult(
+          outcome,
+          detail: success ? null : _school.error,
         );
       } finally {
         _running.remove(target);
@@ -177,13 +184,13 @@ class SyncController extends ChangeNotifier {
                 schedule,
                 checkActive: _checkActive,
               );
-        _results[SyncTarget.physicsLab] = (
-          status: count == null ? SyncStatus.failed : SyncStatus.synced,
-          message: schedule == null
-              ? '暂无可用课表'
+        _results[SyncTarget.physicsLab] = SyncResult(
+          schedule == null
+              ? SyncOutcome.noSchedule
               : count == null
-              ? '未能保存大物实验 DDL'
-              : '已更新 $count 条 DDL',
+              ? SyncOutcome.saveFailed
+              : SyncOutcome.synced,
+          count: count,
         );
       } on RequestCancelled {
         // The round records cancelled content after all running reads stop.
@@ -200,14 +207,16 @@ class SyncController extends ChangeNotifier {
     try {
       final result = await _mooc.synchronize();
       if (!_cancelled) {
-        _results[SyncTarget.mooc] = (
-          status: result != null && result.failures.isEmpty
-              ? SyncStatus.synced
-              : SyncStatus.failed,
-          message: result == null
-              ? _mooc.error ?? '未能保存同步结果'
+        _results[SyncTarget.mooc] = SyncResult(
+          result == null || result.failures.isNotEmpty
+              ? SyncOutcome.failed
+              : SyncOutcome.synced,
+          count: result?.entries.length,
+          detail: result == null
+              ? _mooc.error
+              : result.failures.isEmpty
+              ? null
               : [
-                  '已同步 ${result.entries.length} 条 DDL',
                   for (final failure in result.failures)
                     '${failure.course}：${failure.message}',
                 ].join('\n'),
@@ -217,11 +226,9 @@ class SyncController extends ChangeNotifier {
       cancel();
     } on Exception {
       if (!_cancelled) {
-        _results[SyncTarget.mooc] = (
-          status: _mooc.needsLogin
-              ? SyncStatus.needsAuthentication
-              : SyncStatus.failed,
-          message: _mooc.error ?? '同步失败，请重试',
+        _results[SyncTarget.mooc] = SyncResult(
+          _mooc.needsLogin ? SyncOutcome.needsLogin : SyncOutcome.failed,
+          detail: _mooc.error,
         );
       }
     } finally {

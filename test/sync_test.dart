@@ -13,6 +13,7 @@ import 'package:bitree/school/verification.dart';
 import 'package:bitree/sync/controller.dart';
 import 'package:bitree/sync/ui/sync.dart';
 import 'package:bitree/sync/ui/sync_button.dart';
+import 'package:bitree/sync/ui/sync_text.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -182,8 +183,8 @@ void main() {
     expect(await syncing, isFalse);
     expect(service.reads, [SyncTarget.schedule]);
     expect(
-      model.sync.results.values.map((result) => result.status),
-      everyElement(SyncStatus.cancelled),
+      model.sync.results.values.map((result) => result.outcome),
+      everyElement(SyncOutcome.cancelled),
     );
     expect(model.timetable.schedule, isNull);
   });
@@ -218,8 +219,8 @@ void main() {
       isFalse,
     );
     expect(
-      model.sync.results.values.map((result) => result.status),
-      everyElement(SyncStatus.needsAuthentication),
+      model.sync.results.values.map((result) => result.outcome),
+      everyElement(SyncOutcome.needsVerification),
     );
     expect(service.reads, [SyncTarget.schedule]);
     service.smsRequired = false;
@@ -234,6 +235,18 @@ void main() {
       SyncTarget.schedule,
       SyncTarget.exams,
     ]);
+  });
+
+  test('MOOC login failures identify the MOOC account', () async {
+    final model = app(_SchoolService());
+    await model.initialize();
+
+    expect(await model.sync.synchronize({SyncTarget.mooc}), isFalse);
+    expect(
+      model.sync.results[SyncTarget.mooc]?.outcome,
+      SyncOutcome.needsLogin,
+    );
+    expect(syncProgressText(model.sync, SyncTarget.mooc), '需要登录中国大学MOOC账号');
   });
 
   test('Concurrent imports preserve both platforms and do not save a cancelled waiting result', () async {
@@ -262,6 +275,31 @@ void main() {
     await cancelled;
     expect(store.entries.map((entry) => entry.id), ['school', 'mooc']);
   });
+
+  test(
+    'A local edit queues behind an import instead of being dropped',
+    () async {
+      final store = _SlowAgendaStore();
+      final agenda = AgendaController(store);
+      addTearDown(agenda.dispose);
+      await agenda.load();
+      AgendaEntry entry(String id) => AgendaEntry(
+        id: id,
+        title: id,
+        kind: AgendaKind.deadline,
+        startsAt: DateTime.utc(2026, 11),
+      );
+
+      final imported = agenda.mergeDeadlines([entry('school')]);
+      await store.started.future;
+      final edited = agenda.save(entry('local'));
+      store.release.complete();
+
+      expect(await imported, isTrue);
+      expect(await edited, isTrue);
+      expect(store.entries.map((entry) => entry.id), ['school', 'local']);
+    },
+  );
 
   Future<void> waitFor(WidgetTester tester, bool Function() ready) async {
     final elapsed = Stopwatch()..start();

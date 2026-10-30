@@ -9,6 +9,7 @@ import '../../ui/sheet_layout.dart';
 import '../controller.dart';
 import '../credentials.dart';
 import 'login.dart';
+import 'status.dart';
 
 Future<bool> showMoocAccount(
   BuildContext context,
@@ -35,7 +36,7 @@ class MoocAccountTile extends StatelessWidget {
       subtitle: Text(
         [
           controller.account?.name,
-          if (controller.needsLogin) controller.status,
+          if (controller.needsLogin) controller.status.label,
         ].whereType<String>().join(' · '),
       ),
       trailing: const SizedBox.square(
@@ -104,7 +105,7 @@ class _MoocSheetState extends State<_MoocSheet> {
     try {
       await widget.controller.disconnect();
       if (mounted) setState(() => _error = null);
-    } catch (error) {
+    } on Exception catch (error) {
       if (mounted) setState(() => _error = errorMessage(error));
     }
   }
@@ -137,7 +138,7 @@ class _MoocSheetState extends State<_MoocSheet> {
                   ),
                   if (model.needsLogin)
                     Text(
-                      model.status,
+                      model.status.label,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.error,
                       ),
@@ -242,7 +243,7 @@ class _CookieSheetState extends State<_CookieSheet> {
       if (success && mounted) Navigator.pop(context, true);
     } on RequestCancelled {
       if (mounted) setState(() => _error = '已取消连接');
-    } catch (error) {
+    } on Exception catch (error) {
       if (mounted) {
         setState(
           () => _error = error is FormatException

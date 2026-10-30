@@ -41,7 +41,7 @@ Future<void> checkForUpdates(
     );
 
     await updates.markNotified(releases);
-  } catch (failure, stack) {
+  } on Exception catch (failure, stack) {
     if (silent || !context.mounted) {
       AppDiagnostics.instance.error('检查更新', failure, stack);
     } else {

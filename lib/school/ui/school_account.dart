@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
 import '../../ui/app_notice.dart';
+import 'account_status.dart';
 import 'school_screen.dart';
 import 'school_verification_dialog.dart';
 
