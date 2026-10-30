@@ -45,7 +45,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  void signIn() {
+  void signIn({bool finishLoading = true}) {
     browser.cookies.addAll([
       for (final name in ['NTESSTUDYSI', 'STUDY_SESS'])
         WebViewCookie(
@@ -54,12 +54,19 @@ void main() {
           domain: '.icourse163.org',
         ),
     ]);
+    browser.cookies.add(
+      const WebViewCookie(
+        name: 'browser_preference',
+        value: 'id,time',
+        domain: '.icourse163.org',
+      ),
+    );
     browser.controller.snapshot = {
       'id': '8',
       'name': '昵称有 " 引号和 }; 符号',
       'userAgent': 'Actual embedded browser',
     };
-    browser.controller.finishLoading();
+    if (finishLoading) browser.controller.finishLoading();
   }
 
   testWidgets(
@@ -101,6 +108,11 @@ void main() {
       expect(storage.account!.id, '8');
       expect(storage.account!.name, '昵称有 " 引号和 }; 符号');
       expect(storage.account!.credentials.userAgent, 'Actual embedded browser');
+      final restored = MoocAccount.fromJson(storage.account!.toJson());
+      expect(
+        restored.credentials.cookies.join(';'),
+        contains('browser_preference=id,time'),
+      );
       expect(
         storage.account!.credentials.cookies.join(';'),
         contains('STUDY_SESS=test-session'),
@@ -109,6 +121,25 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final action in ['完成登录', '刷新登录页']) {
+    testWidgets(
+      '$action captures an already signed-in browser with comma cookies',
+      (tester) async {
+        final model = TestAppController();
+        bool? result;
+        await open(tester, model, completed: (value) => result = value);
+        signIn(finishLoading: false);
+        await tester.tap(
+          action == '完成登录' ? find.text(action) : find.byTooltip(action),
+        );
+        await tester.pumpAndSettle();
+        expect(result, isTrue);
+        expect(model.mooc.account!.id, '8');
+        expect(find.byType(WebViewWidget), findsNothing);
+      },
+    );
+  }
 
   testWidgets('Cookie fallback uses the same embedded account capture', (
     tester,

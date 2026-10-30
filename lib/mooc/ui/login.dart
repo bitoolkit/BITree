@@ -9,6 +9,7 @@ import 'package:webview_all_android/webview_all_android.dart';
 import '../../core/async/cancelable_request.dart';
 import '../../core/diagnostics.dart';
 import '../controller.dart';
+import '../cookie.dart';
 import '../credentials.dart';
 import '../tasks.dart';
 
@@ -184,7 +185,7 @@ class _MoocLoginState extends State<_MoocLogin> {
         userAgent: agent,
         cookies: [
           for (final cookie in exported)
-            Cookie(cookie.name, cookie.value)
+            MoocCookie(cookie.name, cookie.value)
               ..domain = cookie.domain
               ..path = cookie.path
               ..secure = true,

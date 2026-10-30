@@ -6,6 +6,7 @@ import 'package:cookie_jar/cookie_jar.dart';
 
 import '../agenda/model.dart';
 import '../core/async/cancelable_request.dart';
+import 'cookie.dart';
 import 'credentials.dart';
 import 'tasks.dart';
 
@@ -163,7 +164,7 @@ class MoocApi {
     if (!_seeded) {
       await _cookies.saveFromResponse(
         MoocCredentials.origin,
-        _credentials.cookies.map(Cookie.fromSetCookieValue).toList(),
+        _credentials.cookies.map(MoocCookie.fromSetCookieValue).toList(),
       );
       _seeded = true;
     }
@@ -199,15 +200,19 @@ class MoocApi {
       request.write(Uri(queryParameters: form).query);
       final response = await request.close().timeout(_timeout);
       _cancellation.check();
-      final received = response.cookies.where((cookie) {
-        final domain = cookie.domain?.toLowerCase().replaceFirst(
-          RegExp(r'^\.'),
-          '',
-        );
-        return domain == null ||
-            (MoocCredentials.isMoocHost(domain) &&
-                (url.host == domain || url.host.endsWith('.$domain')));
-      }).toList();
+      final received =
+          (response.headers[HttpHeaders.setCookieHeader] ?? <String>[])
+              .map(MoocCookie.fromSetCookieValue)
+              .where((cookie) {
+                final domain = cookie.domain?.toLowerCase().replaceFirst(
+                  RegExp(r'^\.'),
+                  '',
+                );
+                return domain == null ||
+                    (MoocCredentials.isMoocHost(domain) &&
+                        (url.host == domain || url.host.endsWith('.$domain')));
+              })
+              .toList();
       // Convert relative lifetime at arrival, before persisting the session.
       // Reopening the app must not restart a server cookie's Max-Age clock.
       for (final cookie in received) {

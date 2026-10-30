@@ -10,6 +10,7 @@ import 'package:bitree/core/async/cancelable_request.dart';
 import 'package:bitree/core/diagnostics.dart';
 import 'package:bitree/mooc/api.dart';
 import 'package:bitree/mooc/controller.dart';
+import 'package:bitree/mooc/cookie.dart';
 import 'package:bitree/mooc/credentials.dart';
 import 'package:bitree/mooc/tasks.dart';
 import 'package:flutter/services.dart';
@@ -162,13 +163,40 @@ void main() {
 
   test('Cookie import accepts copied headers and retains values containing equals signs', () {
     final value = MoocCredentials.cookiesFromHeader(
-      'Accept: */*\r\nCookie: NTESSTUDYSI=csrf; STUDY_SESS=abc==\r\nReferer: https://www.icourse163.org/',
+      'Accept: */*\r\nCookie: NTESSTUDYSI=csrf; _ntes_nnid=id,time; STUDY_SESS=abc==\r\nReferer: https://www.icourse163.org/',
     );
     expect(value.last.value, 'abc==');
+    expect(value[1].value, 'id,time');
     expect(
       () => MoocCredentials.cookiesFromHeader('NTESSTUDYSI=x\r\nX-Test: y'),
       throwsFormatException,
     );
+  });
+
+  test('Browser cookie values survive persistence without allowing header injection', () {
+    const raw = r'{"ids":[1,2],"label":"a b","path":"a\b"}';
+    final browser = MoocCookie('browser_preference', raw)
+      ..domain = '.icourse163.org'
+      ..path = '/web/j/'
+      ..secure = true
+      ..httpOnly = true
+      ..expires = DateTime.utc(2099);
+    final credentials = MoocCredentials.fromJson(
+      MoocCredentials(
+        userAgent: 'browser',
+        cookies: [Cookie('NTESSTUDYSI', 'csrf'), browser],
+      ).toJson(),
+    );
+    final restored = MoocCookie.fromSetCookieValue(credentials.cookies.last);
+    expect(restored.value, raw);
+    expect(restored.domain, '.icourse163.org');
+    expect(restored.path, '/web/j/');
+    expect(restored.expires, DateTime.utc(2099));
+    expect(restored.secure, isTrue);
+    expect(restored.httpOnly, isTrue);
+    for (final value in ['a\r\nInjected: x', 'a;b', 'a\u0000b', 'a\u007fb']) {
+      expect(() => MoocCookie('STUDY_SESS', value), throwsFormatException);
+    }
   });
 
   group('Authenticated requests', () {
@@ -195,11 +223,11 @@ void main() {
         userAgent: 'MOOC test browser',
         cookies: [
           Cookie('NTESSTUDYSI', 'csrf')..path = '/',
-          Cookie('STUDY_SESS', 'session')
+          MoocCookie('STUDY_SESS', 'session,token==')
             ..domain = '.icourse163.org'
             ..path = '/'
             ..httpOnly = true,
-          Cookie('STUDY_SESS', 'specific')
+          MoocCookie('STUDY_SESS', 'specific,token==')
             ..domain = '.icourse163.org'
             ..path = '/web/j/'
             ..httpOnly = true,
@@ -231,6 +259,7 @@ void main() {
         final cookie = request.headers.value(HttpHeaders.cookieHeader)!;
         expect(cookie, isNot(contains('foreign')));
         expect(cookie, isNot(contains('wrong-path')));
+        expect(cookie, contains('STUDY_SESS=specific,token=='));
         expect(
           cookie.indexOf('STUDY_SESS=specific'),
           lessThan(cookie.indexOf('STUDY_SESS=session')),
@@ -248,6 +277,11 @@ void main() {
         )) {
           request.response.cookies.add(
             Cookie('NTESSTUDYSI', 'rotated')..path = '/',
+          );
+          request.response.headers.add(
+            HttpHeaders.setCookieHeader,
+            '_ntes_nnid=rotated,value==; Domain=.icourse163.org; '
+            'Path=/web/j/; Max-Age=3600; HttpOnly; Secure; SameSite=Lax',
           );
           expect(form['type'], '30');
           expect(form['psize'], '8');
@@ -277,6 +311,7 @@ void main() {
             }),
           );
         } else if (request.uri.path.endsWith('getMocTermDto.rpc')) {
+          expect(cookie, contains('_ntes_nnid=rotated,value=='));
           expect(request.uri.queryParameters['csrfKey'], 'rotated');
           expect(form['isDraft'], '0');
           final id = int.parse(form['termId']!) - 100;
@@ -313,6 +348,14 @@ void main() {
           storage.account!.credentials.cookies.join(';'),
           contains('NTESSTUDYSI=rotated'),
         );
+        final restored = MoocAccount.fromJson(storage.account!.toJson());
+        final rotated = restored.credentials.cookies
+            .map(MoocCookie.fromSetCookieValue)
+            .singleWhere((cookie) => cookie.name == '_ntes_nnid');
+        expect(rotated.value, 'rotated,value==');
+        expect(rotated.maxAge, isNull);
+        expect(rotated.expires!.isAfter(DateTime.now()), isTrue);
+        expect(rotated.sameSite, SameSite.lax);
         expect(pages, ['1:1', '1:2', '2:1']);
         expect(first.courseCount, 10);
         expect(first.entries, hasLength(20));
@@ -330,6 +373,8 @@ void main() {
             deleted: true,
           ),
         );
+        storage.account = restored;
+        await controller.load();
         await controller.synchronize();
         expect(agenda.entries.length + agenda.deletedDeadlines.length, 20);
         final edited = agenda.deletedDeadlines.single;

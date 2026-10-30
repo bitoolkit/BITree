@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'cookie.dart';
+
 /// Only the cookies used by MOOC's read APIs and the browser's actual user agent
 /// cross the browser boundary. Passwords stay on the official login page.
 class MoocCredentials {
@@ -9,7 +11,7 @@ class MoocCredentials {
       throw const FormatException('无法读取登录浏览器的信息，请重新登录。');
     }
     if (!this.cookies.any(
-      (value) => Cookie.fromSetCookieValue(value).name == 'NTESSTUDYSI',
+      (value) => MoocCookie.fromSetCookieValue(value).name == 'NTESSTUDYSI',
     )) {
       throw const FormatException('没有读取到中国大学MOOC 会话，请先完成登录。');
     }
@@ -45,7 +47,7 @@ class MoocCredentials {
       final content = part.substring(separator + 1).trim();
       if (content.isEmpty || !names.add(name)) continue;
       cookies.add(
-        Cookie(name, content)
+        MoocCookie(name, content)
           ..path = '/'
           ..secure = true,
       );
@@ -68,7 +70,7 @@ class MoocCredentials {
     }
     return MoocCredentials(
       userAgent: agent,
-      cookies: values.cast<String>().map(Cookie.fromSetCookieValue),
+      cookies: values.cast<String>().map(MoocCookie.fromSetCookieValue),
     );
   }
 
