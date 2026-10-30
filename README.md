@@ -5,7 +5,7 @@
 <h1 align="center">BITree 理枝</h1>
 
 <p align="center">
-  把北京理工大学的课表、日程、成绩和常用校园查询放到一个应用里。
+  面向北京理工大学的妙妙小工具
 </p>
 
 <p align="center">

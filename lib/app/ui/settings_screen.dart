@@ -129,7 +129,7 @@ class SettingsScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('面向北京理工大学的本地跨平台工具集。'),
+              const Text('面向北京理工大学的妙妙小工具'),
               const SizedBox(height: 12),
               Semantics(
                 link: true,
