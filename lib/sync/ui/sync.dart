@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
+import '../../l10n/formats.dart';
+import '../../l10n/l10n.dart';
 import '../../mooc/ui/mooc_sheet.dart';
 import '../../school/ui/school_screen.dart';
 import '../../school/ui/school_verification_dialog.dart';
@@ -43,7 +45,8 @@ Future<bool> startSync(
   }
   if (!context.mounted) return false;
   final overlay = Overlay.of(context, rootOverlay: true);
-  final success = await app.sync.synchronize(selected, term: term);
+  final l10n = context.l10n;
+  final success = await app.sync.synchronize(selected, term: term, l10n: l10n);
   if (!overlay.mounted ||
       app.sync.cancelled ||
       _progressSheets.containsKey(app.sync)) {
@@ -51,11 +54,11 @@ Future<bool> startSync(
   }
   showOverlayNotice(
     overlay,
-    success ? '同步完成' : '部分内容未同步',
+    success ? l10n.syncComplete : l10n.syncPartial,
     action: success
         ? null
         : (
-            label: '查看',
+            label: l10n.view,
             onPressed: () {
               if (overlay.mounted) {
                 unawaited(showSyncProgress(overlay.context, app));
@@ -102,79 +105,77 @@ class _CustomSyncSheetState extends State<_CustomSyncSheet> {
   late final _selected = widget.app.sync.defaultTargets;
 
   @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: SheetLayout(
-        header: SheetHeader(
-          title: const Text('自定义同步'),
-          actions: [
-            IconButton(
-              tooltip: '关闭',
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.close_rounded, size: 20),
-            ),
-          ],
-        ),
-        content: Padding(
-          padding: appSheetContentPadding,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '已选 ${_selected.length} 项',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: SheetLayout(
+      header: SheetHeader(
+        title: Text(context.l10n.customSync),
+        actions: [
+          IconButton(
+            tooltip: context.l10n.close,
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close_rounded, size: 20),
+          ),
+        ],
+      ),
+      content: Padding(
+        padding: appSheetContentPadding,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    context.l10n.selectedItems(_selected.length),
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  TextButton(
-                    onPressed: () =>
-                        setState(() => _selected.addAll(SyncTarget.values)),
-                    child: const Text('全选'),
-                  ),
-                  TextButton(
-                    onPressed: () => setState(_selected.clear),
-                    child: const Text('清空'),
-                  ),
-                ],
-              ),
-              for (final target in SyncTarget.values) ...[
-                if (target == SyncTarget.lexue) const Divider(),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  title: Text(target.title),
-                  subtitle:
-                      target == SyncTarget.mooc && widget.app.mooc.needsLogin
-                      ? const Text('未登录，选择后登录')
-                      : null,
-                  value: _selected.contains(target),
-                  onChanged: (checked) => setState(() {
-                    if (checked == true) {
-                      _selected.add(target);
-                    } else {
-                      _selected.remove(target);
-                    }
-                  }),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      setState(() => _selected.addAll(SyncTarget.values)),
+                  child: Text(context.l10n.selectAll),
+                ),
+                TextButton(
+                  onPressed: () => setState(_selected.clear),
+                  child: Text(context.l10n.clearSelection),
                 ),
               ],
+            ),
+            for (final target in SyncTarget.values) ...[
+              if (target == SyncTarget.lexue) const Divider(),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: Text(target.localizedTitle(context.l10n)),
+                subtitle:
+                    target == SyncTarget.mooc && widget.app.mooc.needsLogin
+                    ? Text(context.l10n.loginAfterSelection)
+                    : null,
+                value: _selected.contains(target),
+                onChanged: (checked) => setState(() {
+                  if (checked == true) {
+                    _selected.add(target);
+                  } else {
+                    _selected.remove(target);
+                  }
+                }),
+              ),
             ],
-          ),
-        ),
-        actions: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-          child: FilledButton(
-            onPressed: _selected.isEmpty
-                ? null
-                : () => Navigator.pop(context, _selected),
-            child: const Text('同步所选内容'),
-          ),
+          ],
         ),
       ),
-    );
-  }
+      actions: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+        child: FilledButton(
+          onPressed: _selected.isEmpty
+              ? null
+              : () => Navigator.pop(context, _selected),
+          child: Text(context.l10n.syncSelected),
+        ),
+      ),
+    ),
+  );
 }
 
 class _SyncProgressSheet extends StatefulWidget {
@@ -215,15 +216,16 @@ class _SyncProgressSheetState extends State<_SyncProgressSheet> {
       final model = widget.app.sync;
       final theme = Theme.of(context);
       final results = model.results;
+      final l10n = context.l10n;
       return SafeArea(
         top: false,
         child: SheetLayout(
           header: SheetHeader(
-            title: const Text('同步进度'),
+            title: Text(l10n.syncProgress),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('收起'),
+                child: Text(l10n.collapse),
               ),
             ],
           ),
@@ -239,12 +241,12 @@ class _SyncProgressSheetState extends State<_SyncProgressSheet> {
                 ],
                 Text(
                   model.busy
-                      ? '已处理 ${results.length} / ${model.targets.length} 项'
+                      ? l10n.syncProcessed(results.length, model.targets.length)
                       : model.cancelled
-                      ? '同步已取消'
+                      ? l10n.syncCancelled
                       : model.incompleteTargets.isEmpty
-                      ? '同步完成'
-                      : '部分内容未同步',
+                      ? l10n.syncComplete
+                      : l10n.syncPartial,
                   style: theme.textTheme.titleMedium,
                 ),
                 const SizedBox(height: 12),
@@ -304,12 +306,12 @@ class _SyncProgressSheetState extends State<_SyncProgressSheet> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                target.title,
+                                target.localizedTitle(l10n),
                                 style: theme.textTheme.titleSmall,
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                syncProgressText(model, target),
+                                syncProgressText(l10n, model, target),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
@@ -330,13 +332,15 @@ class _SyncProgressSheetState extends State<_SyncProgressSheet> {
                     children: [
                       Expanded(
                         child: Text(
-                          '收起后继续同步',
+                          l10n.continueAfterCollapse,
                           style: theme.textTheme.bodySmall,
                         ),
                       ),
                       TextButton(
                         onPressed: model.cancelled ? null : model.cancel,
-                        child: Text(model.cancelled ? '正在取消…' : '取消同步'),
+                        child: Text(
+                          model.cancelled ? l10n.cancelling : l10n.cancelSync,
+                        ),
                       ),
                     ],
                   ),
@@ -346,7 +350,9 @@ class _SyncProgressSheetState extends State<_SyncProgressSheet> {
                   padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
                   child: FilledButton(
                     onPressed: _authenticating ? null : _retry,
-                    child: Text(_authenticating ? '正在验证…' : '重试未完成的内容'),
+                    child: Text(
+                      _authenticating ? l10n.verifying : l10n.retryIncomplete,
+                    ),
                   ),
                 )
               : null,

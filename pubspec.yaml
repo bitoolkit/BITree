@@ -12,6 +12,7 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  intl: any
   flutter_secure_storage: ^11.0.0
   cookie_jar: ^4.0.8
   html: ^0.15.7
@@ -33,6 +34,7 @@ dev_dependencies:
   webview_platform_interface: ^1.4.7
 
 flutter:
+  generate: true
   uses-material-design: true
   assets:
     - assets/brand/bitree.png

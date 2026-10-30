@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
 import '../../schedule/model.dart';
 import '../../ui/app_dropdown_field.dart';
 import '../model.dart';
@@ -40,6 +41,7 @@ class _ProjectedCourseDialogState extends State<ProjectedCourseDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final choices =
         <String, ({String name, double? credits, String? replaces})>{
           for (final grade in highestGrades(widget.grades))
@@ -58,7 +60,11 @@ class _ProjectedCourseDialogState extends State<ProjectedCourseDialog> {
     }
     return AlertDialog(
       scrollable: true,
-      title: Text(widget.course == null ? '添加试算课程' : '修改试算课程'),
+      title: Text(
+        widget.course == null
+            ? l10n.addProjectedCourse
+            : l10n.editProjectedCourse,
+      ),
       content: Form(
         key: _form,
         child: Column(
@@ -67,15 +73,16 @@ class _ProjectedCourseDialogState extends State<ProjectedCourseDialog> {
           children: [
             if (choices.isNotEmpty) ...[
               AppDropdownField<String?>(
-                label: '选择课程（选填）',
+                label: l10n.selectCourseOptional,
                 value: choices.containsKey(_selection) ? _selection : null,
                 entries: [
-                  const DropdownMenuEntry(value: null, label: '手动填写'),
+                  DropdownMenuEntry(value: null, label: l10n.manualEntry),
                   for (final choice in choices.entries)
                     DropdownMenuEntry(
                       value: choice.key,
-                      label:
-                          '${choice.value.name}${choice.value.replaces == null ? '' : '（重修）'}',
+                      label: choice.value.replaces == null
+                          ? choice.value.name
+                          : l10n.retakeSuffix(choice.value.name),
                     ),
                 ],
                 onChanged: (key) {
@@ -95,9 +102,10 @@ class _ProjectedCourseDialogState extends State<ProjectedCourseDialog> {
             ],
             TextFormField(
               controller: _name,
-              decoration: const InputDecoration(labelText: '课程名称'),
-              validator: (value) =>
-                  value == null || value.trim().isEmpty ? '请输入课程名称' : null,
+              decoration: InputDecoration(labelText: l10n.courseName),
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? l10n.enterCourseName
+                  : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -105,11 +113,11 @@ class _ProjectedCourseDialogState extends State<ProjectedCourseDialog> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              decoration: const InputDecoration(labelText: '课程学分'),
+              decoration: InputDecoration(labelText: l10n.courseCredits),
               validator: (text) {
                 final value = double.tryParse(text ?? '');
                 return value == null || !value.isFinite || value <= 0
-                    ? '请输入大于 0 的学分'
+                    ? l10n.enterPositiveCredits
                     : null;
               },
             ),
@@ -119,14 +127,14 @@ class _ProjectedCourseDialogState extends State<ProjectedCourseDialog> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              decoration: const InputDecoration(labelText: '预计成绩'),
+              decoration: InputDecoration(labelText: l10n.expectedScore),
               validator: (text) {
                 final value = double.tryParse(text ?? '');
                 return value == null ||
                         !value.isFinite ||
                         value < 0 ||
                         value > 100
-                    ? '请输入 0～100 之间的成绩'
+                    ? l10n.enterScoreRange
                     : null;
               },
             ),
@@ -136,7 +144,7 @@ class _ProjectedCourseDialogState extends State<ProjectedCourseDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(l10n.cancel),
         ),
         FilledButton(
           onPressed: () {
@@ -154,7 +162,7 @@ class _ProjectedCourseDialogState extends State<ProjectedCourseDialog> {
               ),
             );
           },
-          child: const Text('保存'),
+          child: Text(l10n.save),
         ),
       ],
     );

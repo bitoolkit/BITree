@@ -8,6 +8,8 @@ import 'package:webview_all_android/webview_all_android.dart';
 
 import '../../core/async/cancelable_request.dart';
 import '../../core/diagnostics.dart';
+import '../../l10n/formats.dart';
+import '../../l10n/l10n.dart';
 import '../controller.dart';
 import '../cookie.dart';
 import '../credentials.dart';
@@ -78,7 +80,7 @@ class _MoocLoginState extends State<_MoocLogin> {
             if (mounted && error.isForMainFrame == true) {
               setState(() {
                 _progress = 100;
-                _message = '登录页加载失败，请检查网络后刷新。';
+                _message = context.l10n.moocLoginPageLoadFailed;
               });
             }
           },
@@ -119,7 +121,7 @@ class _MoocLoginState extends State<_MoocLogin> {
       if (mounted) {
         setState(() {
           _progress = 100;
-          _message = '无法打开登录页，请重试。';
+          _message = context.l10n.moocLoginPageOpenFailed;
         });
       }
     }
@@ -139,7 +141,7 @@ class _MoocLoginState extends State<_MoocLogin> {
         ['weixin', 'mqq', 'mqqapi', 'sinaweibo'].contains(uri.scheme)) {
       if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
           mounted) {
-        setState(() => _message = '无法打开对应应用，请选择页面中的其他登录方式。');
+        setState(() => _message = context.l10n.moocOpenAppFailed);
       }
     }
     return NavigationDecision.prevent;
@@ -147,6 +149,7 @@ class _MoocLoginState extends State<_MoocLogin> {
 
   Future<void> _capture({bool manual = false}) async {
     final browser = _browser;
+    final l10n = context.l10n;
     if (!_ready || browser == null || _checking || _finished || !mounted) {
       return;
     }
@@ -164,20 +167,22 @@ class _MoocLoginState extends State<_MoocLogin> {
       final data = moocMap(value);
       final id = moocId(data?['id']);
       if (id == null) {
-        if (manual && mounted) setState(() => _message = '请先在页面中完成登录。');
+        if (manual && mounted) {
+          setState(() => _message = l10n.moocCompleteLoginFirst);
+        }
         return;
       }
       final agent = data!['userAgent'];
       final name = data['name'];
       if (agent is! String || name is! String) {
-        throw const FormatException('无法读取 MOOC 账号信息，请刷新登录页。');
+        throw FormatException(l10n.moocAccountReadFailed);
       }
       final exported = await _cookies!
           .getCookies(domain: MoocCredentials.rpcDirectory)
           .timeout(const Duration(seconds: 8));
       if (!exported.any((cookie) => cookie.name == 'NTESSTUDYSI')) {
         if (manual && mounted) {
-          setState(() => _message = '登录会话尚未就绪，请稍后重试。');
+          setState(() => _message = l10n.moocSessionNotReady);
         }
         return;
       }
@@ -192,7 +197,7 @@ class _MoocLoginState extends State<_MoocLogin> {
         ],
       );
       if (!mounted) return;
-      setState(() => _message = '正在保存登录…');
+      setState(() => _message = l10n.moocSavingLogin);
       await widget.controller.connect(
         MoocAccount(id: id, name: name, credentials: credentials),
       );
@@ -208,9 +213,10 @@ class _MoocLoginState extends State<_MoocLogin> {
         AppDiagnostics.instance.error('读取 MOOC 网页登录', error, stack);
       }
       if (mounted) {
+        final raw =
+            widget.controller.error ?? context.l10n.moocLoginStateReadFailed;
         setState(
-          () =>
-              _message = widget.controller.error ?? '无法读取登录状态，请刷新或点击“完成登录”重试。',
+          () => _message = localizedKnownError(context.l10n, raw) ?? raw,
         );
       }
     } finally {
@@ -230,10 +236,10 @@ class _MoocLoginState extends State<_MoocLogin> {
     listenable: widget.controller,
     builder: (context, _) => Scaffold(
       appBar: AppBar(
-        title: const Text('登录中国大学MOOC'),
+        title: Text(context.l10n.moocLoginTitle),
         actions: [
           IconButton(
-            tooltip: '刷新登录页',
+            tooltip: context.l10n.refreshLoginPage,
             icon: const Icon(Icons.refresh_rounded),
             onPressed: widget.controller.busy || (!_ready && _progress < 100)
                 ? null
@@ -249,7 +255,11 @@ class _MoocLoginState extends State<_MoocLogin> {
             onPressed: !_ready || widget.controller.busy
                 ? null
                 : () => _capture(manual: true),
-            child: Text(widget.controller.busy ? '保存中…' : '完成登录'),
+            child: Text(
+              widget.controller.busy
+                  ? context.l10n.saving
+                  : context.l10n.completeLogin,
+            ),
           ),
         ],
       ),

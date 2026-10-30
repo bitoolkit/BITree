@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/async/cancelable_request.dart';
 import '../../core/error_message.dart';
+import '../../l10n/formats.dart';
+import '../../l10n/l10n.dart';
 import '../../ui/design.dart';
 import '../../ui/editor_sheet.dart';
 import '../../ui/external_link.dart';
@@ -9,7 +11,6 @@ import '../../ui/sheet_layout.dart';
 import '../controller.dart';
 import '../credentials.dart';
 import 'login.dart';
-import 'status.dart';
 
 Future<bool> showMoocAccount(
   BuildContext context,
@@ -32,11 +33,12 @@ class MoocAccountTile extends StatelessWidget {
     builder: (context, _) => ListTile(
       contentPadding: const EdgeInsets.symmetric(vertical: 4),
       leading: const Icon(Icons.school_outlined, size: 36),
-      title: const Text('中国大学MOOC'),
+      title: Text(context.l10n.moocName),
       subtitle: Text(
         [
           controller.account?.name,
-          if (controller.needsLogin) controller.status.label,
+          if (controller.needsLogin)
+            controller.status.localizedLabel(context.l10n),
         ].whereType<String>().join(' · '),
       ),
       trailing: const SizedBox.square(
@@ -84,19 +86,20 @@ class _MoocSheetState extends State<_MoocSheet> {
   }
 
   Future<void> _disconnect() async {
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('退出中国大学MOOC？'),
-        content: const Text('删除本机保存的登录会话，已导入的 DDL 会保留。'),
+        title: Text(l10n.moocSignOutQuestion),
+        content: Text(l10n.moocSignOutBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('退出'),
+            child: Text(l10n.exitAction),
           ),
         ],
       ),
@@ -118,6 +121,7 @@ class _MoocSheetState extends State<_MoocSheet> {
       final theme = Theme.of(context);
       final scheme = theme.colorScheme;
       final enabled = !model.busy && !_loginOpen;
+      final l10n = context.l10n;
       return SafeArea(
         top: false,
         child: SheetLayout(
@@ -125,7 +129,7 @@ class _MoocSheetState extends State<_MoocSheet> {
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('中国大学MOOC'),
+                Text(l10n.moocName),
                 if (model.account case final account?) ...[
                   const SizedBox(height: 6),
                   Text(
@@ -138,7 +142,7 @@ class _MoocSheetState extends State<_MoocSheet> {
                   ),
                   if (model.needsLogin)
                     Text(
-                      model.status.label,
+                      model.status.localizedLabel(l10n),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.error,
                       ),
@@ -148,7 +152,7 @@ class _MoocSheetState extends State<_MoocSheet> {
             ),
             actions: [
               IconButton(
-                tooltip: '关闭',
+                tooltip: l10n.close,
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.close_rounded, size: 20),
               ),
@@ -168,9 +172,11 @@ class _MoocSheetState extends State<_MoocSheet> {
                 children: [
                   ListTile(
                     leading: const Icon(Icons.login_rounded),
-                    title: Text(model.needsLogin ? '网页登录' : '重新登录'),
+                    title: Text(
+                      model.needsLogin ? l10n.webLogin : l10n.relogin,
+                    ),
                     subtitle: model.needsLogin
-                        ? const Text('手机号、邮箱、验证码或扫码')
+                        ? Text(l10n.moocLoginMethods)
                         : null,
                     trailing: const Icon(Icons.chevron_right_rounded, size: 20),
                     enabled: enabled,
@@ -178,8 +184,8 @@ class _MoocSheetState extends State<_MoocSheet> {
                   ),
                   ListTile(
                     leading: const Icon(Icons.key_outlined),
-                    title: const Text('使用 Cookie'),
-                    subtitle: model.needsLogin ? const Text('备用登录方式') : null,
+                    title: Text(l10n.useCookie),
+                    subtitle: model.needsLogin ? Text(l10n.backupLogin) : null,
                     trailing: const Icon(Icons.chevron_right_rounded, size: 20),
                     enabled: enabled,
                     onTap: enabled ? _cookie : null,
@@ -189,7 +195,7 @@ class _MoocSheetState extends State<_MoocSheet> {
                     ListTile(
                       leading: Icon(Icons.logout_rounded, color: scheme.error),
                       title: Text(
-                        '退出账号',
+                        l10n.moocSignOutAccount,
                         style: TextStyle(color: scheme.error),
                       ),
                       enabled: enabled,
@@ -242,14 +248,15 @@ class _CookieSheetState extends State<_CookieSheet> {
       );
       if (success && mounted) Navigator.pop(context, true);
     } on RequestCancelled {
-      if (mounted) setState(() => _error = '已取消连接');
+      if (mounted) {
+        setState(() => _error = context.l10n.moocConnectionCancelled);
+      }
     } on Exception catch (error) {
       if (mounted) {
-        setState(
-          () => _error = error is FormatException
-              ? error.message
-              : widget.controller.error ?? errorMessage(error),
-        );
+        final raw = error is FormatException
+            ? error.message
+            : widget.controller.error ?? errorMessage(error);
+        setState(() => _error = localizedKnownError(context.l10n, raw) ?? raw);
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -263,44 +270,48 @@ class _CookieSheetState extends State<_CookieSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => EditorSheet(
-    title: '使用 Cookie',
-    formKey: _form,
-    saving: _saving,
-    onSave: _save,
-    saveLabel: Text(_saving ? '登录中…' : '连接'),
-    error: _error,
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text('在已登录的 MOOC 网页中，从开发者工具的网络面板复制请求 Cookie。此方式仅作为网页登录的备用。'),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _text,
-          enabled: !_saving,
-          minLines: 3,
-          maxLines: 6,
-          decoration: const InputDecoration(
-            labelText: 'Cookie',
-            alignLabelWithHint: true,
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return EditorSheet(
+      title: l10n.useCookie,
+      formKey: _form,
+      saving: _saving,
+      onSave: _save,
+      saveLabel: Text(_saving ? l10n.moocConnecting : l10n.connect),
+      error: _error,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(l10n.moocCookieInstructions),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _text,
+            enabled: !_saving,
+            minLines: 3,
+            maxLines: 6,
+            decoration: InputDecoration(
+              labelText: 'Cookie',
+              alignLabelWithHint: true,
+            ),
+            autocorrect: false,
+            enableSuggestions: false,
+            enableIMEPersonalizedLearning: false,
+            validator: (value) => value == null || value.trim().isEmpty
+                ? l10n.moocPasteCookie
+                : null,
           ),
-          autocorrect: false,
-          enableSuggestions: false,
-          enableIMEPersonalizedLearning: false,
-          validator: (value) =>
-              value == null || value.trim().isEmpty ? '请粘贴 Cookie' : null,
-        ),
-        const SizedBox(height: 8),
-        TextButton(
-          onPressed: () => openExternalLink(
-            context,
-            MoocCredentials.origin.resolve('/member/login.htm'),
-            failureTitle: '无法打开 MOOC',
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () => openExternalLink(
+              context,
+              MoocCredentials.origin.resolve('/member/login.htm'),
+              failureTitle: l10n.openMoocFailed,
+            ),
+            child: Text(l10n.openOfficialLogin),
           ),
-          child: const Text('打开官方登录页'),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }

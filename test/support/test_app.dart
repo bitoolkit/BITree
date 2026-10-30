@@ -68,7 +68,13 @@ class MemoryAcademicStore extends AcademicStore {
 }
 
 class MemoryPreferences extends Fake implements SharedPreferencesAsync {
-  final _values = <String, String>{};
+  MemoryPreferences([Map<String, String> values = const {}])
+    : _values = Map.of(values);
+
+  final Map<String, String> _values;
+
+  String? value(String key) => _values[key];
+
   @override
   Future<String?> getString(String key) async => _values[key];
   @override
@@ -119,11 +125,12 @@ class TestAppController extends AppController {
     MemorySchoolStorage? schoolStorage,
     MoocStorage? moocStorage,
     SchoolService? school,
+    SharedPreferencesAsync? preferences,
   }) : super(
          store: MemoryScheduleStore(schedules: schedules, selected: schedule),
          school: school ?? SchoolService(),
          schoolStorage: schoolStorage ?? MemorySchoolStorage(),
-         preferences: MemoryPreferences(),
+         preferences: preferences ?? MemoryPreferences(),
          moocStorage: moocStorage ?? MemoryMoocStorage(),
          agenda: agenda ?? AgendaController(MemoryAgendaStore(entries)),
          academics: AcademicController(MemoryAcademicStore()),

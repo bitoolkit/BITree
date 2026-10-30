@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:bitree/l10n/app_localizations_en.dart';
+import 'package:bitree/l10n/app_localizations_zh.dart';
 import 'package:bitree/updates/release.dart';
 import 'package:bitree/updates/repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -114,7 +116,11 @@ void main() {
 
   Future<List<AppRelease>> read(String installed, {DateTime? builtAt}) =>
       HttpOverrides.runWithHttpOverrides(
-        () => availableAppReleases(installed, builtAt: builtAt),
+        () => availableAppReleases(
+          installed,
+          builtAt: builtAt,
+          l10n: AppLocalizationsZh(),
+        ),
         network,
       );
 
@@ -260,6 +266,20 @@ void main() {
     expect(requests.where((url) => url.path.contains('/compare/')), isEmpty);
   });
 
+  test('Generated update summaries follow the selected language', () async {
+    changes['1111111...3333333'] = _commits(8);
+    final release = (await HttpOverrides.runWithHttpOverrides(
+      () => availableAppReleases(
+        'v0.3.0-dev.1111111',
+        l10n: AppLocalizationsEn(),
+      ),
+      network,
+    )).single;
+
+    expect(release.notes, contains('Plus 2 more changes.'));
+    expect(release.notes, contains('[View full changes]'));
+  });
+
   test(
     'Rebuilding the same commit does not request or repeat historical notes',
     () async {
@@ -310,9 +330,10 @@ void main() {
       DateTime? builtAt,
       bool automatic = true,
     }) => HttpOverrides.runWithHttpOverrides(
-      () =>
-          UpdateRepository(preferences)
-              .check(installed, builtAt: builtAt, automatic: automatic),
+      () => UpdateRepository(
+        preferences,
+        l10n: AppLocalizationsZh(),
+      ).check(installed, builtAt: builtAt, automatic: automatic),
       network,
     );
 
@@ -365,7 +386,10 @@ void main() {
 
     test('Notified stable versions stay quiet, while manual checks refresh both channels', () async {
       final shown = await check();
-      await UpdateRepository(preferences).markNotified(shown);
+      await UpdateRepository(
+        preferences,
+        l10n: AppLocalizationsZh(),
+      ).markNotified(shown);
       requests.clear();
       expect(await check(), isEmpty);
       expect(requests, isEmpty);

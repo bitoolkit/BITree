@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../agenda/deadline_source.dart';
 import '../../app/controller.dart';
+import '../../l10n/l10n.dart';
 import '../storage.dart';
 import '../verification.dart';
 import 'school_verification_dialog.dart';
@@ -74,7 +75,7 @@ class _SchoolScreenState extends State<_SchoolScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('登录学校账号'),
+      title: Text(context.l10n.schoolLogin),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(3),
         child: SizedBox(
@@ -107,14 +108,17 @@ class _SchoolScreenState extends State<_SchoolScreen> {
             controller: _username,
             enabled: !_running,
             readOnly: widget.controller.school.username != null,
-            decoration: const InputDecoration(labelText: '学号'),
+            decoration: InputDecoration(
+              labelText: context.l10n.schoolStudentId,
+            ),
             keyboardType: TextInputType.text,
             textInputAction: TextInputAction.next,
             autofillHints: const [AutofillHints.username],
             autocorrect: false,
             enableSuggestions: false,
-            validator: (value) =>
-                value == null || value.isEmpty ? '请输入学号' : null,
+            validator: (value) => value == null || value.isEmpty
+                ? context.l10n.schoolEnterStudentId
+                : null,
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -123,9 +127,11 @@ class _SchoolScreenState extends State<_SchoolScreen> {
             autofocus: widget.controller.school.username != null,
             obscureText: _hidePassword,
             decoration: InputDecoration(
-              labelText: '密码',
+              labelText: context.l10n.schoolPassword,
               suffixIcon: IconButton(
-                tooltip: _hidePassword ? '显示密码' : '隐藏密码',
+                tooltip: _hidePassword
+                    ? context.l10n.schoolShowPassword
+                    : context.l10n.schoolHidePassword,
                 icon: Icon(
                   _hidePassword
                       ? Icons.visibility_outlined
@@ -141,8 +147,9 @@ class _SchoolScreenState extends State<_SchoolScreen> {
             autocorrect: false,
             enableSuggestions: false,
             enableIMEPersonalizedLearning: false,
-            validator: (value) =>
-                value == null || value.isEmpty ? '请输入密码' : null,
+            validator: (value) => value == null || value.isEmpty
+                ? context.l10n.schoolEnterPassword
+                : null,
             onFieldSubmitted: (_) => _run(),
           ),
           const SizedBox(height: 24),
@@ -158,7 +165,11 @@ class _SchoolScreenState extends State<_SchoolScreen> {
                   ),
                   const SizedBox(width: 10),
                 ],
-                Text(_running ? '登录中…' : '登录'),
+                Text(
+                  _running
+                      ? context.l10n.schoolLoggingIn
+                      : context.l10n.schoolLogin,
+                ),
               ],
             ),
           ),

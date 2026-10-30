@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:bitree/agenda/controller.dart';
 import 'package:bitree/agenda/model.dart';
 import 'package:bitree/core/async/cancelable_request.dart';
+import 'package:bitree/l10n/app_localizations_zh.dart';
 import 'package:bitree/mooc/credentials.dart';
 import 'package:bitree/schedule/model.dart';
 import 'package:bitree/school/service.dart';
@@ -85,6 +86,7 @@ class _SlowAgendaStore extends MemoryAgendaStore {
 }
 
 void main() {
+  final l10n = AppLocalizationsZh();
   TestWidgetsFlutterBinding.ensureInitialized();
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
@@ -153,9 +155,13 @@ void main() {
       SyncTarget.exams,
       SyncTarget.physicsLab,
     };
-    final syncing = model.sync.synchronize(selected, term: '2025-2026-1');
+    final syncing = model.sync.synchronize(
+      selected,
+      term: '2025-2026-1',
+      l10n: l10n,
+    );
     expect(
-      model.sync.synchronize(selected, term: '2025-2026-1'),
+      model.sync.synchronize(selected, term: '2025-2026-1', l10n: l10n),
       same(syncing),
     );
     await service.began.future;
@@ -176,7 +182,7 @@ void main() {
     final syncing = model.sync.synchronize({
       SyncTarget.schedule,
       SyncTarget.exams,
-    });
+    }, l10n: l10n);
     await service.began.future;
     model.sync.cancel();
     service.release.complete();
@@ -200,7 +206,7 @@ void main() {
       return answer.future;
     }, verify: (_) async => null);
     await entered.future;
-    final syncing = model.sync.synchronize({SyncTarget.schedule});
+    final syncing = model.sync.synchronize({SyncTarget.schedule}, l10n: l10n);
     model.sync.cancel();
     expect(await syncing, isFalse);
     expect(model.school.busy, isTrue);
@@ -215,7 +221,10 @@ void main() {
     final model = app(service);
     await model.initialize();
     expect(
-      await model.sync.synchronize({SyncTarget.schedule, SyncTarget.exams}),
+      await model.sync.synchronize({
+        SyncTarget.schedule,
+        SyncTarget.exams,
+      }, l10n: l10n),
       isFalse,
     );
     expect(
@@ -229,7 +238,10 @@ void main() {
       (_) async => true,
       verify: (_) async => null,
     );
-    expect(await model.sync.synchronize(model.sync.incompleteTargets), isTrue);
+    expect(
+      await model.sync.synchronize(model.sync.incompleteTargets, l10n: l10n),
+      isTrue,
+    );
     expect(service.reads, [
       SyncTarget.schedule,
       SyncTarget.schedule,
@@ -241,12 +253,18 @@ void main() {
     final model = app(_SchoolService());
     await model.initialize();
 
-    expect(await model.sync.synchronize({SyncTarget.mooc}), isFalse);
+    expect(
+      await model.sync.synchronize({SyncTarget.mooc}, l10n: l10n),
+      isFalse,
+    );
     expect(
       model.sync.results[SyncTarget.mooc]?.outcome,
       SyncOutcome.needsLogin,
     );
-    expect(syncProgressText(model.sync, SyncTarget.mooc), '需要登录中国大学MOOC账号');
+    expect(
+      syncProgressText(l10n, model.sync, SyncTarget.mooc),
+      '需要登录中国大学MOOC账号',
+    );
   });
 
   test('Concurrent imports preserve both platforms and do not save a cancelled waiting result', () async {

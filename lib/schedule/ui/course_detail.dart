@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/controller.dart';
+import '../../l10n/formats.dart';
+import '../../l10n/l10n.dart';
 import '../../ui/app_notice.dart';
 import '../../ui/campus_time_builder.dart';
 import '../../ui/design.dart';
@@ -93,6 +95,7 @@ class _CourseDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final colors = courseColors(context, course);
     final occurrence = date != null && course.startSection != null
@@ -104,10 +107,10 @@ class _CourseDetails extends StatelessWidget {
         : null;
     final progress = occurrence?.progressAt(now);
     final status = progress != null
-        ? '上课中 · ${sectionTimes[course.endSection! - 1].$2} 下课'
+        ? l10n.courseOngoingUntil(sectionTimes[course.endSection! - 1].$2)
         : occurrence != null && !now.isBefore(occurrence.endsAt)
-        ? '已结束'
-        : '课程';
+        ? l10n.ended
+        : l10n.course;
     final schedule = controller.timetable.schedule;
     final next = date == null || course.endSection == null || schedule == null
         ? null
@@ -177,7 +180,7 @@ class _CourseDetails extends StatelessWidget {
           ),
           actions: [
             IconButton(
-              tooltip: '关闭',
+              tooltip: l10n.close,
               onPressed: controller.timetable.busy
                   ? null
                   : () => Navigator.pop(context),
@@ -194,9 +197,11 @@ class _CourseDetails extends StatelessWidget {
               _CopyableCourseName(name: course.name),
               detail(
                 Icons.schedule_outlined,
-                course.timeLabel,
+                localizedCourseTime(l10n, course),
                 secondary:
-                    '${course.weekday == null ? '' : '${weekdays[course.weekday! - 1]} · '}${course.sectionLabel} · ${weeksLabel(course.weeks)}',
+                    '${course.weekday == null ? '' : '${localizedWeekday(l10n, course.weekday!)} · '}'
+                    '${localizedCourseSection(l10n, course)} · '
+                    '${localizedWeeks(l10n, course.weeks)}',
               ),
               if (onMap case final openMap?)
                 WencuiLocationCard(
@@ -206,7 +211,7 @@ class _CourseDetails extends StatelessWidget {
               else
                 detail(
                   Icons.place_outlined,
-                  location.isEmpty ? '教室待定' : location,
+                  location.isEmpty ? l10n.locationPending : location,
                 ),
               if (course.teacher.isNotEmpty)
                 detail(Icons.person_outline, course.teacher),
@@ -224,7 +229,9 @@ class _CourseDetails extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '还有 ${(occurrence!.endsAt.difference(now).inSeconds / 60).ceil()} 分钟下课',
+                  l10n.minutesUntilEnd(
+                    (occurrence!.endsAt.difference(now).inSeconds / 60).ceil(),
+                  ),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -246,7 +253,7 @@ class _CourseDetails extends StatelessWidget {
               Expanded(
                 child: FilledButton(
                   onPressed: controller.timetable.busy ? null : onEdit,
-                  child: const Text('编辑课程'),
+                  child: Text(l10n.courseEditorEditTitle),
                 ),
               ),
               const SizedBox(width: 12),
@@ -261,7 +268,7 @@ class _CourseDetails extends StatelessWidget {
                     ? null
                     : () => _deleteCourse(context, controller, course),
                 icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                label: const Text('删除'),
+                label: Text(l10n.delete),
               ),
             ],
           ),
@@ -284,16 +291,17 @@ class _NextCourse extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final from = matchCampusBuilding(course.room, campus: course.campus);
     final to = matchCampusBuilding(next.room, campus: next.campus);
     final relation = from == null || to == null
         ? null
         : from == to
-        ? '同一栋楼'
+        ? l10n.sameBuilding
         : from.area == to.area
-        ? '同一片区换楼'
-        : '跨片区换楼';
+        ? l10n.sameArea
+        : l10n.differentArea;
     Widget building(Course course, BuildingPalette place) => Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -321,7 +329,7 @@ class _NextCourse extends StatelessWidget {
             spacing: 12,
             runSpacing: 4,
             children: [
-              Text('下一门课', style: theme.textTheme.bodySmall),
+              Text(l10n.courseNext, style: theme.textTheme.bodySmall),
               if (relation != null)
                 Text(relation, style: theme.textTheme.labelMedium),
             ],
@@ -342,7 +350,7 @@ class _NextCourse extends StatelessWidget {
                           Text(next.name, style: theme.textTheme.titleMedium),
                           const SizedBox(height: 4),
                           Text(
-                            '${next.timeLabel}${next.room.isEmpty ? '' : ' · ${next.room}'}',
+                            '${localizedCourseTime(l10n, next)}${next.room.isEmpty ? '' : ' · ${next.room}'}',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -385,12 +393,13 @@ class _CopyableCourseName extends StatelessWidget {
   final String name;
 
   Future<void> _copy(BuildContext context) async {
+    final l10n = context.l10n;
     String message;
     try {
       await Clipboard.setData(ClipboardData(text: name));
-      message = '已复制课程名称';
+      message = l10n.copyCourseNameSuccess;
     } on PlatformException {
-      message = '复制失败，请重试';
+      message = l10n.copyCourseNameFailure;
     }
     if (context.mounted) showAppNotice(context, message);
   }
@@ -408,15 +417,16 @@ Future<void> _deleteCourse(
   AppController controller,
   Course course,
 ) async {
+  final l10n = context.l10n;
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('删除这门课程？'),
-      content: Text('将从本地课表中删除“${course.name}”。'),
+      title: Text(l10n.deleteCourseQuestion),
+      content: Text(l10n.deleteCourseBody(course.name)),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('取消'),
+          child: Text(l10n.cancel),
         ),
         FilledButton(
           style: FilledButton.styleFrom(
@@ -424,7 +434,7 @@ Future<void> _deleteCourse(
             foregroundColor: Theme.of(context).colorScheme.onError,
           ),
           onPressed: () => Navigator.pop(context, true),
-          child: const Text('删除课程'),
+          child: Text(l10n.deleteCourse),
         ),
       ],
     ),

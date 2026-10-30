@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
 import '../../app/ui/add_menu.dart';
+import '../../l10n/formats.dart';
+import '../../l10n/l10n.dart';
 import '../../schedule/model.dart';
 import '../../sync/ui/sync_button.dart';
 import '../../ui/app_menu_anchor.dart';
@@ -50,6 +52,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   );
 
   Widget _build(BuildContext context) {
+    final l10n = context.l10n;
     final controller = widget.controller;
     final now = widget.now;
     final scheme = Theme.of(context).colorScheme;
@@ -68,7 +71,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           TextButton.icon(
             onPressed: controller.agenda.load,
             icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('重新加载日程'),
+            label: Text(l10n.agendaReload),
           ),
       ],
     );
@@ -93,8 +96,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
             fontWeight: FontWeight.w400,
           ),
           tabs: [
-            Tab(text: '未完成 ${entries.length - doneCount}'),
-            Tab(text: '已完成 $doneCount'),
+            Tab(text: l10n.agendaPendingTab(entries.length - doneCount)),
+            Tab(text: l10n.agendaCompletedTab(doneCount)),
           ],
         ),
         loadStatus(),
@@ -104,7 +107,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return AppPage(
       title: Row(
         children: [
-          const Text('日程'),
+          Text(l10n.agendaTitle),
           const SizedBox(width: 8),
           Flexible(
             child: _AgendaKindFilter(
@@ -118,7 +121,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
         AddButton(controller: controller),
         SyncButton(controller: controller),
         IconButton(
-          tooltip: timeline ? '切换到列表' : '切换到时间轴',
+          tooltip: timeline
+              ? l10n.agendaSwitchToList
+              : l10n.agendaSwitchToTimeline,
           icon: Icon(
             timeline ? Icons.view_list_outlined : Icons.view_timeline_outlined,
           ),
@@ -183,6 +188,7 @@ class _AgendaStatusList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final visible =
         entries.where((entry) => entry.isFinished(now) == completed).toList()
           ..sort((a, b) {
@@ -220,7 +226,7 @@ class _AgendaStatusList extends StatelessWidget {
     );
 
     return PullToRevealList(
-      hiddenLabel: '$overdueCount项逾期日程',
+      hiddenLabel: l10n.agendaOverdueHiddenLabel(overdueCount),
       hiddenChildren: dayRows(overdueDays),
       children: [
         if (days.isEmpty && controller.agenda.ready)
@@ -230,10 +236,10 @@ class _AgendaStatusList extends StatelessWidget {
             child: Center(
               child: Text(
                 completed
-                    ? '还没有已完成的日程'
+                    ? l10n.agendaNoCompleted
                     : overdueCount > 0
-                    ? '没有即将到来的日程'
-                    : '没有未完成的日程',
+                    ? l10n.agendaNoUpcoming
+                    : l10n.agendaNoPending,
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -254,6 +260,7 @@ class _AgendaKindFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
 
     return AppMenuAnchor(
@@ -271,13 +278,13 @@ class _AgendaKindFilter extends StatelessWidget {
               trailingIcon: value == kind
                   ? const Icon(Icons.check_rounded, size: 18)
                   : const SizedBox(width: 18),
-              child: Text(kind?.label ?? '全部'),
+              child: Text(kind?.localizedLabel(l10n) ?? l10n.all),
             ),
           ),
       ],
       builder: (context, menu, isOpen) => AppMenuTrigger(
-        label: value?.label ?? '全部',
-        semanticsLabel: '日程类型',
+        label: value?.localizedLabel(l10n) ?? l10n.all,
+        semanticsLabel: l10n.agendaType,
         isOpen: isOpen,
         foregroundColor: value == null
             ? scheme.onSurfaceVariant
@@ -296,15 +303,18 @@ class _AgendaDateHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final days = date.difference(calendarDate(now)).inDays;
     final label = switch (days) {
-      0 => '今天',
-      1 => '明天',
-      -1 => '昨天',
-      _ => weekdays[date.weekday - 1],
+      0 => l10n.today,
+      1 => l10n.tomorrow,
+      -1 => l10n.yesterday,
+      _ => localizedWeekday(l10n, date.weekday),
     };
-    final year = date.year == now.year ? '' : '${date.year}年';
+    final dateLabel = date.year == now.year
+        ? localizedMonthDay(l10n, date.month, date.day)
+        : localizedYearMonthDay(l10n, date.year, date.month, date.day);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 22, 16, 4),
@@ -319,7 +329,7 @@ class _AgendaDateHeading extends StatelessWidget {
               ),
             ),
             TextSpan(
-              text: '  $year${date.month}月${date.day}日',
+              text: '  $dateLabel',
               style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
             ),
           ],
