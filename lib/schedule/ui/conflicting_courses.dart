@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
+import '../../l10n/formats.dart';
+import '../../l10n/l10n.dart';
 import '../../ui/design.dart';
 import '../../ui/sheet_layout.dart';
 import '../../ui/theme.dart';
@@ -22,6 +24,7 @@ class ConflictingCourses extends StatelessWidget {
   final DateTime? date;
 
   Future<void> _selectCourse(BuildContext context) async {
+    final l10n = context.l10n;
     final selected = await showModalBottomSheet<Course>(
       context: context,
       useSafeArea: true,
@@ -30,10 +33,10 @@ class ConflictingCourses extends StatelessWidget {
         top: false,
         child: SheetLayout(
           header: SheetHeader(
-            title: const Text('选择课程'),
+            title: Text(l10n.chooseCourse),
             actions: [
               IconButton(
-                tooltip: '关闭',
+                tooltip: l10n.close,
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.close_rounded, size: 20),
               ),
@@ -61,7 +64,8 @@ class ConflictingCourses extends StatelessWidget {
                     title: Text(course.name),
                     subtitle: Text(
                       [
-                        '${course.sectionLabel}（${course.timeLabel}）',
+                        '${localizedCourseSection(l10n, course)} '
+                            '(${localizedCourseTime(l10n, course)})',
                         if (course.room.isNotEmpty) course.room,
                         if (course.teacher.isNotEmpty) course.teacher,
                       ].join('\n'),
@@ -82,17 +86,22 @@ class ConflictingCourses extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final fill = isToday
         ? Color.lerp(scheme.primaryContainer, scheme.primary, 0.12)!
         : scheme.primaryContainer;
     final summary = courses
-        .map((course) => '${course.name}，${course.sectionLabel}')
+        .map(
+          (course) =>
+              '${course.name}${l10n.listSeparator}'
+              '${localizedCourseSection(l10n, course)}',
+        )
         .join('\n');
 
     return Semantics(
       button: true,
-      label: '${courses.length}门课程时间重叠，$summary，选择课程',
+      label: l10n.coursesOverlap(courses.length, summary),
       child: ExcludeSemantics(
         child: Tooltip(
           triggerMode: TooltipTriggerMode.manual,
@@ -135,7 +144,7 @@ class ConflictingCourses extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          '${courses.length}门',
+                          l10n.courseOverlapCount(courses.length),
                           textAlign: TextAlign.center,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -168,7 +177,7 @@ class ConflictingCourses extends StatelessWidget {
                                 if (showSections) ...[
                                   const SizedBox(height: 3),
                                   Text(
-                                    courses[i].sectionLabel,
+                                    localizedCourseSection(l10n, courses[i]),
                                     textAlign: TextAlign.center,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,

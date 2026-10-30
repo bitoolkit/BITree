@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/async/cancelable_request.dart';
 import '../core/diagnostics.dart';
+import '../l10n/app_localizations.dart';
 import '../schedule/model.dart';
 import 'deadline_clear_scope.dart';
 import 'model.dart';
@@ -155,6 +156,7 @@ class AgendaController extends ChangeNotifier {
   /// Returns the matched generated count, or null when persistence fails.
   Future<int?> updatePhysicsLabDeadlines(
     SemesterSchedule schedule, {
+    required AppLocalizations l10n,
     DateTime? now,
     void Function()? checkActive,
   }) => _serialize(() async {
@@ -164,7 +166,7 @@ class AgendaController extends ChangeNotifier {
     }
     checkActive?.call();
     final importedAt = now ?? campusNow();
-    final incoming = physicsLabDeadlines(schedule);
+    final incoming = physicsLabDeadlines(schedule, l10n);
     final savedById = {for (final entry in _entries) entry.id: entry};
     final next = <String, AgendaEntry>{
       for (final entry in _entries)

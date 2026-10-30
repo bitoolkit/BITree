@@ -25,20 +25,23 @@ import '../physics_lab_deadlines.dart';
 
   final paletteName = switch (entry.kind) {
     AgendaKind.exam => '物理实验中心',
-    AgendaKind.deadline => isPhysicsLabDeadline(entry)
-        ? '综合教学楼A'
-        : switch (entry.source) {
-            DeadlineSource.lexue => '工程训练中心',
-            DeadlineSource.eclass => '文化体育中心',
-            DeadlineSource.mooc => '文萃楼A',
-            null => '文萃楼',
-          },
+    AgendaKind.deadline =>
+      isPhysicsLabDeadline(entry)
+          ? '综合教学楼A'
+          : switch (entry.source) {
+              DeadlineSource.lexue => '工程训练中心',
+              DeadlineSource.eclass => '文化体育中心',
+              DeadlineSource.mooc => '文萃楼A',
+              null => '文萃楼',
+            },
     AgendaKind.event => null,
   };
-  final palette = paletteName == null ? null : buildingPaletteNamed(paletteName);
+  final palette = paletteName == null
+      ? null
+      : buildingPaletteNamed(paletteName);
   final finished = entry.isFinished(now);
-  final fadeAll = finished &&
-      (entry.isDeadline || entry.kind == AgendaKind.exam);
+  final fadeAll =
+      finished && (entry.isDeadline || entry.kind == AgendaKind.exam);
   final fillAlpha = fadeAll ? 0.5 : (finished ? 0.55 : 1.0);
   final foregroundAlpha = fadeAll ? 0.5 : 1.0;
   if (palette != null) {

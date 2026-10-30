@@ -4,6 +4,14 @@
 
 `main.dart` 创建依赖。`AppController` 负责组合模块、启动和外观设置。各功能控制器拥有自己的状态，页面通过 Flutter 的 `ListenableBuilder` 监听所需模块；功能更新不会经过根控制器转发给整个应用。
 
+## 国际化
+
+界面文案由 Flutter gen-l10n 管理。`l10n.yaml` 以 `lib/l10n/app_en.arb` 为模板，与 `app_zh.arb` 一并生成 `app_localizations*.dart`；新增或修改文案后运行 `flutter gen-l10n`。页面通过 `context.l10n` 读取文案，不在控件中直接写用户可见字符串。仅用于解析学校数据、匹配楼栋名称或写入既有 JSON 的来源值保留原格式，显示时再交给本地化 helper。
+
+`lib/l10n/formats.dart` 集中处理日期、星期、周次、节次、学分及来源枚举的显示，保证课表、日程、空教室、学业和文萃地图使用同一套单位与语序。只用于组件测试、且没有 `Localizations` delegate 的页面回退到中文，完整应用始终使用 `AppLocalizations.localizationsDelegates`。
+
+`AppLanguage` 支持跟随系统、简体中文和 English。设置在 `SharedPreferencesAsync` 的 `language` 键中保存 `system`、`chinese` 或 `english`，启动时恢复，切换后立即重建 `MaterialApp` 文案；未保存偏好时使用系统语言，系统语言不是中文时使用英语。
+
 ## 保存和同步
 
 课表由 `TimetableController` 管理，日程由 `AgendaController` 管理，学业数据由 `AcademicController` 管理。页面提交操作，控制器先保存，再发布新状态；存储失败时保留原状态。学业读取使用 `LatestRequest`，切换账号后，旧读取不会覆盖新账号的数据。

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/formats.dart';
+import '../../l10n/l10n.dart';
 import '../../ui/app_notice.dart';
 import '../../ui/design.dart';
 import '../../ui/sheet_layout.dart';
@@ -16,6 +18,7 @@ Future<void> showDeletedDeadlines(
   builder: (sheetContext) => ListenableBuilder(
     listenable: controller,
     builder: (context, _) {
+      final l10n = context.l10n;
       final entries = controller.deletedDeadlines.toList()
         ..sort((a, b) => b.startsAt.compareTo(a.startsAt));
 
@@ -27,7 +30,9 @@ Future<void> showDeletedDeadlines(
         if (!saved) return;
         showAppNotice(
           context,
-          entry == null ? '已恢复全部 DDL' : '已恢复“${entry.title}”',
+          entry == null
+              ? l10n.deletedDeadlinesRestoredAll
+              : l10n.deletedDeadlinesRestored(entry.title),
         );
         if (controller.deletedDeadlines.isEmpty &&
             ModalRoute.of(sheetContext)?.isCurrent == true) {
@@ -39,10 +44,10 @@ Future<void> showDeletedDeadlines(
         top: false,
         child: SheetLayout(
           header: SheetHeader(
-            title: const Text('已删除的 DDL'),
+            title: Text(l10n.deletedDeadlinesTitle),
             actions: [
               IconButton(
-                tooltip: '关闭',
+                tooltip: l10n.close,
                 onPressed: () => Navigator.pop(sheetContext),
                 icon: const Icon(Icons.close_rounded, size: 20),
               ),
@@ -52,9 +57,9 @@ Future<void> showDeletedDeadlines(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (entries.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(vertical: 32),
-                  child: Text('没有已删除的 DDL'),
+                  child: Text(l10n.deletedDeadlinesNone),
                 ),
               for (final entry in entries)
                 ListTile(
@@ -68,15 +73,17 @@ Future<void> showDeletedDeadlines(
                   subtitle: Text(
                     [
                       [
-                        entry.source?.label ?? '手动添加',
+                        entry.source?.localizedLabel(l10n) ??
+                            l10n.deadlineManual,
                         if (entry.course.isNotEmpty) entry.course,
                       ].join('  '),
-                      '${agendaDateLabel(entry.startsAt)} ${entry.timeLabel}',
+                      '${localizedAgendaDate(l10n, entry.startsAt)} '
+                          '${localizedAgendaTime(l10n, entry)}',
                     ].join('\n'),
                   ),
                   trailing: TextButton(
                     onPressed: controller.busy ? null : () => restore(entry),
-                    child: const Text('恢复'),
+                    child: Text(l10n.deletedDeadlinesRestoreAction),
                   ),
                 ),
             ],
@@ -89,7 +96,7 @@ Future<void> showDeletedDeadlines(
                 onPressed: controller.busy || entries.isEmpty
                     ? null
                     : () => restore(),
-                child: const Text('全部恢复'),
+                child: Text(l10n.deletedDeadlinesRestoreAll),
               ),
             ),
           ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
+import '../../l10n/formats.dart';
+import '../../l10n/l10n.dart';
 import '../../schedule/model.dart';
 import '../../schedule/ui/course_detail.dart';
 import '../../ui/campus_time_builder.dart';
@@ -10,7 +12,6 @@ import '../calendar.dart';
 import '../model.dart';
 import 'agenda_detail.dart';
 import 'agenda_list_tile.dart';
-import 'agenda_time.dart';
 import 'completion_text.dart';
 
 IconData agendaIcon(AgendaKind kind) => switch (kind) {
@@ -24,6 +25,7 @@ Future<void> showAgendaDay(
   AppController controller,
   DateTime date,
 ) async {
+  final l10n = context.l10n;
   final selected = await showModalBottomSheet<AgendaEntry>(
     context: context,
     useSafeArea: true,
@@ -54,11 +56,11 @@ Future<void> showAgendaDay(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(agendaDateLabel(date)),
+                    Text(localizedAgendaDate(l10n, date)),
                     if (pending.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
-                        '${pending.length}项日程',
+                        l10n.agendaCount(pending.length),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -66,7 +68,7 @@ Future<void> showAgendaDay(
                 ),
                 actions: [
                   IconButton(
-                    tooltip: '关闭',
+                    tooltip: l10n.close,
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.close_rounded, size: 20),
                   ),
@@ -82,7 +84,7 @@ Future<void> showAgendaDay(
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
                         child: Text(
-                          '没有未完成的日程',
+                          l10n.agendaNoPendingShort,
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: Theme.of(context)
@@ -94,7 +96,7 @@ Future<void> showAgendaDay(
                     if (completed.isNotEmpty)
                       ExpansionTile(
                         title: Text(
-                          '已完成 ${completed.length}',
+                          l10n.agendaCompletedCount(completed.length),
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         shape: const Border(),
@@ -129,8 +131,9 @@ Future<void> showCalendarItems(
   String title,
   List<CalendarItem> items, {
   bool showDates = false,
-  String emptyMessage = '这一天没有安排',
+  String? emptyMessage,
 }) async {
+  final l10n = context.l10n;
   final selected = await showModalBottomSheet<CalendarItem>(
     context: context,
     useSafeArea: true,
@@ -147,7 +150,7 @@ Future<void> showCalendarItems(
               if (items.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
-                  '${items.length}项日程',
+                  l10n.agendaCount(items.length),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -155,7 +158,7 @@ Future<void> showCalendarItems(
           ),
           actions: [
             IconButton(
-              tooltip: '关闭',
+              tooltip: l10n.close,
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.close_rounded, size: 20),
             ),
@@ -183,7 +186,7 @@ Future<void> showCalendarItems(
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 20, 12, 28),
                   child: Text(
-                    emptyMessage,
+                    emptyMessage ?? l10n.agendaDayEmpty,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -215,6 +218,7 @@ class _CalendarItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final entry = item.entry;
@@ -237,13 +241,13 @@ class _CalendarItemRow extends StatelessWidget {
     );
     final clock = entry == null
         ? clockText(item.startsAt)
-        : agendaClockLabel(entry);
+        : localizedAgendaClock(l10n, entry);
     final caption = entry == null
-        ? '${clockText(item.endsAt!)} 结束'
-        : agendaTimeCaption(entry, now);
+        ? l10n.endsAt(clockText(item.endsAt!))
+        : localizedAgendaTimeCaption(l10n, entry, now);
     final metadata = [
-      item.kindLabel,
-      if (entry?.source case final source?) source.label,
+      entry?.kind.localizedLabel(l10n) ?? l10n.course,
+      if (entry?.source case final source?) source.localizedLabel(l10n),
     ].join(' · ');
 
     Widget time({required bool inline}) => Column(
@@ -298,7 +302,7 @@ class _CalendarItemRow extends StatelessWidget {
         if (showDate) ...[
           const SizedBox(height: 4),
           Text(
-            agendaDateLabel(item.startsAt),
+            localizedAgendaDate(l10n, item.startsAt),
             style: theme.textTheme.bodySmall,
           ),
         ],

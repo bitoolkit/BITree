@@ -3,9 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
+import '../../l10n/formats.dart';
+import '../../l10n/l10n.dart';
 import '../../sync/controller.dart';
 import '../../sync/ui/sync.dart';
-import '../../sync/ui/sync_text.dart';
 import '../model.dart';
 import 'academic_common.dart';
 import 'credit_targets_dialog.dart';
@@ -31,12 +32,13 @@ class CreditProgressScreen extends StatelessWidget {
         for (final grade in stats.courses) record.categoryOf(grade),
       }.toList()..sort();
       final theme = Theme.of(context);
+      final l10n = context.l10n;
       return AcademicPage(
-        title: '毕业学分进度',
+        title: l10n.creditProgressTitle,
         loading: controller.school.busy || controller.academics.busy,
         actions: [
           IconButton(
-            tooltip: '核对学分目标',
+            tooltip: l10n.reviewCreditTargets,
             onPressed:
                 controller.school.username == null || controller.academics.busy
                 ? null
@@ -55,15 +57,15 @@ class CreditProgressScreen extends StatelessWidget {
         children: [
           if (!controller.academics.ready)
             AcademicEmpty(
-              title: '学业数据暂时无法读取',
-              label: '重新读取',
+              title: l10n.academicReadFailed,
+              label: l10n.reload,
               onPressed: () =>
                   controller.academics.load(controller.school.username),
             )
           else if (plan == null && record.gradesUpdatedAt == null)
             AcademicEmpty(
-              title: '还没有学分记录',
-              label: SyncTarget.studyPlan.actionLabel,
+              title: l10n.noCreditRecords,
+              label: SyncTarget.studyPlan.localizedAction(l10n),
               onPressed: () => startSync(
                 context,
                 controller,
@@ -83,16 +85,22 @@ class CreditProgressScreen extends StatelessWidget {
               values: [
                 (
                   label: plan?.completedCredits == null
-                      ? '成绩中已获学分'
-                      : '学校记录已修学分',
-                  value: earned == null ? '未获取' : creditText(earned),
+                      ? l10n.creditsFromGrades
+                      : l10n.completedCreditsSchool,
+                  value: earned == null
+                      ? l10n.notAvailable
+                      : creditText(earned),
                 ),
                 (
-                  label: record.targetCredits == null ? '学校要求学分' : '核对目标学分',
-                  value: target == null ? '未获取' : creditText(target),
+                  label: record.targetCredits == null
+                      ? l10n.schoolRequiredCredits
+                      : l10n.reviewTargetCredits,
+                  value: target == null
+                      ? l10n.notAvailable
+                      : creditText(target),
                 ),
                 (
-                  label: '尚缺学分',
+                  label: l10n.creditsRemaining,
                   value: target == null || earned == null
                       ? '—'
                       : creditText(math.max(0.0, target - earned)),
@@ -116,14 +124,15 @@ class CreditProgressScreen extends StatelessWidget {
                   Icons.error_outline_rounded,
                   color: theme.colorScheme.error,
                 ),
-                title: Text('${failed.length} 门必修课待通过'),
+                title: Text(l10n.requiredCoursesPending(failed.length)),
                 subtitle: Text(failed.map((grade) => grade.name).join('、')),
-                onTap: () => _showCategory(context, '待通过的必修课', failed),
+                onTap: () =>
+                    _showCategory(context, l10n.pendingRequiredCourses, failed),
                 trailing: const Icon(Icons.chevron_right_rounded),
               ),
             Row(
               children: [
-                const Expanded(child: Text('按课程类别核对')),
+                Expanded(child: Text(l10n.reviewByCategory)),
                 TextButton(
                   onPressed:
                       controller.school.username == null ||
@@ -135,7 +144,7 @@ class CreditProgressScreen extends StatelessWidget {
                             controller: controller.academics,
                           ),
                         ),
-                  child: const Text('设置目标'),
+                  child: Text(l10n.setTargets),
                 ),
               ],
             ),
@@ -156,13 +165,10 @@ class CreditProgressScreen extends StatelessWidget {
                   targets: {SyncTarget.grades},
                 ),
                 icon: const Icon(Icons.download_rounded),
-                label: const Text('同步成绩，查看分类学分'),
+                label: Text(l10n.syncGradesForCredit),
               ),
             const SizedBox(height: 20),
-            Text(
-              '分类学分按已同步成绩汇总，同一课程只计一次。分类要求需按你的培养方案核对；不估算在修学分。毕业认定以学校审核为准。',
-              style: theme.textTheme.bodySmall,
-            ),
+            Text(l10n.creditCategoryNote, style: theme.textTheme.bodySmall),
             if (record.planUpdatedAt ?? record.gradesUpdatedAt
                 case final updatedAt?)
               AcademicUpdatedAt(updatedAt: updatedAt),
@@ -184,9 +190,9 @@ class CreditProgressScreen extends StatelessWidget {
           title: category,
           children: [
             if (grades.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('这个类别还没有课程成绩'),
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(context.l10n.noCategoryGrades),
               ),
             for (final grade in grades)
               GradeListTile(
@@ -215,6 +221,7 @@ class _CreditCategoryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final earned = AcademicStats(grades).earnedCredits;
+    final l10n = context.l10n;
     return InkWell(
       onTap: () => onTap(grades),
       child: Padding(
@@ -226,7 +233,12 @@ class _CreditCategoryRow extends StatelessWidget {
               children: [
                 Expanded(child: Text(name)),
                 Text(
-                  '${creditText(earned)}${target == null ? ' 学分' : ' / ${creditText(target!)}'}',
+                  target == null
+                      ? l10n.credits(creditText(earned))
+                      : l10n.creditProgressValue(
+                          creditText(earned),
+                          creditText(target!),
+                        ),
                 ),
                 const SizedBox(width: 4),
                 const Icon(Icons.chevron_right_rounded, size: 18),
@@ -243,8 +255,10 @@ class _CreditCategoryRow extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               target == null
-                  ? '尚未设置分类要求'
-                  : '还需 ${creditText(math.max(0.0, target! - earned))} 学分',
+                  ? l10n.creditTargetNotSet
+                  : l10n.creditsStillNeeded(
+                      creditText(math.max(0.0, target! - earned)),
+                    ),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],

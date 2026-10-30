@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
+import '../../l10n/formats.dart';
+import '../../l10n/l10n.dart';
 import '../../schedule/model.dart';
 import '../../ui/design.dart';
 import '../../ui/external_link.dart';
@@ -21,6 +23,7 @@ Future<void> showAgendaEntry(
   builder: (sheetContext) => ListenableBuilder(
     listenable: controller.agenda,
     builder: (context, _) {
+      final l10n = context.l10n;
       // Keep the closing sheet readable after its entry has been deleted.
       final current =
           controller.agenda.entries
@@ -32,11 +35,11 @@ Future<void> showAgendaEntry(
       final now = campusNow();
       final overdue = current.overdue(now);
       final status = current.done
-          ? '已完成'
+          ? l10n.completed
           : overdue
-          ? '已逾期'
+          ? l10n.overdue
           : current.isFinished(now)
-          ? '已结束'
+          ? l10n.ended
           : null;
       final statusColor = overdue ? scheme.error : scheme.onSurfaceVariant;
       void edit() {
@@ -66,7 +69,7 @@ Future<void> showAgendaEntry(
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
-                  current.kind.label,
+                  current.kind.localizedLabel(l10n),
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -95,7 +98,7 @@ Future<void> showAgendaEntry(
             ),
             actions: [
               IconButton(
-                tooltip: '删除',
+                tooltip: l10n.delete,
                 onPressed: controller.agenda.busy
                     ? null
                     : () async {
@@ -111,7 +114,7 @@ Future<void> showAgendaEntry(
                 icon: const Icon(Icons.delete_outline, size: 20),
               ),
               IconButton(
-                tooltip: '关闭',
+                tooltip: l10n.close,
                 onPressed: () => Navigator.pop(sheetContext),
                 icon: const Icon(Icons.close_rounded, size: 20),
               ),
@@ -163,7 +166,7 @@ Future<void> showAgendaEntry(
                         children: [
                           Expanded(
                             child: Text(
-                              source.label,
+                              source.localizedLabel(l10n),
                               style: theme.textTheme.bodyMedium,
                             ),
                           ),
@@ -172,14 +175,14 @@ Future<void> showAgendaEntry(
                               onPressed: () => openExternalLink(
                                 context,
                                 url,
-                                failureTitle: '无法打开作业',
+                                failureTitle: l10n.agendaOpenLink,
                               ),
                               iconAlignment: IconAlignment.end,
                               icon: const Icon(
                                 Icons.open_in_new_rounded,
                                 size: 16,
                               ),
-                              label: const Text('打开作业'),
+                              label: Text(l10n.agendaOpenLink),
                             ),
                         ],
                       ),
@@ -188,7 +191,7 @@ Future<void> showAgendaEntry(
                     if (current.location.isNotEmpty || current.source != null)
                       const SizedBox(height: 16),
                     Text(
-                      '备注',
+                      l10n.agendaNotes,
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -214,7 +217,7 @@ Future<void> showAgendaEntry(
                         TextButton.icon(
                           onPressed: controller.agenda.busy ? null : edit,
                           icon: const Icon(Icons.edit_outlined, size: 18),
-                          label: const Text('编辑'),
+                          label: Text(l10n.edit),
                         ),
                         FilledButton.icon(
                           style: current.done
@@ -235,7 +238,11 @@ Future<void> showAgendaEntry(
                                 : Icons.check_rounded,
                             size: 20,
                           ),
-                          label: Text(current.done ? '标为未完成' : '标记完成'),
+                          label: Text(
+                            current.done
+                                ? l10n.agendaMarkUndone
+                                : l10n.agendaMarkDone,
+                          ),
                         ),
                       ],
                     )
@@ -244,7 +251,7 @@ Future<void> showAgendaEntry(
                       child: FilledButton.icon(
                         onPressed: controller.agenda.busy ? null : edit,
                         icon: const Icon(Icons.edit_outlined, size: 18),
-                        label: const Text('编辑'),
+                        label: Text(l10n.edit),
                       ),
                     ),
             ),
@@ -263,20 +270,22 @@ class _EntryTime extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final color = entry.overdue(now) ? scheme.error : scheme.onSurface;
     final time = entry.isDeadline
         ? entry.allDay
-              ? '当天结束前'
+              ? l10n.agendaDueBeforeEndOfDay
               : clockText(entry.startsAt)
-        : entry.timeLabel;
+        : localizedAgendaTime(l10n, entry);
     final lastDay = entry.allDay && !entry.isDeadline
         ? entry.endsAt!.subtract(const Duration(days: 1))
         : entry.startsAt;
     final date = calendarDate(lastDay) == calendarDate(entry.startsAt)
-        ? agendaDateLabel(entry.startsAt)
-        : '${agendaDateLabel(entry.startsAt)} – ${agendaDateLabel(lastDay)}';
+        ? localizedAgendaDate(l10n, entry.startsAt)
+        : '${localizedAgendaDate(l10n, entry.startsAt)} – '
+              '${localizedAgendaDate(l10n, lastDay)}';
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -305,7 +314,7 @@ class _EntryTime extends StatelessWidget {
                   TextSpan(text: time),
                   if (entry.isDeadline && !entry.allDay)
                     TextSpan(
-                      text: '  截止',
+                      text: '  ${l10n.due}',
                       style: theme.textTheme.bodyMedium?.copyWith(color: color),
                     ),
                 ],

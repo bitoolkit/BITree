@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/controller.dart';
+import '../../l10n/formats.dart';
+import '../../l10n/l10n.dart';
 import '../../ui/app_notice.dart';
 import '../controller.dart';
 import '../model.dart';
@@ -24,18 +26,19 @@ Future<bool> deleteAgendaEntry(
   AgendaEntry entry, {
   bool confirm = true,
 }) async {
+  final l10n = context.l10n;
   // The originating sheet can close while the undo action remains visible.
   final overlay = Overlay.of(context, rootOverlay: true);
   if (confirm) {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('删除${entry.kind.label}？'),
+        title: Text(l10n.agendaDeleteQuestion(entry.kind.localizedLabel(l10n))),
         content: Text(entry.title),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -43,7 +46,7 @@ Future<bool> deleteAgendaEntry(
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
+            child: Text(l10n.delete),
           ),
         ],
       ),
@@ -58,14 +61,14 @@ Future<bool> deleteAgendaEntry(
     final restored = await controller.agenda.restore(entry);
     if (!overlay.mounted) return;
     if (restored) {
-      showOverlayNotice(overlay, '已恢复“${entry.title}”');
+      showOverlayNotice(overlay, l10n.agendaRestored(entry.title));
     }
   }
 
   showOverlayNotice(
     overlay,
-    '已删除“${entry.title}”',
-    action: (label: '撤销', onPressed: restore),
+    l10n.agendaDeleted(entry.title),
+    action: (label: l10n.undo, onPressed: restore),
   );
   return true;
 }

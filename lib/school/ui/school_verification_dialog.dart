@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/diagnostics.dart';
 import '../../core/error_message.dart';
+import '../../l10n/l10n.dart';
 import '../verification.dart';
 
 Future<String?> verifySchoolLogin(
@@ -105,9 +106,12 @@ class _VerificationDialogState extends State<_VerificationDialog> {
   @override
   Widget build(BuildContext context) {
     final sms = widget.request is SchoolSmsVerification;
+    final l10n = context.l10n;
     return AlertDialog(
       scrollable: true,
-      title: Text(sms ? '短信验证' : '图形验证'),
+      title: Text(
+        sms ? l10n.schoolSmsVerification : l10n.schoolImageVerification,
+      ),
       content: Form(
         key: _form,
         child: Column(
@@ -117,7 +121,7 @@ class _VerificationDialogState extends State<_VerificationDialog> {
             if (widget.request case SchoolSmsVerification(:final phone))
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
-                child: Text('发送至 $phone'),
+                child: Text(l10n.schoolSentToPhone(phone)),
               ),
             if (!sms) ...[
               SizedBox(
@@ -134,7 +138,9 @@ class _VerificationDialogState extends State<_VerificationDialog> {
               controller: _code,
               autofocus: true,
               enabled: !_submitting && !_loading,
-              decoration: const InputDecoration(labelText: '验证码'),
+              decoration: InputDecoration(
+                labelText: l10n.schoolVerificationCode,
+              ),
               keyboardType: sms ? TextInputType.number : TextInputType.text,
               textInputAction: TextInputAction.done,
               autofillHints: sms ? const [AutofillHints.oneTimeCode] : null,
@@ -143,8 +149,9 @@ class _VerificationDialogState extends State<_VerificationDialog> {
                   : null,
               autocorrect: false,
               enableSuggestions: false,
-              validator: (value) =>
-                  value == null || value.trim().isEmpty ? '请输入验证码' : null,
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? l10n.schoolEnterVerificationCode
+                  : null,
               onFieldSubmitted: (_) => _submit(),
             ),
             Align(
@@ -155,10 +162,10 @@ class _VerificationDialogState extends State<_VerificationDialog> {
                     : _refresh,
                 child: Text(
                   !sms
-                      ? '换一张'
+                      ? l10n.schoolRefreshImage
                       : _resendSeconds > 0
-                      ? '$_resendSeconds 秒后重发'
-                      : '重新发送',
+                      ? l10n.schoolResendIn(_resendSeconds)
+                      : l10n.schoolResend,
                 ),
               ),
             ),
@@ -173,11 +180,11 @@ class _VerificationDialogState extends State<_VerificationDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(l10n.cancel),
         ),
         FilledButton(
           onPressed: _loading || _submitting ? null : _submit,
-          child: Text(_submitting ? '验证中…' : '确认'),
+          child: Text(_submitting ? l10n.schoolVerifying : l10n.confirm),
         ),
       ],
     );

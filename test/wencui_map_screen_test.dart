@@ -278,7 +278,8 @@ void main() {
     final camera = tester
         .widget<InteractiveViewer>(find.byType(InteractiveViewer))
         .transformationController!;
-    final viewport = Offset.zero & tester.getSize(find.byType(InteractiveViewer));
+    final viewport =
+        Offset.zero & tester.getSize(find.byType(InteractiveViewer));
     final plan = MatrixUtils.transformRect(
       camera.value,
       Offset.zero & tester.getSize(_floor(7)),

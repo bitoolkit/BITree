@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'academics/controller.dart';
@@ -11,6 +10,7 @@ import 'agenda/store.dart';
 import 'app/controller.dart';
 import 'app/ui/app_screen.dart';
 import 'core/diagnostics.dart';
+import 'l10n/l10n.dart';
 import 'schedule/store.dart';
 import 'school/service.dart';
 import 'school/storage.dart';
@@ -59,14 +59,14 @@ class BitreeApp extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) => MaterialApp(
-        title: 'BITree',
+        onGenerateTitle: (context) => context.l10n.appName,
         debugShowCheckedModeBanner: false,
         theme: lightTheme,
         darkTheme: darkTheme,
         themeMode: controller.themeMode,
-        locale: const Locale('zh', 'CN'),
-        supportedLocales: const [Locale('zh', 'CN'), Locale('en')],
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        locale: controller.language.locale,
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: AppScreen(controller: controller),
       ),
     );

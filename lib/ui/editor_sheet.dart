@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
 import 'design.dart';
 import 'sheet_layout.dart';
 
@@ -38,7 +39,7 @@ class EditorSheet extends StatelessWidget {
             title: Text(title),
             actions: [
               IconButton(
-                tooltip: '关闭',
+                tooltip: context.l10n.close,
                 onPressed: saving ? null : () => Navigator.pop(context),
                 icon: const Icon(Icons.close_rounded, size: 20),
               ),
@@ -71,7 +72,7 @@ class EditorSheet extends StatelessWidget {
                     children: [
                       if (onDelete != null) ...[
                         IconButton(
-                          tooltip: '删除',
+                          tooltip: context.l10n.delete,
                           onPressed: saving ? null : onDelete,
                           color: Theme.of(context).colorScheme.error,
                           icon: const Icon(Icons.delete_outline),

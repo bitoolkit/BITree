@@ -15,6 +15,18 @@ import '../school/service.dart';
 import '../school/storage.dart';
 import '../sync/controller.dart';
 
+enum AppLanguage {
+  system,
+  chinese,
+  english;
+
+  Locale? get locale => switch (this) {
+    AppLanguage.system => null,
+    AppLanguage.chinese => const Locale('zh'),
+    AppLanguage.english => const Locale('en'),
+  };
+}
+
 /// Composes feature state and owns application startup and appearance.
 /// Feature changes are observed by their views, not relayed through this object.
 class AppController extends ChangeNotifier {
@@ -61,9 +73,11 @@ class AppController extends ChangeNotifier {
   bool _agendaViewChosen = false;
   bool _ready = false;
   ThemeMode _themeMode = ThemeMode.system;
+  AppLanguage _language = AppLanguage.system;
 
   bool get ready => _ready;
   ThemeMode get themeMode => _themeMode;
+  AppLanguage get language => _language;
 
   Future<void> initialize() async {
     await timetable.load();
@@ -78,6 +92,16 @@ class AppController extends ChangeNotifier {
       }
     } on Exception catch (failure, stack) {
       AppDiagnostics.instance.error('读取外观设置', failure, stack);
+    }
+    try {
+      final language = await _preferences.getString('language');
+      _language =
+          AppLanguage.values
+              .where((value) => value.name == language)
+              .firstOrNull ??
+          AppLanguage.system;
+    } catch (failure, stack) {
+      AppDiagnostics.instance.report('读取语言设置', failure, stack);
     }
     try {
       final savedView = await _preferences.getString('agendaViewMode');
@@ -104,6 +128,16 @@ class AppController extends ChangeNotifier {
     _themeMode = value;
     notifyListeners();
     return _writePreference('theme', value.name, '保存外观设置');
+  }
+
+  Future<void> setLanguage(AppLanguage value) async {
+    try {
+      await _preferences.setString('language', value.name);
+      _language = value;
+      notifyListeners();
+    } catch (failure, stack) {
+      AppDiagnostics.instance.report('保存语言设置', failure, stack);
+    }
   }
 
   /// Publish immediately and serialize writes so rapid toggles cannot save an

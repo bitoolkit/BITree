@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
+import '../../l10n/l10n.dart';
 import '../../sync/controller.dart';
 import '../model.dart';
 import 'academic_common.dart';
@@ -68,19 +69,20 @@ class _GradeSimulationScreenState extends State<GradeSimulationScreen> {
   }
 
   Future<void> _remove(ProjectedCourse course) async {
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('移除试算课程？'),
+        title: Text(l10n.removeSimulatedCourseQuestion),
         content: Text(course.name),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('移除'),
+            child: Text(l10n.removeAction),
           ),
         ],
       ),
@@ -115,12 +117,13 @@ class _GradeSimulationScreenState extends State<GradeSimulationScreen> {
             )
           : null;
       final theme = Theme.of(context);
+      final l10n = context.l10n;
       return AcademicPage(
-        title: '成绩试算',
+        title: l10n.gradeSimulation,
         loading: widget.controller.school.busy,
         actions: [
           IconButton(
-            tooltip: '计分规则',
+            tooltip: l10n.gpaRules,
             onPressed: () => showGpaRules(context),
             icon: const Icon(Icons.help_outline_rounded),
           ),
@@ -131,14 +134,20 @@ class _GradeSimulationScreenState extends State<GradeSimulationScreen> {
         ],
         children: [
           Text(
-            '当前计绩学分 ${creditText(original.gpaCredits)}，平均绩点 ${original.gpa?.toStringAsFixed(2) ?? '—'}',
+            l10n.currentGpaCredits(
+              creditText(original.gpaCredits),
+              original.gpa?.toStringAsFixed(2) ?? '—',
+            ),
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
           SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: false, label: Text('按课程试算')),
-              ButtonSegment(value: true, label: Text('目标倒推')),
+            segments: [
+              ButtonSegment(value: false, label: Text(l10n.simulateByCourse)),
+              ButtonSegment(
+                value: true,
+                label: Text(l10n.targetBackCalculation),
+              ),
             ],
             selected: {_targetMode},
             showSelectedIcon: false,
@@ -153,8 +162,8 @@ class _GradeSimulationScreenState extends State<GradeSimulationScreen> {
                 decimal: true,
               ),
               decoration: InputDecoration(
-                labelText: '目标累计绩点',
-                errorText: validTarget ? null : '请输入 0～4 之间的绩点',
+                labelText: l10n.targetCumulativeGpa,
+                errorText: validTarget ? null : l10n.enterGpaRange,
               ),
               onChanged: (_) => setState(() {}),
             ),
@@ -165,19 +174,21 @@ class _GradeSimulationScreenState extends State<GradeSimulationScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _targetMode ? '每门试算课程至少需要达到' : '预计累计绩点',
+                  _targetMode
+                      ? l10n.requiredPerCourse
+                      : l10n.projectedCumulativeGpa,
                   style: theme.textTheme.bodySmall,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   _courses.isEmpty
-                      ? '先添加试算课程'
+                      ? l10n.addSimulatedCourseFirst
                       : _targetMode
                       ? !validTarget
                             ? '—'
                             : needed == null
-                            ? '满分也无法达到目标'
-                            : '$needed 分'
+                            ? l10n.targetUnreachable
+                            : l10n.scoreValue('$needed')
                       : result.gpa?.toStringAsFixed(2) ?? '—',
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w600,
@@ -188,7 +199,10 @@ class _GradeSimulationScreenState extends State<GradeSimulationScreen> {
                     original.gpa != null) ...[
                   const SizedBox(height: 8),
                   Text(
-                    '累计绩点变化 ${(result.gpa! - original.gpa!) >= 0 ? '+' : ''}${(result.gpa! - original.gpa!).toStringAsFixed(2)}',
+                    l10n.gpaChange(
+                      '${(result.gpa! - original.gpa!) >= 0 ? '+' : ''}'
+                      '${(result.gpa! - original.gpa!).toStringAsFixed(2)}',
+                    ),
                     style: theme.textTheme.bodySmall,
                   ),
                 ],
@@ -197,11 +211,11 @@ class _GradeSimulationScreenState extends State<GradeSimulationScreen> {
           ),
           Row(
             children: [
-              const Expanded(child: Text('试算课程')),
+              Expanded(child: Text(l10n.simulatedCourses)),
               TextButton.icon(
                 onPressed: _edit,
                 icon: const Icon(Icons.add_rounded),
-                label: const Text('添加课程'),
+                label: Text(l10n.addCourse),
               ),
             ],
           ),
@@ -210,7 +224,10 @@ class _GradeSimulationScreenState extends State<GradeSimulationScreen> {
               contentPadding: EdgeInsets.zero,
               title: Text(course.name),
               subtitle: Text(
-                '${creditText(course.credits)} 学分${course.replaces == null ? '' : '  重修'}',
+                [
+                  l10n.credits(creditText(course.credits)),
+                  if (course.replaces != null) l10n.retake,
+                ].join('  '),
               ),
               onTap: () => _edit(course),
               trailing: Row(
@@ -219,11 +236,13 @@ class _GradeSimulationScreenState extends State<GradeSimulationScreen> {
                   TextButton(
                     onPressed: () => _edit(course),
                     child: Text(
-                      _targetMode ? '修改' : '${creditText(course.score)} 分',
+                      _targetMode
+                          ? l10n.editAction
+                          : l10n.scoreValue(creditText(course.score)),
                     ),
                   ),
                   IconButton(
-                    tooltip: '移除试算课程',
+                    tooltip: l10n.removeSimulatedCourse,
                     onPressed: () => _remove(course),
                     icon: const Icon(Icons.close_rounded, size: 18),
                   ),
@@ -233,12 +252,14 @@ class _GradeSimulationScreenState extends State<GradeSimulationScreen> {
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
-            title: const Text('重修取最高成绩'),
+            title: Text(l10n.retakeUsesHighest),
             value: _replaceRetakes,
             onChanged: (value) => setState(() => _replaceRetakes = value!),
           ),
           Text(
-            _replaceRetakes ? '试算不会修改已同步成绩。' : '本次试算同时计入原成绩和重修成绩，不采用学校的最高成绩规则。',
+            _replaceRetakes
+                ? l10n.simulationDoesNotChange
+                : l10n.simulationIncludesBoth,
             style: theme.textTheme.bodySmall,
           ),
         ],

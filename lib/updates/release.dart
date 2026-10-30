@@ -6,6 +6,7 @@ import 'package:pub_semver/pub_semver.dart';
 
 import '../core/diagnostics.dart';
 import '../core/json.dart';
+import '../l10n/app_localizations.dart';
 
 class AppRelease {
   const AppRelease({
@@ -66,6 +67,7 @@ class AppRelease {
 Future<List<AppRelease>> availableAppReleases(
   String installed, {
   DateTime? builtAt,
+  required AppLocalizations l10n,
 }) async {
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
 
@@ -99,7 +101,7 @@ Future<List<AppRelease>> availableAppReleases(
 
     return await Future.wait([
       for (final update in [?stableUpdate, ?developmentUpdate])
-        _withUpdateNotes(client, update, installed),
+        _withUpdateNotes(client, update, installed, l10n),
     ]);
   } finally {
     client.close(force: true);
@@ -181,6 +183,7 @@ Future<AppRelease> _withUpdateNotes(
   HttpClient client,
   AppRelease release,
   String installed,
+  AppLocalizations l10n,
 ) async {
   String notes;
   try {
@@ -188,10 +191,11 @@ Future<AppRelease> _withUpdateNotes(
       client,
       _revision(installed),
       _revision(release.version),
+      l10n,
     );
   } on Exception catch (failure, stack) {
     AppDiagnostics.instance.error('读取 ${release.version} 更新日志', failure, stack);
-    notes = '更新说明暂时无法读取，请查看发布页。';
+    notes = l10n.releaseNotesUnavailable;
   }
   return AppRelease(
     version: release.version,
@@ -202,11 +206,15 @@ Future<AppRelease> _withUpdateNotes(
   );
 }
 
-Future<String> _updateNotes(HttpClient client, String base, String head) async {
+Future<String> _updateNotes(
+  HttpClient client,
+  String base,
+  String head,
+  AppLocalizations l10n,
+) async {
   const previewCount = 6;
   const pageSize = 100;
-  const unchanged = '此版本没有新增代码变更，完整说明见发布页。';
-  if (base == head) return unchanged;
+  if (base == head) return l10n.releaseNotesUnchanged;
 
   Future<Map<String, dynamic>> readPage(int page) async {
     final url = Uri.https(
@@ -227,7 +235,7 @@ Future<String> _updateNotes(HttpClient client, String base, String head) async {
   final first = await readPage(1);
   final total = jsonIntField(first, 'total_commits');
   if (total < 0) throw const FormatException('total_commits 格式不正确');
-  if (total == 0) return unchanged;
+  if (total == 0) return l10n.releaseNotesUnchanged;
 
   var commits = _commits(first);
   if (total > pageSize) {
@@ -244,8 +252,7 @@ Future<String> _updateNotes(HttpClient client, String base, String head) async {
   final notes = [
     for (final commit in preview) _commitNote(commit),
     if (total > preview.length)
-      '\n另有 ${total - preview.length} 项变更，'
-          '[查看完整变更](https://github.com/bitoolkit/bitree/compare/$base...$head)。',
+      '\n${l10n.releaseMoreChanges(total - preview.length, 'https://github.com/bitoolkit/bitree/compare/$base...$head')}',
   ];
   return notes.join('\n');
 }

@@ -4,21 +4,26 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/l10n.dart';
+
 enum _WeekSelection {
-  all('全选'),
-  none('全不选'),
-  summer('小学期'),
-  regular('非小学期');
-
-  const _WeekSelection(this.label);
-
-  final String label;
+  all,
+  none,
+  summer,
+  regular;
 
   Set<int> weeksIn(List<int> weeks) => switch (this) {
     all => weeks.toSet(),
     none => {},
     summer => weeks.where((week) => week < 0).toSet(),
     regular => weeks.where((week) => week > 0).toSet(),
+  };
+
+  String label(AppLocalizations l10n) => switch (this) {
+    all => l10n.weekSelectionAll,
+    none => l10n.weekSelectionNone,
+    summer => l10n.weekSelectionSummer,
+    regular => l10n.weekSelectionRegular,
   };
 }
 
@@ -149,6 +154,7 @@ class _CourseWeekPickerState extends State<CourseWeekPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final weeks = widget.weeks;
     final selectedWeeks = widget.selectedWeeks;
@@ -162,10 +168,10 @@ class _CourseWeekPickerState extends State<CourseWeekPicker> {
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                '上课周次',
-                style: TextStyle(fontWeight: FontWeight.w600),
+                l10n.courseEditorWeeks,
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
             TextButton.icon(
@@ -175,7 +181,7 @@ class _CourseWeekPickerState extends State<CourseWeekPicker> {
                 textStyle: theme.textTheme.labelMedium,
               ),
               icon: const Icon(Icons.tune_rounded, size: 18),
-              label: const Text('周数管理'),
+              label: Text(l10n.weekManagement),
             ),
           ],
         ),
@@ -205,7 +211,7 @@ class _CourseWeekPickerState extends State<CourseWeekPicker> {
                                   !hasRegularWeeks)
                           ? null
                           : () => onChanged(selection.weeksIn(weeks)),
-                      child: Text(selection.label),
+                      child: Text(selection.label(l10n)),
                     ),
                   ),
               ],
@@ -292,7 +298,10 @@ class _CourseWeekPickerState extends State<CourseWeekPicker> {
                                 }
                                 onChanged(weeks);
                               },
-                        child: Text('$week', semanticsLabel: '第 $week 周'),
+                        child: Text(
+                          '$week',
+                          semanticsLabel: l10n.weekNumber(week),
+                        ),
                       ),
                     );
                   },
