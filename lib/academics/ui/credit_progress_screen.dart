@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app/controller.dart';
 import '../../sync/controller.dart';
 import '../../sync/ui/sync.dart';
+import '../../sync/ui/sync_text.dart';
 import '../model.dart';
 import 'academic_common.dart';
 import 'credit_targets_dialog.dart';
@@ -62,7 +63,7 @@ class CreditProgressScreen extends StatelessWidget {
           else if (plan == null && record.gradesUpdatedAt == null)
             AcademicEmpty(
               title: '还没有学分记录',
-              label: SyncTarget.studyPlan.label,
+              label: SyncTarget.studyPlan.actionLabel,
               onPressed: () => startSync(
                 context,
                 controller,

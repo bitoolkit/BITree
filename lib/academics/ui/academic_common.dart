@@ -5,6 +5,7 @@ import '../../app/controller.dart';
 import '../../schedule/model.dart';
 import '../../sync/controller.dart';
 import '../../sync/ui/sync.dart';
+import '../../sync/ui/sync_text.dart';
 import '../../ui/external_link.dart';
 import '../model.dart';
 
@@ -70,7 +71,7 @@ class AcademicImportButton extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: controller.sync,
     builder: (context, _) => IconButton(
-      tooltip: controller.sync.busy ? '查看同步进度' : action.label,
+      tooltip: controller.sync.busy ? '查看同步进度' : action.actionLabel,
       onPressed: () => controller.sync.busy
           ? showSyncProgress(context, controller)
           : startSync(context, controller, targets: {action}, term: term),

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../core/async/cancelable_request.dart';
+import '../core/json.dart';
 import 'errors.dart';
 import 'network.dart';
 import 'storage.dart';
@@ -23,9 +24,7 @@ class SchoolResponse {
 
   String get text => utf8.decode(bytes);
 
-  Map<String, dynamic> get json {
-    return jsonDecode(text) as Map<String, dynamic>;
-  }
+  Map<String, dynamic> get json => jsonObject(jsonDecode(text), '学校接口响应');
 }
 
 class SchoolSession {
@@ -165,7 +164,11 @@ class SchoolSession {
 
         if (followRedirects &&
             [301, 302, 303, 307, 308].contains(result.status)) {
-          final next = network.route(result.location!);
+          final location = result.location;
+          if (location == null) {
+            throw SchoolRequestError('学校请求返回了重定向，但没有提供目标地址。');
+          }
+          final next = network.route(location);
           if ([301, 302, 303].contains(result.status)) {
             payload = null;
           }
@@ -186,7 +189,7 @@ class SchoolSession {
           throw failure;
         }
         return result;
-      } catch (failure) {
+      } on Exception catch (failure) {
         if (failure is SocketException ||
             failure is TimeoutException ||
             failure is HandshakeException ||

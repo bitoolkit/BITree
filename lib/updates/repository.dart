@@ -4,6 +4,7 @@ import 'dart:ffi';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/diagnostics.dart';
+import '../core/json.dart';
 import 'release.dart';
 
 /// Keeps update results across launches and prompts only for unseen stable releases.
@@ -49,22 +50,21 @@ class UpdateRepository {
     try {
       final text = await _preferences.getString(_cacheKey);
       if (text == null) return null;
-      final data = jsonDecode(text) as Map<String, dynamic>;
+      final data = jsonObject(jsonDecode(text), '更新缓存');
       if (data['installed'] != installed ||
-          data['builtAt'] != builtAt?.toIso8601String() ||
+          jsonStringFieldOrNull(data, 'builtAt') !=
+              builtAt?.toIso8601String() ||
           data['abi'] != Abi.current().toString()) {
         return null;
       }
-      final checkedAt = DateTime.fromMillisecondsSinceEpoch(
-        data['checkedAt'] as int,
-      );
+      final checkedAt = _cacheTime(jsonIntField(data, 'checkedAt'));
       final age = DateTime.now().difference(checkedAt);
       if (age.isNegative || age >= _maxAge) return null;
-      return (data['releases'] as List)
-          .cast<Map<String, dynamic>>()
-          .map(AppRelease.fromJson)
-          .toList();
-    } catch (failure, stack) {
+      return [
+        for (final release in jsonListField(data, 'releases'))
+          AppRelease.fromJson(jsonObject(release, 'releases[]')),
+      ];
+    } on Exception catch (failure, stack) {
       AppDiagnostics.instance.error('读取更新缓存', failure, stack);
       return null;
     }
@@ -83,9 +83,17 @@ class UpdateRepository {
           'releases': available.map((release) => release.toJson()).toList(),
         }),
       );
-    } catch (failure, stack) {
+    } on Exception catch (failure, stack) {
       AppDiagnostics.instance.error('保存更新缓存', failure, stack);
     }
     return available;
+  }
+}
+
+DateTime _cacheTime(int milliseconds) {
+  try {
+    return DateTime.fromMillisecondsSinceEpoch(milliseconds);
+  } on ArgumentError {
+    throw const FormatException('checkedAt 超出有效范围');
   }
 }

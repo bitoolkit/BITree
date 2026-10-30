@@ -187,6 +187,23 @@ void main() {
     },
   );
 
+  test(
+    'A stable release without published_at still compares its version',
+    () async {
+      development = null;
+      stable = _release(development: false)..remove('published_at');
+      changes['1111111...v0.3.0'] = _commits(1);
+
+      final release = (await read(
+        'v0.3.0-dev.1111111',
+        builtAt: DateTime.utc(2026, 10, 28),
+      )).single;
+
+      expect(release.version, 'v0.3.0');
+      expect(release.notes, contains('变更 1'));
+    },
+  );
+
   test('Stable and development choices keep separate version ranges', () async {
     stable = _release(development: false);
     changes['v0.2.0...v0.3.0'] = _commits(1);
@@ -433,6 +450,22 @@ void main() {
             jsonDecode((await preferences.getString('updates.cache'))!) as Map;
         expect(saved['installed'], 'v0.2.0');
         expect(saved['releases'], hasLength(2));
+      },
+    );
+
+    test(
+      'An out-of-range cached timestamp is replaced by fresh results',
+      () async {
+        await check();
+        final saved = jsonDecode(
+          (await preferences.getString('updates.cache'))!,
+        ) as Map<String, dynamic>;
+        saved['checkedAt'] = 8640000000000001;
+        await preferences.setString('updates.cache', jsonEncode(saved));
+        requests.clear();
+
+        expect(await check(), hasLength(1));
+        expect(requests, isNotEmpty);
       },
     );
 

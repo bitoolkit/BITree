@@ -7,6 +7,7 @@ import '../../app/controller.dart';
 import '../../schedule/model.dart';
 import '../../sync/controller.dart';
 import '../../sync/ui/sync.dart';
+import '../../sync/ui/sync_text.dart';
 import '../../ui/app_dropdown_field.dart';
 import '../exam_conflicts.dart';
 import 'academic_common.dart';
@@ -144,7 +145,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
           if (exams.isEmpty)
             AcademicEmpty(
               title: !_showPast && selected.isNotEmpty ? '没有即将到来的考试' : '暂无考试安排',
-              label: SyncTarget.exams.label,
+              label: SyncTarget.exams.actionLabel,
               onPressed: () => startSync(
                 context,
                 controller,

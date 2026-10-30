@@ -21,15 +21,12 @@ import 'storage.dart';
 import 'verification.dart';
 
 enum AccountStatus {
-  unverified('未连接'),
-  signedIn('已登录'),
-  signedOut('未登录'),
-  expired('需要重新登录'),
-  smsRequired('需要短信验证'),
-  imageRequired('需要图形验证');
-
-  const AccountStatus(this.label);
-  final String label;
+  unverified,
+  signedIn,
+  signedOut,
+  expired,
+  smsRequired,
+  imageRequired,
 }
 
 /// Runs school operations through one authenticated, cancellable session owner.
@@ -54,6 +51,7 @@ class SchoolController extends ChangeNotifier {
   Future<void>? _finished;
   bool _disposed = false;
   String? _error;
+  int _accountRevision = 0;
 
   AccountStatus get accountStatus => _status;
   String? get username => _username;
@@ -66,13 +64,20 @@ class SchoolController extends ChangeNotifier {
   String? get error => _error;
 
   Future<void> loadAccount() async {
+    final active = _finished;
+    if (active != null) await active;
+    if (_disposed) return;
+
+    final revision = _accountRevision;
     try {
-      _username = (await _storage.readCredentials())?.username;
+      final username = (await _storage.readCredentials())?.username;
+      if (revision != _accountRevision) return;
+      _username = username;
       if (_username == null) _status = AccountStatus.signedOut;
-    } catch (failure, stack) {
+    } on Exception catch (failure, stack) {
       AppDiagnostics.instance.report('读取学校账号', failure, stack);
     }
-    if (!_disposed) notifyListeners();
+    _notify();
   }
 
   void requireLogin() {
@@ -81,7 +86,7 @@ class SchoolController extends ChangeNotifier {
         : AccountStatus.expired;
     if (next == _status) return;
     _status = next;
-    notifyListeners();
+    _notify();
   }
 
   void _requireVerification(SchoolVerificationKind kind) {
@@ -89,18 +94,20 @@ class SchoolController extends ChangeNotifier {
       SchoolVerificationKind.sms => AccountStatus.smsRequired,
       SchoolVerificationKind.image => AccountStatus.imageRequired,
     };
-    if (!_disposed) notifyListeners();
+    _notify();
   }
 
-  VerifySchoolLogin? _verification(VerifySchoolLogin? verify) => verify == null
-      ? null
-      : (request) {
-          _requireVerification(switch (request) {
-            SchoolSmsVerification() => SchoolVerificationKind.sms,
-            SchoolImageVerification() => SchoolVerificationKind.image,
-          });
-          return verify(request);
-        };
+  VerifySchoolLogin? _verification(VerifySchoolLogin? verify) =>
+      verify == null ? null : _requiredVerification(verify);
+
+  VerifySchoolLogin _requiredVerification(VerifySchoolLogin verify) =>
+      (request) {
+        _requireVerification(switch (request) {
+          SchoolSmsVerification() => SchoolVerificationKind.sms,
+          SchoolImageVerification() => SchoolVerificationKind.image,
+        });
+        return verify(request);
+      };
 
   Future<bool> _run(
     String label,
@@ -114,7 +121,7 @@ class SchoolController extends ChangeNotifier {
     final finished = Completer<void>();
     _finished = finished.future;
     _error = null;
-    notifyListeners();
+    _notify();
     AppDiagnostics.instance.info('开始$label');
     try {
       final success = await operation();
@@ -127,14 +134,14 @@ class SchoolController extends ChangeNotifier {
       return success;
     } on SchoolVerificationRequired catch (request) {
       _requireVerification(request.kind);
-      _error = '${_status.label}，请完成验证后继续同步。';
+      _error = '学校登录验证未完成，请完成验证后继续同步。';
       if (notifyErrors) {
-        AppDiagnostics.instance.notice('${_status.label}，请在设置中完成验证。');
+        AppDiagnostics.instance.notice('学校登录验证未完成，请在设置中完成验证。');
       }
       return false;
     } on RequestCancelled {
       return false;
-    } catch (failure, stack) {
+    } on Exception catch (failure, stack) {
       if (failure is SessionExpired || failure is SchoolCredentialsRequired) {
         requireLogin();
       }
@@ -145,7 +152,7 @@ class SchoolController extends ChangeNotifier {
     } finally {
       _finished = null;
       finished.complete();
-      if (!_disposed) notifyListeners();
+      _notify();
     }
   }
 
@@ -173,7 +180,12 @@ class SchoolController extends ChangeNotifier {
     VerifySchoolLogin verify, {
     DeadlineSource? source,
   }) => _run('登录学校账号', () async {
-    await _access.signIn(credentials, _verification(verify)!, source: source);
+    _accountRevision++;
+    await _access.signIn(
+      credentials,
+      _requiredVerification(verify),
+      source: source,
+    );
     if (_username != credentials.username) _service.clearCache();
     _username = credentials.username;
     await _academics.load(_username);
@@ -202,7 +214,11 @@ class SchoolController extends ChangeNotifier {
         term: term,
       );
       session.checkActive();
-      return _timetable.importSchedule(result.schedule, result.terms);
+      return _timetable.importSchedule(
+        result.schedule,
+        result.terms,
+        checkActive: session.checkActive,
+      );
     }),
     notifyErrors: false,
   );
@@ -249,47 +265,27 @@ class SchoolController extends ChangeNotifier {
       }, notifyErrors: false);
 
   Future<bool> importDeadlines({
-    DeadlineSource? source,
+    required DeadlineSource source,
     VerifySchoolLogin? verify,
-  }) => _run('同步 DDL', () async {
-    var success = true;
-    final sources = source == null
-        ? [DeadlineSource.lexue, DeadlineSource.eclass]
-        : [source];
-    for (final source in sources) {
-      try {
-        final saved = await _access.readLearningPlatform(
-          source,
-          _verification(verify),
-          (session, page) async {
-            final deadlines = await switch (source) {
-              DeadlineSource.lexue => fetchLexueDeadlines(session, page),
-              DeadlineSource.eclass => fetchEclassDeadlines(session),
-              DeadlineSource.mooc => throw ArgumentError('MOOC 使用独立账号同步'),
-            };
-            session.checkActive();
-            return _agenda.mergeDeadlines(
-              deadlines,
-              checkActive: session.checkActive,
-            );
-          },
-        );
-        success = saved && success;
-      } on RequestCancelled {
-        rethrow;
-      } on SchoolVerificationRequired {
-        rethrow;
-      } catch (failure, stack) {
-        success = false;
-        if (failure is SessionExpired || failure is SchoolCredentialsRequired) {
-          requireLogin();
-        }
-        _error = errorMessage(failure);
-        AppDiagnostics.instance.error('同步${source.label} DDL', failure, stack);
-      }
-    }
-    return success;
-  }, notifyErrors: false);
+  }) => _run(
+    '同步${source.label} DDL',
+    () => _access.readLearningPlatform(source, _verification(verify), (
+      session,
+      page,
+    ) async {
+      final deadlines = await switch (source) {
+        DeadlineSource.lexue => fetchLexueDeadlines(session, page),
+        DeadlineSource.eclass => fetchEclassDeadlines(session),
+        DeadlineSource.mooc => throw ArgumentError('MOOC 使用独立账号同步'),
+      };
+      session.checkActive();
+      return _agenda.mergeDeadlines(
+        deadlines,
+        checkActive: session.checkActive,
+      );
+    }),
+    notifyErrors: false,
+  );
 
   void cancel() => _access.cancel();
 
@@ -298,6 +294,7 @@ class SchoolController extends ChangeNotifier {
     cancel();
     await finished;
     return _run('退出学校账号', () async {
+      _accountRevision++;
       await _storage.clear();
       _service.clearCache();
       _username = null;
@@ -311,5 +308,9 @@ class SchoolController extends ChangeNotifier {
     _disposed = true;
     cancel();
     super.dispose();
+  }
+
+  void _notify() {
+    if (!_disposed) notifyListeners();
   }
 }

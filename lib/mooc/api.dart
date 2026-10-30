@@ -8,6 +8,7 @@ import '../agenda/model.dart';
 import '../core/async/cancelable_request.dart';
 import 'cookie.dart';
 import 'credentials.dart';
+import 'progress.dart';
 import 'tasks.dart';
 
 class MoocFailure implements Exception {
@@ -22,13 +23,8 @@ class MoocLoginRequired extends MoocFailure {
 }
 
 class MoocImportResult {
-  const MoocImportResult({
-    required this.entries,
-    required this.courseCount,
-    required this.failures,
-  });
+  const MoocImportResult({required this.entries, required this.failures});
   final List<AgendaEntry> entries;
-  final int courseCount;
   final List<({String course, String message})> failures;
 }
 
@@ -66,12 +62,12 @@ class MoocApi {
 
   Future<MoocImportResult> readDeadlines(
     String memberId,
-    void Function(String) progress,
+    void Function(MoocProgress) progress,
   ) async {
     final courses = <String, MoocCourse>{};
     for (final type in [1, 2]) {
       final seenTerms = <String>{};
-      progress(type == 1 ? '正在读取 MOOC 课程…' : '正在读取 SPOC 课程…');
+      progress(MoocCourseListProgress(isSpoc: type == 2));
       for (var page = 1; ; page++) {
         final response = await _rpc(
           'learnerCourseRpcBean.getMyLearnedCoursePanelList',
@@ -122,7 +118,13 @@ class MoocApi {
     var count = 0;
     for (final course in courses.values) {
       _cancellation.check();
-      progress('正在读取 ${++count}/${courses.length}：《${course.name}》');
+      progress(
+        MoocCourseReadProgress(
+          index: ++count,
+          total: courses.length,
+          course: course.name,
+        ),
+      );
       try {
         final learned = moocMap(
           await _rpc(
@@ -163,11 +165,7 @@ class MoocApi {
     if (courses.isNotEmpty && failures.length == courses.length) {
       throw MoocFailure('所有 MOOC 课程读取失败：${failures.first.message}');
     }
-    return MoocImportResult(
-      entries: entries,
-      courseCount: courses.length - failures.length,
-      failures: failures,
-    );
+    return MoocImportResult(entries: entries, failures: failures);
   }
 
   Future<Object?> _rpc(

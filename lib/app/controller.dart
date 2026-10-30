@@ -56,7 +56,8 @@ class AppController extends ChangeNotifier {
   late final SyncController sync;
   final SharedPreferencesAsync _preferences;
   final agendaViewMode = ValueNotifier(AgendaViewMode.timeline);
-  Future<void> _agendaViewWrite = Future<void>.value();
+  final _preferenceWrites = <String, Future<void>>{};
+  bool _themeChosen = false;
   bool _agendaViewChosen = false;
   bool _ready = false;
   ThemeMode _themeMode = ThemeMode.system;
@@ -68,11 +69,15 @@ class AppController extends ChangeNotifier {
     await timetable.load();
     try {
       final theme = await _preferences.getString('theme');
-      _themeMode =
-          ThemeMode.values.where((value) => value.name == theme).firstOrNull ??
-          ThemeMode.system;
-    } catch (failure, stack) {
-      AppDiagnostics.instance.report('读取外观设置', failure, stack);
+      if (!_themeChosen) {
+        _themeMode =
+            ThemeMode.values
+                .where((value) => value.name == theme)
+                .firstOrNull ??
+            ThemeMode.system;
+      }
+    } on Exception catch (failure, stack) {
+      AppDiagnostics.instance.error('读取外观设置', failure, stack);
     }
     try {
       final savedView = await _preferences.getString('agendaViewMode');
@@ -83,8 +88,8 @@ class AppController extends ChangeNotifier {
                 .firstOrNull ??
             AgendaViewMode.timeline;
       }
-    } catch (failure, stack) {
-      AppDiagnostics.instance.report('读取日程视图设置', failure, stack);
+    } on Exception catch (failure, stack) {
+      AppDiagnostics.instance.error('读取日程视图设置', failure, stack);
     }
     await school.loadAccount();
     await agenda.load();
@@ -94,29 +99,32 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setTheme(ThemeMode value) async {
-    try {
-      await _preferences.setString('theme', value.name);
-      _themeMode = value;
-      notifyListeners();
-    } catch (failure, stack) {
-      AppDiagnostics.instance.report('保存外观设置', failure, stack);
-    }
+  Future<void> setTheme(ThemeMode value) {
+    _themeChosen = true;
+    _themeMode = value;
+    notifyListeners();
+    return _writePreference('theme', value.name, '保存外观设置');
   }
 
   /// Publish immediately and serialize writes so rapid toggles cannot save an
-  /// older choice after a newer one. Preference failures do not alter entries.
+  /// older choice after a newer one.
   Future<void> setAgendaViewMode(AgendaViewMode value) {
     _agendaViewChosen = true;
     agendaViewMode.value = value;
-    _agendaViewWrite = _agendaViewWrite.then((_) async {
+    return _writePreference('agendaViewMode', value.name, '保存日程视图设置');
+  }
+
+  Future<void> _writePreference(String key, String value, String operation) {
+    final previous = _preferenceWrites[key] ?? Future<void>.value();
+    final write = previous.then((_) async {
       try {
-        await _preferences.setString('agendaViewMode', value.name);
-      } catch (failure, stack) {
-        AppDiagnostics.instance.report('保存日程视图设置', failure, stack);
+        await _preferences.setString(key, value);
+      } on Exception catch (failure, stack) {
+        AppDiagnostics.instance.error(operation, failure, stack);
       }
     });
-    return _agendaViewWrite;
+    _preferenceWrites[key] = write;
+    return write;
   }
 
   @override

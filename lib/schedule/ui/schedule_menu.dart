@@ -52,7 +52,7 @@ class _ScheduleMenuState extends State<ScheduleMenu> {
         context,
         skipped == 0 ? '已导出课表' : '已导出课表，跳过 $skipped 门时间待定的课程',
       );
-    } catch (failure, stack) {
+    } on Exception catch (failure, stack) {
       AppDiagnostics.instance.report('导出课表', failure, stack);
     } finally {
       if (mounted) setState(() => _exporting = false);

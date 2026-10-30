@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:pub_semver/pub_semver.dart';
 
 import '../core/diagnostics.dart';
+import '../core/json.dart';
 
 class AppRelease {
   const AppRelease({
@@ -20,8 +21,7 @@ class AppRelease {
     required Abi abi,
     String? version,
   }) {
-    final url = Uri.parse(release['html_url'] as String);
-    var downloadUrl = url;
+    final url = _httpsUri(release['html_url'], 'html_url');
     final suffixes = switch (abi) {
       Abi.androidArm64 => [
         '-android-arm64-v8a.apk',
@@ -31,33 +31,21 @@ class AppRelease {
       Abi.linuxArm64 => ['-linux-arm64.tar.xz'],
       _ => <String>[],
     };
-    if (suffixes.isNotEmpty) {
-      final assets = (release['assets'] as List).cast<Map<String, dynamic>>();
-      for (final suffix in suffixes) {
-        final asset = assets
-            .where((asset) => (asset['name'] as String).endsWith(suffix))
-            .firstOrNull;
-        if (asset != null) {
-          downloadUrl = Uri.parse(asset['browser_download_url'] as String);
-          break;
-        }
-      }
-    }
     return AppRelease(
-      version: version ?? release['tag_name'] as String,
+      version: version ?? jsonStringField(release, 'tag_name'),
       url: url,
-      downloadUrl: downloadUrl,
-      notes: release['body'] as String? ?? '',
-      isDevelopment: release['prerelease'] == true,
+      downloadUrl: _assetDownload(release, suffixes) ?? url,
+      notes: jsonStringFieldOrNull(release, 'body') ?? '',
+      isDevelopment: jsonBoolField(release, 'prerelease', fallback: false),
     );
   }
 
   factory AppRelease.fromJson(Map<String, dynamic> json) => AppRelease(
-    version: json['version'] as String,
-    url: Uri.parse(json['url'] as String),
-    downloadUrl: Uri.parse(json['downloadUrl'] as String),
-    notes: json['notes'] as String,
-    isDevelopment: json['isDevelopment'] as bool,
+    version: jsonStringField(json, 'version'),
+    url: _httpsUri(json['url'], 'url'),
+    downloadUrl: _httpsUri(json['downloadUrl'], 'downloadUrl'),
+    notes: jsonStringField(json, 'notes'),
+    isDevelopment: jsonBoolField(json, 'isDevelopment'),
   );
 
   final String version;
@@ -82,7 +70,7 @@ Future<List<AppRelease>> availableAppReleases(
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
 
   try {
-    final [stable, releases] = await Future.wait([
+    final [stableJson, releasesJson] = await Future.wait([
       _readJson(
         client,
         Uri.https('api.github.com', '/repos/bitoolkit/bitree/releases/latest'),
@@ -92,20 +80,16 @@ Future<List<AppRelease>> availableAppReleases(
         Uri.https('api.github.com', '/repos/bitoolkit/bitree/releases'),
       ),
     ]);
-    final dev = (releases as List?)
-        ?.cast<Map<String, dynamic>>()
+    final stable = _optionalObject(stableJson, 'stable release');
+    final dev = _objects(releasesJson, 'releases')
         .where(
           (release) =>
-              release['prerelease'] == true &&
+              jsonBoolField(release, 'prerelease', fallback: false) &&
               RegExp(r'^v\d+\.\d+\.\d+-dev$')
-                  .hasMatch(release['tag_name'] as String),
+                  .hasMatch(jsonStringField(release, 'tag_name')),
         )
         .firstOrNull;
-    final stableUpdate = _stableUpdate(
-      stable as Map<String, dynamic>?,
-      installed,
-      builtAt: builtAt,
-    );
+    final stableUpdate = _stableUpdate(stable, installed, builtAt: builtAt);
     final developmentUpdate = await _developmentUpdate(
       client,
       dev,
@@ -130,18 +114,23 @@ AppRelease? _stableUpdate(
   final normalized = installed.replaceFirst(RegExp(r'^v'), '');
   final current = Version.parse(normalized.split('-').first);
   if (release == null ||
-      release['draft'] == true ||
-      release['prerelease'] == true) {
+      jsonBoolField(release, 'draft', fallback: false) ||
+      jsonBoolField(release, 'prerelease', fallback: false)) {
     return null;
   }
 
-  final tag = release['tag_name'] as String;
+  final tag = jsonStringField(release, 'tag_name');
   final version = Version.parse(tag.replaceFirst(RegExp(r'^v'), ''));
   final development = normalized.contains('-');
+  final publishedAt = jsonDateTimeOrNull(
+    'published_at',
+    release['published_at'],
+  );
   final releasedAfterBuild =
       development &&
       builtAt != null &&
-      DateTime.parse(release['published_at'] as String).isAfter(builtAt);
+      publishedAt != null &&
+      publishedAt.isAfter(builtAt);
   final newer =
       version > current ||
       (development && version == current) ||
@@ -157,26 +146,25 @@ Future<AppRelease?> _developmentUpdate(
   String installed, {
   DateTime? builtAt,
 }) async {
-  if (release == null || release['draft'] == true) return null;
+  if (release == null || jsonBoolField(release, 'draft', fallback: false)) {
+    return null;
+  }
 
   final platform = Abi.current() == Abi.linuxArm64
       ? 'linux-arm64'
       : Platform.operatingSystem;
   final suffix = '-$platform-update.json';
-  final asset = (release['assets'] as List)
-      .cast<Map<String, dynamic>>()
-      .where((asset) => (asset['name'] as String).endsWith(suffix))
-      .firstOrNull;
-  if (asset == null) return null;
+  final assetUrl = _assetDownload(release, [suffix]);
+  if (assetUrl == null) return null;
 
-  final metadata = await _readJson(
-    client,
-    Uri.parse(asset['browser_download_url'] as String),
-  ) as Map<String, dynamic>?;
+  final metadata = _optionalObject(
+    await _readJson(client, assetUrl),
+    'update metadata',
+  );
   if (metadata == null) return null;
 
-  final version = metadata['version'] as String;
-  final publishedBuildTime = DateTime.parse(metadata['builtAt'] as String);
+  final version = jsonStringField(metadata, 'version');
+  final publishedBuildTime = jsonDateTime('builtAt', metadata['builtAt']);
   final newer = builtAt == null
       ? version != installed
       : publishedBuildTime.isAfter(builtAt);
@@ -201,7 +189,7 @@ Future<AppRelease> _withUpdateNotes(
       _revision(installed),
       _revision(release.version),
     );
-  } catch (failure, stack) {
+  } on Exception catch (failure, stack) {
     AppDiagnostics.instance.error('读取 ${release.version} 更新日志', failure, stack);
     notes = '更新说明暂时无法读取，请查看发布页。';
   }
@@ -226,7 +214,10 @@ Future<String> _updateNotes(HttpClient client, String base, String head) async {
       '/repos/bitoolkit/bitree/compare/$base...$head',
       {'per_page': '$pageSize', 'page': '$page'},
     );
-    final comparison = await _readJson(client, url) as Map<String, dynamic>?;
+    final comparison = _optionalObject(
+      await _readJson(client, url),
+      'comparison',
+    );
     if (comparison == null) {
       throw HttpException('找不到版本比较记录。', uri: url);
     }
@@ -234,28 +225,24 @@ Future<String> _updateNotes(HttpClient client, String base, String head) async {
   }
 
   final first = await readPage(1);
-  final total = first['total_commits'] as int;
+  final total = jsonIntField(first, 'total_commits');
+  if (total < 0) throw const FormatException('total_commits 格式不正确');
   if (total == 0) return unchanged;
 
-  var commits = (first['commits'] as List).cast<Map<String, dynamic>>();
+  var commits = _commits(first);
   if (total > pageSize) {
     final lastPage = (total + pageSize - 1) ~/ pageSize;
     final last = await readPage(lastPage);
-    commits = (last['commits'] as List).cast<Map<String, dynamic>>();
+    commits = _commits(last);
     if (commits.length < previewCount) {
       final previous = lastPage == 2 ? first : await readPage(lastPage - 1);
-      commits = [
-        ...(previous['commits'] as List).cast<Map<String, dynamic>>(),
-        ...commits,
-      ];
+      commits = [..._commits(previous), ...commits];
     }
   }
 
   final preview = commits.reversed.take(previewCount).toList();
   final notes = [
-    for (final commit in preview)
-      '- ${((commit['commit'] as Map)['message'] as String).split('\n').first} '
-          '([${(commit['sha'] as String).substring(0, 7)}](${commit['html_url']}))',
+    for (final commit in preview) _commitNote(commit),
     if (total > preview.length)
       '\n另有 ${total - preview.length} 项变更，'
           '[查看完整变更](https://github.com/bitoolkit/bitree/compare/$base...$head)。',
@@ -284,5 +271,60 @@ Future<Object?> _readJson(HttpClient client, Uri url) async {
       .transform(utf8.decoder)
       .join()
       .timeout(const Duration(seconds: 15));
-  return jsonDecode(text);
+  try {
+    return jsonDecode(text);
+  } on FormatException catch (failure) {
+    throw FormatException('GitHub 返回了无法解析的数据：${failure.message}');
+  }
+}
+
+Uri _httpsUri(Object? value, String field) {
+  final text = jsonString(value, field);
+  final uri = Uri.tryParse(text);
+  if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
+    throw FormatException('$field 不是有效的 HTTPS 地址');
+  }
+  return uri;
+}
+
+Map<String, dynamic>? _optionalObject(Object? value, String field) =>
+    value == null ? null : jsonObject(value, field);
+
+List<Map<String, dynamic>> _objects(Object? value, String field) {
+  final values = value == null ? const [] : jsonList(value, field);
+  return [for (final item in values) jsonObject(item, '$field[]')];
+}
+
+List<Map<String, dynamic>> _assets(Map<String, dynamic> release) {
+  final value = release['assets'];
+  return value == null ? const [] : _objects(value, 'assets');
+}
+
+Uri? _assetDownload(Map<String, dynamic> release, List<String> suffixes) {
+  final assets = _assets(release);
+  for (final suffix in suffixes) {
+    for (final asset in assets) {
+      if (jsonStringField(asset, 'name').endsWith(suffix)) {
+        return _httpsUri(
+          asset['browser_download_url'],
+          'assets[].browser_download_url',
+        );
+      }
+    }
+  }
+  return null;
+}
+
+List<Map<String, dynamic>> _commits(Map<String, dynamic> comparison) => [
+  for (final commit in jsonListField(comparison, 'commits'))
+    jsonObject(commit, 'commits[]'),
+];
+
+String _commitNote(Map<String, dynamic> commit) {
+  final commitData = jsonObjectField(commit, 'commit');
+  final message = jsonStringField(commitData, 'message').split('\n').first;
+  final sha = jsonStringField(commit, 'sha');
+  if (sha.length < 7) throw const FormatException('commits[].sha 格式不正确');
+  final url = _httpsUri(commit['html_url'], 'commits[].html_url');
+  return '- $message ([${sha.substring(0, 7)}]($url))';
 }
