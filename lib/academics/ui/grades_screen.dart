@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
 import '../../sync/controller.dart';
-import '../../sync/ui/sync_tasks.dart';
+import '../../sync/ui/sync.dart';
 import '../../ui/app_dropdown_field.dart';
 import '../model.dart';
 import 'academic_common.dart';
@@ -67,7 +67,7 @@ class _GradesScreenState extends State<GradesScreen> {
               title: '还没有同步成绩',
               label: SyncTarget.grades.label,
               onPressed: () =>
-                  startSync(context, controller, target: SyncTarget.grades),
+                  startSync(context, controller, targets: {SyncTarget.grades}),
             )
           else ...[
             AppDropdownField<String?>(

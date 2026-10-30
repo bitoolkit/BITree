@@ -62,6 +62,7 @@ class SchoolController extends ChangeNotifier {
       _status == AccountStatus.smsRequired ||
       _status == AccountStatus.imageRequired;
   bool get busy => _finished != null;
+  Future<void> get idle => _finished ?? Future<void>.value();
   String? get error => _error;
 
   Future<void> loadAccount() async {

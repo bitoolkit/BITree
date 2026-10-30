@@ -109,7 +109,7 @@ class AgendaController extends ChangeNotifier {
 
   // Concurrent platform reads merge against the latest saved entries. Local
   // edits that finish while a platform is reading are included in that merge.
-  Future<bool> _import(Future<bool> Function() write) {
+  Future<T> _import<T>(Future<T> Function() write) {
     final result = _imports.then((_) async {
       while (_writing != null) {
         await _writing!.future;
@@ -161,7 +161,9 @@ class AgendaController extends ChangeNotifier {
   Future<int?> updatePhysicsLabDeadlines(
     SemesterSchedule schedule, {
     DateTime? now,
-  }) async {
+    void Function()? checkActive,
+  }) => _import(() async {
+    checkActive?.call();
     final importedAt = now ?? campusNow();
     final incoming = physicsLabDeadlines(schedule);
     final savedById = {for (final entry in _entries) entry.id: entry};
@@ -184,7 +186,7 @@ class AgendaController extends ChangeNotifier {
             );
     }
     return await _write(next.values.toList()) ? incoming.length : null;
-  }
+  });
 
   Future<bool> _write(List<AgendaEntry> next) async {
     if (!_ready || _busy) {

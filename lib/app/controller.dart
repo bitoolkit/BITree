@@ -39,7 +39,12 @@ class AppController extends ChangeNotifier {
       storage: moocStorage ?? MoocStorage(),
       agenda: agenda,
     );
-    sync = SyncController(school: this.school, mooc: mooc);
+    sync = SyncController(
+      school: this.school,
+      mooc: mooc,
+      timetable: timetable,
+      agenda: agenda,
+    );
   }
 
   final TimetableController timetable;

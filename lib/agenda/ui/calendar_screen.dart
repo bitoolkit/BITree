@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/controller.dart';
 import '../../app/ui/add_menu.dart';
 import '../../schedule/model.dart';
-import '../../school/ui/school_import_button.dart';
+import '../../sync/ui/sync_button.dart';
 import '../../ui/app_menu_anchor.dart';
 import '../../ui/app_menu_trigger.dart';
 import '../../ui/app_page.dart';
@@ -84,7 +84,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
           labelPadding: const EdgeInsets.symmetric(horizontal: 12),
           labelColor: scheme.primary,
           unselectedLabelColor: scheme.onSurfaceVariant,
-          labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          labelStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
           unselectedLabelStyle: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w400,
@@ -113,7 +116,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
       actions: [
         AddButton(controller: controller),
-        SchoolImportButton(controller: controller),
+        SyncButton(controller: controller),
         IconButton(
           tooltip: timeline ? '切换到列表' : '切换到时间轴',
           icon: Icon(

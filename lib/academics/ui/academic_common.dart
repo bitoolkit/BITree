@@ -4,7 +4,7 @@ import '../../agenda/model.dart';
 import '../../app/controller.dart';
 import '../../schedule/model.dart';
 import '../../sync/controller.dart';
-import '../../sync/ui/sync_tasks.dart';
+import '../../sync/ui/sync.dart';
 import '../../ui/external_link.dart';
 import '../model.dart';
 
@@ -70,15 +70,16 @@ class AcademicImportButton extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: controller.sync,
     builder: (context, _) => IconButton(
-      tooltip: controller.sync.activeCount > 0 ? '查看同步进度' : action.label,
-      onPressed: () => controller.sync.activeCount > 0
-          ? showSyncTasks(context, controller)
-          : startSync(context, controller, target: action, term: term),
-      icon: Badge.count(
-        count: controller.sync.activeCount,
-        isLabelVisible: controller.sync.activeCount > 0,
-        child: const Icon(Icons.refresh_rounded),
-      ),
+      tooltip: controller.sync.busy ? '查看同步进度' : action.label,
+      onPressed: () => controller.sync.busy
+          ? showSyncProgress(context, controller)
+          : startSync(context, controller, targets: {action}, term: term),
+      icon: controller.sync.busy
+          ? const SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.refresh_rounded),
     ),
   );
 }

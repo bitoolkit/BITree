@@ -107,7 +107,7 @@ class _AppScreenState extends State<AppScreen> {
               widget.controller.sync,
             ]),
             builder: (context, _) =>
-                widget.controller.school.busy || widget.controller.sync.running
+                widget.controller.school.busy || widget.controller.sync.busy
                 ? Positioned(
                     top: MediaQuery.paddingOf(context).top,
                     left: 0,

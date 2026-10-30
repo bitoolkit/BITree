@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import '../../agenda/ui/agenda_reminder.dart';
 import '../../app/controller.dart';
 import '../../app/ui/add_menu.dart';
-import '../../school/ui/school_import_button.dart';
-import '../../sync/controller.dart';
-import '../../sync/ui/sync_tasks.dart';
+import '../../sync/ui/sync.dart';
+import '../../sync/ui/sync_button.dart';
 import '../../ui/app_page.dart';
 import '../model.dart';
 import 'course_detail.dart';
@@ -87,7 +86,7 @@ class HomeScreen extends StatelessWidget {
             ),
       actions: [
         AddButton(controller: controller, date: selectedDate),
-        SchoolImportButton(controller: controller),
+        SyncButton(controller: controller),
         ScheduleMenu(controller: controller),
       ],
       child: Stack(
@@ -109,13 +108,9 @@ class HomeScreen extends StatelessWidget {
                             FilledButton.icon(
                               onPressed: controller.timetable.busy
                                   ? null
-                                  : () => startSync(
-                                      context,
-                                      controller,
-                                      target: SyncTarget.schedule,
-                                    ),
+                                  : () => startSync(context, controller),
                               icon: const Icon(Icons.input_rounded, size: 20),
-                              label: Text(SyncTarget.schedule.label),
+                              label: const Text('同步全部'),
                             ),
                             OutlinedButton.icon(
                               onPressed: controller.timetable.busy

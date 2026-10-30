@@ -3,7 +3,8 @@ import 'dart:io';
 
 import 'package:bitree/mooc/credentials.dart';
 import 'package:bitree/mooc/ui/mooc_sheet.dart';
-import 'package:bitree/school/ui/school_import_button.dart';
+import 'package:bitree/sync/controller.dart';
+import 'package:bitree/sync/ui/sync_button.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -67,6 +68,21 @@ void main() {
       'userAgent': 'test',
     };
     browser.controller.finishLoading();
+  }
+
+  Future<void> selectMooc(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('同步'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('自定义同步'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('清空'));
+    await tester.pump();
+    await tester.ensureVisible(find.text('中国大学MOOC DDL'));
+    await tester.tap(find.text('中国大学MOOC DDL'));
+    await tester.pump();
+    await tester.tap(find.text('同步所选内容'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
   }
 
   for (final brightness in Brightness.values) {
@@ -151,12 +167,10 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: bitreeTheme(Brightness.light),
-        home: Scaffold(body: SchoolImportButton(controller: model)),
+        home: Scaffold(body: SyncButton(controller: model)),
       ),
     );
-    await tester.tap(find.byTooltip('导入'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('同步中国大学MOOC DDL'));
+    await selectMooc(tester);
     await tester.pumpAndSettle();
     expect(find.byType(BottomSheet), findsOneWidget);
     expect(find.text('网页登录'), findsOneWidget);
@@ -221,36 +235,26 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: bitreeTheme(Brightness.light),
-          home: Scaffold(body: SchoolImportButton(controller: model)),
+          home: Scaffold(body: SyncButton(controller: model)),
         ),
       );
-      await tester.tap(find.byTooltip('导入'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('同步中国大学MOOC DDL'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
+      await selectMooc(tester);
       expect(model.mooc.busy, isTrue);
       await waitForSync();
       expect(find.byType(BottomSheet), findsNothing);
-      await tester.tap(find.byTooltip(expired ? '查看同步进度' : '导入'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-      if (!expired) {
-        await tester.tap(find.text('同步任务'));
-        await tester.pumpAndSettle();
-      }
-      expect(find.text('同步任务'), findsOneWidget);
       expect(find.text('使用 Cookie'), findsNothing);
       expect(find.text('退出账号'), findsNothing);
       if (expired) {
-        expect(find.text('登录并继续'), findsOneWidget);
-        await tester.tap(find.text('登录并继续'));
+        await tester.tap(find.text('查看'));
+        await tester.pumpAndSettle();
+        expect(find.text('同步进度'), findsOneWidget);
+        await tester.tap(find.text('重试未完成的内容'));
         await tester.pumpAndSettle();
         expect(find.text('网页登录'), findsOneWidget);
         await tester.tap(find.byTooltip('关闭').last);
         await tester.pumpAndSettle();
-        expect(find.text('登录并继续'), findsOneWidget);
-        await tester.tap(find.text('登录并继续'));
+        expect(find.text('重试未完成的内容'), findsOneWidget);
+        await tester.tap(find.text('重试未完成的内容'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('网页登录'));
         await tester.pumpAndSettle();
@@ -260,11 +264,11 @@ void main() {
         await tester.pump(const Duration(milliseconds: 400));
         await waitForSync();
         expect(find.text('已同步 0 条 DDL'), findsOneWidget);
+        await tester.tap(find.text('收起'));
+        await tester.pumpAndSettle();
       } else {
-        expect(find.text('已同步 0 条 DDL'), findsOneWidget);
+        expect(model.sync.results[SyncTarget.mooc]?.status, SyncStatus.synced);
       }
-      await tester.tap(find.text('收起'));
-      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
   }

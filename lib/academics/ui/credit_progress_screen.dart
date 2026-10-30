@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
 import '../../sync/controller.dart';
-import '../../sync/ui/sync_tasks.dart';
+import '../../sync/ui/sync.dart';
 import '../model.dart';
 import 'academic_common.dart';
 import 'credit_targets_dialog.dart';
@@ -63,8 +63,11 @@ class CreditProgressScreen extends StatelessWidget {
             AcademicEmpty(
               title: '还没有学分记录',
               label: SyncTarget.studyPlan.label,
-              onPressed: () =>
-                  startSync(context, controller, target: SyncTarget.studyPlan),
+              onPressed: () => startSync(
+                context,
+                controller,
+                targets: {SyncTarget.studyPlan},
+              ),
             )
           else ...[
             if (plan != null)
@@ -146,8 +149,11 @@ class CreditProgressScreen extends StatelessWidget {
               ),
             if (record.gradesUpdatedAt == null)
               TextButton.icon(
-                onPressed: () =>
-                    startSync(context, controller, target: SyncTarget.grades),
+                onPressed: () => startSync(
+                  context,
+                  controller,
+                  targets: {SyncTarget.grades},
+                ),
                 icon: const Icon(Icons.download_rounded),
                 label: const Text('同步成绩，查看分类学分'),
               ),

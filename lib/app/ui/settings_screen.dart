@@ -6,7 +6,7 @@ import '../../mooc/ui/mooc_sheet.dart';
 import '../../schedule/ui/week_range_dialog.dart';
 import '../../school/ui/school_account.dart';
 import '../../sync/controller.dart';
-import '../../sync/ui/sync_tasks.dart';
+import '../../sync/ui/sync.dart';
 import '../../ui/app_menu_anchor.dart';
 import '../../ui/app_menu_trigger.dart';
 import '../../ui/app_page.dart';
@@ -35,7 +35,7 @@ class SettingsScreen extends StatelessWidget {
           return await startSync(
                 context,
                 controller,
-                target: SyncTarget.schedule,
+                targets: {SyncTarget.schedule},
                 term: term,
               ) ==
               true;

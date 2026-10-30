@@ -6,7 +6,7 @@ import '../../agenda/ui/calendar_list.dart';
 import '../../app/controller.dart';
 import '../../schedule/model.dart';
 import '../../sync/controller.dart';
-import '../../sync/ui/sync_tasks.dart';
+import '../../sync/ui/sync.dart';
 import '../../ui/app_dropdown_field.dart';
 import '../exam_conflicts.dart';
 import 'academic_common.dart';
@@ -148,7 +148,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
               onPressed: () => startSync(
                 context,
                 controller,
-                target: SyncTarget.exams,
+                targets: {SyncTarget.exams},
                 term: term,
               ),
             ),
