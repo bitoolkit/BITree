@@ -32,7 +32,6 @@ import 'package:bitree/school/verification.dart';
 import 'package:bitree/ui/app_page.dart';
 import 'package:bitree/ui/theme.dart';
 import 'package:bitree/wencui/atlas.dart';
-import 'package:bitree/wencui/place.dart';
 import 'package:bitree/wencui/ui/wencui_map_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -320,7 +319,7 @@ Future<File> _loadScreenshotFont() async {
           path.isNotEmpty &&
           font.existsSync() &&
           _isCjkFontPath(path)) {
-        return _prepareScreenshotFont(font);
+        return await _prepareScreenshotFont(font);
       }
     } on ProcessException {
       continue;
@@ -640,13 +639,11 @@ class _ClassroomScreenshotController extends _ScreenshotController {
 
   _ClassroomScreenshotController._({
     required SemesterSchedule schedule,
-    required List<AgendaEntry> entries,
-    required MemoryAcademicStore academicStore,
+    required super.entries,
+    required super.academicStore,
   }) : super._(
          schedule: schedule,
          schedules: [schedule],
-         entries: entries,
-         academicStore: academicStore,
          moocStorage: MemoryMoocStorage(),
          initialWeek: null,
        );
