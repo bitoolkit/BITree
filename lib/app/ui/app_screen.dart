@@ -102,8 +102,12 @@ class _AppScreenState extends State<AppScreen> {
             ],
           ),
           ListenableBuilder(
-            listenable: widget.controller.school,
-            builder: (context, _) => widget.controller.school.busy
+            listenable: Listenable.merge([
+              widget.controller.school,
+              widget.controller.sync,
+            ]),
+            builder: (context, _) =>
+                widget.controller.school.busy || widget.controller.sync.running
                 ? Positioned(
                     top: MediaQuery.paddingOf(context).top,
                     left: 0,

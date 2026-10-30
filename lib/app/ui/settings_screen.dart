@@ -5,7 +5,8 @@ import '../../agenda/ui/clear_deadlines_dialog.dart';
 import '../../mooc/ui/mooc_sheet.dart';
 import '../../schedule/ui/week_range_dialog.dart';
 import '../../school/ui/school_account.dart';
-import '../../school/ui/school_screen.dart';
+import '../../sync/controller.dart';
+import '../../sync/ui/sync_tasks.dart';
 import '../../ui/app_menu_anchor.dart';
 import '../../ui/app_menu_trigger.dart';
 import '../../ui/app_page.dart';
@@ -31,10 +32,10 @@ class SettingsScreen extends StatelessWidget {
         term,
         importTerm: (term) async {
           if (!context.mounted) return false;
-          return await openSchoolPage(
+          return await startSync(
                 context,
                 controller,
-                action: SchoolAction.importSchedule,
+                target: SyncTarget.schedule,
                 term: term,
               ) ==
               true;

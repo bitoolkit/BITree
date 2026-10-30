@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
-import '../../school/ui/school_screen.dart';
+import '../../sync/controller.dart';
 import '../model.dart';
 import 'academic_common.dart';
 import 'projected_course_dialog.dart';
@@ -126,7 +126,7 @@ class _GradeSimulationScreenState extends State<GradeSimulationScreen> {
           ),
           AcademicImportButton(
             controller: widget.controller,
-            action: SchoolAction.importGrades,
+            action: SyncTarget.grades,
           ),
         ],
         children: [

@@ -116,9 +116,10 @@ class TestAppController extends AppController {
     List<AgendaEntry> entries = const [],
     MemorySchoolStorage? schoolStorage,
     MoocStorage? moocStorage,
+    SchoolService? school,
   }) : super(
          store: MemoryScheduleStore(schedules: schedules, selected: schedule),
-         school: SchoolService(),
+         school: school ?? SchoolService(),
          schoolStorage: schoolStorage ?? MemorySchoolStorage(),
          preferences: MemoryPreferences(),
          moocStorage: moocStorage ?? MemoryMoocStorage(),

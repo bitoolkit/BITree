@@ -32,13 +32,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     school: widget.controller.school,
     verify: (request) => verifySchoolLogin(context, request),
     signIn: () async =>
-        mounted &&
-        await openSchoolPage(
-              context,
-              widget.controller,
-              action: SchoolAction.signIn,
-            ) ==
-            true,
+        mounted && await openSchoolLogin(context, widget.controller) == true,
     date: campusNow(),
   );
 

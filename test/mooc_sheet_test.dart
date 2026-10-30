@@ -231,18 +231,26 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       expect(model.mooc.busy, isTrue);
       await waitForSync();
-      expect(find.text('同步中国大学MOOC DDL'), findsOneWidget);
+      expect(find.byType(BottomSheet), findsNothing);
+      await tester.tap(find.byTooltip(expired ? '查看同步进度' : '导入'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      if (!expired) {
+        await tester.tap(find.text('同步任务'));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text('同步任务'), findsOneWidget);
       expect(find.text('使用 Cookie'), findsNothing);
       expect(find.text('退出账号'), findsNothing);
       if (expired) {
-        expect(find.text('重新登录'), findsOneWidget);
-        await tester.tap(find.text('重新登录'));
+        expect(find.text('登录并继续'), findsOneWidget);
+        await tester.tap(find.text('登录并继续'));
         await tester.pumpAndSettle();
         expect(find.text('网页登录'), findsOneWidget);
         await tester.tap(find.byTooltip('关闭').last);
         await tester.pumpAndSettle();
-        expect(find.text('重新登录'), findsOneWidget);
-        await tester.tap(find.text('重新登录'));
+        expect(find.text('登录并继续'), findsOneWidget);
+        await tester.tap(find.text('登录并继续'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('网页登录'));
         await tester.pumpAndSettle();
@@ -255,7 +263,7 @@ void main() {
       } else {
         expect(find.text('已同步 0 条 DDL'), findsOneWidget);
       }
-      await tester.tap(find.byTooltip('关闭'));
+      await tester.tap(find.text('收起'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });

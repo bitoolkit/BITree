@@ -69,7 +69,13 @@ class MoocController extends ChangeNotifier {
         token.check();
         await _storage.write(next);
         token.check();
-        if (!await _agenda.mergeDeadlines(result.entries)) return null;
+        if (!await _agenda.mergeDeadlines(
+          result.entries,
+          checkActive: token.check,
+        )) {
+          _error = '未能保存同步结果，请稍后重试。';
+          return null;
+        }
         _account = next;
         _expired = false;
         return result;

@@ -13,6 +13,7 @@ import '../schedule/store.dart';
 import '../school/controller.dart';
 import '../school/service.dart';
 import '../school/storage.dart';
+import '../sync/controller.dart';
 
 /// Composes feature state and owns application startup and appearance.
 /// Feature changes are observed by their views, not relayed through this object.
@@ -38,6 +39,7 @@ class AppController extends ChangeNotifier {
       storage: moocStorage ?? MoocStorage(),
       agenda: agenda,
     );
+    sync = SyncController(school: this.school, mooc: mooc);
   }
 
   final TimetableController timetable;
@@ -46,6 +48,7 @@ class AppController extends ChangeNotifier {
   final AgendaController agenda;
   final AcademicController academics;
   late final MoocController mooc;
+  late final SyncController sync;
   final SharedPreferencesAsync _preferences;
   final agendaViewMode = ValueNotifier(AgendaViewMode.timeline);
   Future<void> _agendaViewWrite = Future<void>.value();
@@ -69,7 +72,8 @@ class AppController extends ChangeNotifier {
     try {
       final savedView = await _preferences.getString('agendaViewMode');
       if (!_agendaViewChosen) {
-        agendaViewMode.value = AgendaViewMode.values
+        agendaViewMode.value =
+            AgendaViewMode.values
                 .where((mode) => mode.name == savedView)
                 .firstOrNull ??
             AgendaViewMode.timeline;
@@ -113,6 +117,7 @@ class AppController extends ChangeNotifier {
   @override
   void dispose() {
     agendaViewMode.dispose();
+    sync.dispose();
     classrooms.dispose();
     school.dispose();
     mooc.dispose();

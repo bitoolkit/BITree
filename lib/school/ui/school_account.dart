@@ -28,11 +28,7 @@ class _SchoolAccountState extends State<SchoolAccount> {
   }
 
   Future<void> _login() async {
-    await openSchoolPage(
-      context,
-      widget.controller,
-      action: SchoolAction.signIn,
-    );
+    await openSchoolLogin(context, widget.controller);
   }
 
   Future<void> _verify() async {

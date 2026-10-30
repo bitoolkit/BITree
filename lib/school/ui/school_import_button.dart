@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../../agenda/ui/deleted_deadlines.dart';
 import '../../agenda/ui/physics_lab_import.dart';
 import '../../app/controller.dart';
-import '../../mooc/ui/sync.dart';
+import '../../sync/controller.dart';
+import '../../sync/ui/sync_tasks.dart';
 import '../../ui/app_menu_anchor.dart';
-import 'school_screen.dart';
 
 class SchoolImportButton extends StatelessWidget {
   const SchoolImportButton({super.key, required this.controller});
@@ -18,12 +18,12 @@ class SchoolImportButton extends StatelessWidget {
       controller.agenda,
       controller.school,
       controller.mooc,
+      controller.sync,
     ]),
     builder: (context, _) => _build(context),
   );
 
   Widget _build(BuildContext context) {
-    final busy = controller.timetable.busy || controller.school.busy;
     final physicsEnabled =
         controller.timetable.ready &&
         !controller.timetable.busy &&
@@ -32,39 +32,23 @@ class SchoolImportButton extends StatelessWidget {
         !controller.agenda.busy;
     return AppMenuAnchor(
       menuChildren: [
-        AppMenuItemButton(
-          leadingIcon: const Icon(Icons.input_rounded),
-          onPressed: busy
-              ? null
-              : () => openSchoolPage(
-                  context,
-                  controller,
-                  action: SchoolAction.importSchedule,
-                ),
-          child: Text(SchoolAction.importSchedule.label),
-        ),
-        AppMenuItemButton(
-          leadingIcon: const Icon(Icons.edit_note_rounded),
-          onPressed: busy || !controller.agenda.ready
-              ? null
-              : () => openSchoolPage(
-                  context,
-                  controller,
-                  action: SchoolAction.importExams,
-                ),
-          child: Text(SchoolAction.importExams.label),
-        ),
-        const Divider(),
-        for (final action in [
-          SchoolAction.importLexueDeadlines,
-          SchoolAction.importEclassDeadlines,
+        for (final target in [
+          SyncTarget.schedule,
+          SyncTarget.exams,
+          SyncTarget.lexue,
+          SyncTarget.eclass,
         ])
           AppMenuItemButton(
-            leadingIcon: const Icon(Icons.flag_outlined),
-            onPressed: busy || !controller.agenda.ready
+            leadingIcon: Icon(switch (target) {
+              SyncTarget.schedule => Icons.input_rounded,
+              SyncTarget.exams => Icons.edit_note_rounded,
+              _ => Icons.flag_outlined,
+            }),
+            onPressed:
+                !controller.agenda.ready || controller.sync.contains(target)
                 ? null
-                : () => openSchoolPage(context, controller, action: action),
-            child: Text(action.label),
+                : () => startSync(context, controller, target: target),
+            child: Text(target.label),
           ),
         AppMenuItemButton(
           leadingIcon: const Icon(Icons.flag_outlined),
@@ -78,11 +62,15 @@ class SchoolImportButton extends StatelessWidget {
           leadingIcon: const Icon(Icons.menu_book_outlined),
           onPressed:
               !controller.agenda.ready ||
-                  controller.agenda.busy ||
-                  controller.mooc.busy
+                  controller.sync.contains(SyncTarget.mooc)
               ? null
-              : () => synchronizeMoocDeadlines(context, controller.mooc),
-          child: const Text('同步中国大学MOOC DDL'),
+              : () => startSync(context, controller, target: SyncTarget.mooc),
+          child: Text(SyncTarget.mooc.label),
+        ),
+        AppMenuItemButton(
+          leadingIcon: const Icon(Icons.sync_rounded),
+          onPressed: () => showSyncTasks(context, controller),
+          child: const Text('同步任务'),
         ),
         const Divider(),
         AppMenuItemButton(
@@ -97,14 +85,25 @@ class SchoolImportButton extends StatelessWidget {
         ),
       ],
       builder: (context, menu, isOpen) => IconButton(
-        tooltip: '导入',
-        onPressed: () => isOpen ? menu.close() : menu.open(),
-        icon: controller.school.busy
-            ? const SizedBox.square(
-                dimension: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.input_rounded),
+        tooltip: controller.sync.activeCount > 0 ? '查看同步进度' : '导入',
+        onPressed: () {
+          if (controller.sync.activeCount > 0) {
+            if (isOpen) menu.close();
+            showSyncTasks(context, controller);
+          } else {
+            isOpen ? menu.close() : menu.open();
+          }
+        },
+        icon: Badge.count(
+          count: controller.sync.activeCount,
+          isLabelVisible: controller.sync.activeCount > 0,
+          child: controller.sync.running
+              ? const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.input_rounded),
+        ),
       ),
     );
   }

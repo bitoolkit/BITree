@@ -4,7 +4,8 @@ import '../../agenda/ui/agenda_reminder.dart';
 import '../../app/controller.dart';
 import '../../app/ui/add_menu.dart';
 import '../../school/ui/school_import_button.dart';
-import '../../school/ui/school_screen.dart';
+import '../../sync/controller.dart';
+import '../../sync/ui/sync_tasks.dart';
 import '../../ui/app_page.dart';
 import '../model.dart';
 import 'course_detail.dart';
@@ -106,17 +107,15 @@ class HomeScreen extends StatelessWidget {
                           alignment: WrapAlignment.center,
                           children: [
                             FilledButton.icon(
-                              onPressed:
-                                  controller.timetable.busy ||
-                                      controller.school.busy
+                              onPressed: controller.timetable.busy
                                   ? null
-                                  : () => openSchoolPage(
+                                  : () => startSync(
                                       context,
                                       controller,
-                                      action: SchoolAction.importSchedule,
+                                      target: SyncTarget.schedule,
                                     ),
                               icon: const Icon(Icons.input_rounded, size: 20),
-                              label: Text(SchoolAction.importSchedule.label),
+                              label: Text(SyncTarget.schedule.label),
                             ),
                             OutlinedButton.icon(
                               onPressed: controller.timetable.busy

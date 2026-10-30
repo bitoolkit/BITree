@@ -5,7 +5,8 @@ import '../../agenda/ui/agenda_detail.dart';
 import '../../agenda/ui/calendar_list.dart';
 import '../../app/controller.dart';
 import '../../schedule/model.dart';
-import '../../school/ui/school_screen.dart';
+import '../../sync/controller.dart';
+import '../../sync/ui/sync_tasks.dart';
 import '../../ui/app_dropdown_field.dart';
 import '../exam_conflicts.dart';
 import 'academic_common.dart';
@@ -67,7 +68,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
         actions: [
           AcademicImportButton(
             controller: controller,
-            action: SchoolAction.importExams,
+            action: SyncTarget.exams,
             term: term,
           ),
         ],
@@ -143,15 +144,13 @@ class _ExamsScreenState extends State<ExamsScreen> {
           if (exams.isEmpty)
             AcademicEmpty(
               title: !_showPast && selected.isNotEmpty ? '没有即将到来的考试' : '暂无考试安排',
-              label: SchoolAction.importExams.label,
-              onPressed: controller.school.busy
-                  ? null
-                  : () => openSchoolPage(
-                      context,
-                      controller,
-                      action: SchoolAction.importExams,
-                      term: term,
-                    ),
+              label: SyncTarget.exams.label,
+              onPressed: () => startSync(
+                context,
+                controller,
+                target: SyncTarget.exams,
+                term: term,
+              ),
             ),
           if (selected.any((exam) => exam.isFinished(now)))
             TextButton(

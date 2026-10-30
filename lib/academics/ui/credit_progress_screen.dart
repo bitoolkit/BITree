@@ -3,7 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
-import '../../school/ui/school_screen.dart';
+import '../../sync/controller.dart';
+import '../../sync/ui/sync_tasks.dart';
 import '../model.dart';
 import 'academic_common.dart';
 import 'credit_targets_dialog.dart';
@@ -47,7 +48,7 @@ class CreditProgressScreen extends StatelessWidget {
           ),
           AcademicImportButton(
             controller: controller,
-            action: SchoolAction.importStudyPlan,
+            action: SyncTarget.studyPlan,
           ),
         ],
         children: [
@@ -61,14 +62,9 @@ class CreditProgressScreen extends StatelessWidget {
           else if (plan == null && record.gradesUpdatedAt == null)
             AcademicEmpty(
               title: '还没有学分记录',
-              label: SchoolAction.importStudyPlan.label,
-              onPressed: controller.school.busy
-                  ? null
-                  : () => openSchoolPage(
-                      context,
-                      controller,
-                      action: SchoolAction.importStudyPlan,
-                    ),
+              label: SyncTarget.studyPlan.label,
+              onPressed: () =>
+                  startSync(context, controller, target: SyncTarget.studyPlan),
             )
           else ...[
             if (plan != null)
@@ -150,13 +146,8 @@ class CreditProgressScreen extends StatelessWidget {
               ),
             if (record.gradesUpdatedAt == null)
               TextButton.icon(
-                onPressed: controller.school.busy
-                    ? null
-                    : () => openSchoolPage(
-                        context,
-                        controller,
-                        action: SchoolAction.importGrades,
-                      ),
+                onPressed: () =>
+                    startSync(context, controller, target: SyncTarget.grades),
                 icon: const Icon(Icons.download_rounded),
                 label: const Text('同步成绩，查看分类学分'),
               ),
