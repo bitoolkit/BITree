@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:bitree/mooc/credentials.dart';
@@ -8,11 +9,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webview_all/webview_all.dart';
 
+import 'support/http.dart';
 import 'support/mooc_browser.dart';
 import 'support/test_app.dart';
 
 void main() {
-  setUp(() => WebViewPlatform.instance = TestMoocBrowser());
+  late TestMoocBrowser browser;
+  setUp(() => WebViewPlatform.instance = browser = TestMoocBrowser());
   MemoryMoocStorage signedInStorage() =>
       MemoryMoocStorage()
         ..account = MoocAccount(
@@ -50,6 +53,22 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  void finishLogin() {
+    browser.cookies.add(
+      const WebViewCookie(
+        name: 'NTESSTUDYSI',
+        value: 'test',
+        domain: '.icourse163.org',
+      ),
+    );
+    browser.controller.snapshot = {
+      'id': '8',
+      'name': '测试账号',
+      'userAgent': 'test',
+    };
+    browser.controller.finishLoading();
+  }
+
   for (final brightness in Brightness.values) {
     testWidgets(
       'Cookie fallback validates locally and fits a narrow $brightness screen',
@@ -80,7 +99,8 @@ void main() {
     final model = TestAppController(moocStorage: signedInStorage());
     await pump(tester, model, scale: 1.4);
     expect(find.textContaining('已连接'), findsNothing);
-    for (final action in ['同步 DDL', '重新登录', '使用 Cookie', '退出账号']) {
+    expect(find.text('同步 DDL'), findsNothing);
+    for (final action in ['重新登录', '使用 Cookie', '退出账号']) {
       await tester.ensureVisible(find.text(action));
       expect(find.text(action).hitTestable(), findsOneWidget);
     }
@@ -97,13 +117,29 @@ void main() {
     final storage = signedInStorage();
     final model = TestAppController(moocStorage: storage);
     await pump(tester, model, scale: 1.3);
-    expect(find.text('同步 DDL'), findsOneWidget);
     await tester.tap(find.text('退出账号'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '退出'));
     await tester.pumpAndSettle();
     expect(storage.account, isNull);
     expect(find.text('网页登录'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Account login returns to settings without synchronizing', (
+    tester,
+  ) async {
+    final model = TestAppController();
+    await pump(tester, model);
+    await tester.tap(find.text('网页登录'));
+    await tester.pumpAndSettle();
+    finishLogin();
+    await tester.pumpAndSettle();
+    expect(model.mooc.account!.name, '测试账号');
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byType(WebViewWidget), findsNothing);
+    expect(find.text('同步中国大学MOOC DDL'), findsNothing);
+    expect(model.agenda.entries, isEmpty);
     expect(tester.takeException(), isNull);
   });
 
@@ -125,8 +161,105 @@ void main() {
     expect(find.byType(BottomSheet), findsOneWidget);
     expect(find.text('网页登录'), findsOneWidget);
     expect(find.text('学号'), findsNothing);
+    await tester.tap(find.byTooltip('关闭'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.text('同步中国大学MOOC DDL'), findsNothing);
+    expect(model.mooc.account, isNull);
+    expect(model.agenda.entries, isEmpty);
     expect(tester.takeException(), isNull);
   });
+
+  for (final expired in [false, true]) {
+    testWidgets('Import runs outside account management, expired=$expired', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      var authenticated = !expired;
+      final server = (await tester.runAsync(() async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        server.listen((request) async {
+          await request.drain<void>();
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(
+            jsonEncode({
+              'code': authenticated ? 0 : 1,
+              if (!authenticated) 'message': 'not_auth',
+              'result': null,
+            }),
+          );
+          await request.response.close();
+        });
+        return server;
+      }))!;
+      final previous = HttpOverrides.current;
+      final network = LocalHttpOverrides(server.port);
+      HttpOverrides.global = network;
+      addTearDown(() async {
+        HttpOverrides.global = previous;
+        await server.close(force: true);
+      });
+      final model = TestAppController(moocStorage: signedInStorage());
+      await model.initialize();
+      Future<void> waitForSync() async {
+        // Let socket events run, then flush continuations on the widget clock.
+        final elapsed = Stopwatch()..start();
+        while (model.mooc.busy &&
+            elapsed.elapsed < const Duration(seconds: 5)) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 10)),
+          );
+          await tester.pump();
+        }
+        expect(model.mooc.busy, isFalse);
+        await tester.pumpAndSettle();
+      }
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: bitreeTheme(Brightness.light),
+          home: Scaffold(body: SchoolImportButton(controller: model)),
+        ),
+      );
+      await tester.tap(find.byTooltip('导入'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('同步中国大学MOOC DDL'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(model.mooc.busy, isTrue);
+      await waitForSync();
+      expect(find.text('同步中国大学MOOC DDL'), findsOneWidget);
+      expect(find.text('使用 Cookie'), findsNothing);
+      expect(find.text('退出账号'), findsNothing);
+      if (expired) {
+        expect(find.text('重新登录'), findsOneWidget);
+        await tester.tap(find.text('重新登录'));
+        await tester.pumpAndSettle();
+        expect(find.text('网页登录'), findsOneWidget);
+        await tester.tap(find.byTooltip('关闭').last);
+        await tester.pumpAndSettle();
+        expect(find.text('重新登录'), findsOneWidget);
+        await tester.tap(find.text('重新登录'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('网页登录'));
+        await tester.pumpAndSettle();
+        authenticated = true;
+        finishLogin();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await waitForSync();
+        expect(find.text('已同步 0 条 DDL'), findsOneWidget);
+      } else {
+        expect(find.text('已同步 0 条 DDL'), findsOneWidget);
+      }
+      await tester.tap(find.byTooltip('关闭'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('Dismissing the login choices returns to the same screen', (
     tester,

@@ -2,26 +2,25 @@ import 'package:flutter/material.dart';
 
 import '../../core/async/cancelable_request.dart';
 import '../../core/error_message.dart';
-import '../../ui/app_notice.dart';
 import '../../ui/design.dart';
 import '../../ui/editor_sheet.dart';
 import '../../ui/external_link.dart';
 import '../../ui/sheet_layout.dart';
-import '../api.dart';
 import '../controller.dart';
 import '../credentials.dart';
 import 'login.dart';
 
-Future<void> showMoocAccount(
+Future<bool> showMoocAccount(
   BuildContext context,
-  MoocController controller, {
-  bool synchronize = false,
-}) => showModalBottomSheet<void>(
-  context: context,
-  useSafeArea: true,
-  isScrollControlled: true,
-  builder: (_) => _MoocSheet(controller: controller, synchronize: synchronize),
-);
+  MoocController controller,
+) async =>
+    await showModalBottomSheet<bool>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (_) => _MoocSheet(controller: controller),
+    ) ==
+    true;
 
 class MoocAccountTile extends StatelessWidget {
   const MoocAccountTile({super.key, required this.controller});
@@ -49,27 +48,15 @@ class MoocAccountTile extends StatelessWidget {
 }
 
 class _MoocSheet extends StatefulWidget {
-  const _MoocSheet({required this.controller, this.synchronize = false});
+  const _MoocSheet({required this.controller});
   final MoocController controller;
-  final bool synchronize;
   @override
   State<_MoocSheet> createState() => _MoocSheetState();
 }
 
 class _MoocSheetState extends State<_MoocSheet> {
-  MoocImportResult? _result;
   String? _error;
   bool _loginOpen = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.synchronize && !widget.controller.needsLogin) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _sync();
-      });
-    }
-  }
 
   Future<void> _login() async {
     if (_loginOpen) return;
@@ -79,7 +66,7 @@ class _MoocSheetState extends State<_MoocSheet> {
     });
     try {
       final success = await loginToMooc(context, widget.controller);
-      if (success && mounted && widget.synchronize) await _sync();
+      if (success && mounted) Navigator.pop(context, true);
     } finally {
       if (mounted) setState(() => _loginOpen = false);
     }
@@ -92,24 +79,7 @@ class _MoocSheetState extends State<_MoocSheet> {
       isScrollControlled: true,
       builder: (_) => _CookieSheet(controller: widget.controller),
     );
-    if (success == true && mounted && widget.synchronize) await _sync();
-  }
-
-  Future<void> _sync() async {
-    setState(() {
-      _error = null;
-      _result = null;
-    });
-    try {
-      final result = await widget.controller.synchronize();
-      if (mounted) setState(() => _result = result);
-    } on RequestCancelled {
-      if (mounted) showAppNotice(context, '已取消 MOOC 同步');
-    } catch (error) {
-      if (mounted) {
-        setState(() => _error = widget.controller.error ?? errorMessage(error));
-      }
-    }
+    if (success == true && mounted) Navigator.pop(context, true);
   }
 
   Future<void> _disconnect() async {
@@ -133,16 +103,10 @@ class _MoocSheetState extends State<_MoocSheet> {
     if (confirmed != true) return;
     try {
       await widget.controller.disconnect();
-      if (mounted) setState(() => _result = null);
+      if (mounted) setState(() => _error = null);
     } catch (error) {
       if (mounted) setState(() => _error = errorMessage(error));
     }
-  }
-
-  @override
-  void dispose() {
-    if (!_loginOpen) widget.controller.cancel();
-    super.dispose();
   }
 
   @override
@@ -201,33 +165,6 @@ class _MoocSheetState extends State<_MoocSheet> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (!model.needsLogin) ...[
-                    ListTile(
-                      leading: model.busy
-                          ? const SizedBox.square(
-                              dimension: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Icon(Icons.sync_rounded, color: scheme.primary),
-                      title: Text(
-                        '同步 DDL',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: scheme.primary,
-                        ),
-                      ),
-                      subtitle: Text(
-                        model.busy ? model.progress : '作业、测验、考试与互评',
-                      ),
-                      trailing: model.busy
-                          ? TextButton(
-                              onPressed: model.cancel,
-                              child: const Text('取消'),
-                            )
-                          : const Icon(Icons.chevron_right_rounded, size: 20),
-                      onTap: enabled ? _sync : null,
-                    ),
-                    const Divider(height: 24),
-                  ],
                   ListTile(
                     leading: const Icon(Icons.login_rounded),
                     title: Text(model.needsLogin ? '网页登录' : '重新登录'),
@@ -258,7 +195,7 @@ class _MoocSheetState extends State<_MoocSheet> {
                       onTap: enabled ? _disconnect : null,
                     ),
                   ],
-                  if (_error ?? model.error case final error?)
+                  if (_error case final error?)
                     Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: Text(
@@ -266,28 +203,6 @@ class _MoocSheetState extends State<_MoocSheet> {
                         style: TextStyle(color: theme.colorScheme.error),
                       ),
                     ),
-                  if (_result case final result?) ...[
-                    const SizedBox(height: 24),
-                    Text(
-                      '已同步 ${result.entries.length} 条 DDL',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 6),
-                    Text('读取了 ${result.courseCount} 门课程'),
-                    if (result.failures.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        '以下课程未能同步，可重新尝试',
-                        style: TextStyle(color: theme.colorScheme.error),
-                      ),
-                      for (final failure in result.failures)
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(failure.course),
-                          subtitle: Text(failure.message),
-                        ),
-                    ],
-                  ],
                 ],
               ),
             ),
