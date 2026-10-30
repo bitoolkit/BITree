@@ -1809,7 +1809,7 @@ abstract class AppLocalizations {
   /// No description provided for @deadlineMoocScopeDescription.
   ///
   /// In en, this message translates to:
-  /// **'DDLs synchronized from the Chinese MOOC platform, including locally edited items'**
+  /// **'DDLs synchronized from China University MOOC, including locally edited items'**
   String get deadlineMoocScopeDescription;
 
   /// No description provided for @deadlineSourceLexue.
@@ -1827,7 +1827,7 @@ abstract class AppLocalizations {
   /// No description provided for @deadlineSourceMooc.
   ///
   /// In en, this message translates to:
-  /// **'Chinese MOOC'**
+  /// **'China University MOOC'**
   String get deadlineSourceMooc;
 
   /// No description provided for @deadlineSourcePlatform.
@@ -2229,13 +2229,13 @@ abstract class AppLocalizations {
   /// No description provided for @moocName.
   ///
   /// In en, this message translates to:
-  /// **'Chinese University MOOC'**
+  /// **'China University MOOC'**
   String get moocName;
 
   /// No description provided for @moocSignOutQuestion.
   ///
   /// In en, this message translates to:
-  /// **'Sign out of Chinese University MOOC?'**
+  /// **'Sign out of China University MOOC?'**
   String get moocSignOutQuestion;
 
   /// No description provided for @moocSignOutBody.
@@ -2331,7 +2331,7 @@ abstract class AppLocalizations {
   /// No description provided for @moocLoginTitle.
   ///
   /// In en, this message translates to:
-  /// **'Sign in to Chinese University MOOC'**
+  /// **'Sign in to China University MOOC'**
   String get moocLoginTitle;
 
   /// No description provided for @refreshLoginPage.
@@ -2415,7 +2415,7 @@ abstract class AppLocalizations {
   /// No description provided for @moocLoginRequired.
   ///
   /// In en, this message translates to:
-  /// **'Sign in to your Chinese University MOOC account'**
+  /// **'Sign in to your China University MOOC account'**
   String get moocLoginRequired;
 
   /// No description provided for @moocUserFallback.
@@ -2445,13 +2445,13 @@ abstract class AppLocalizations {
   /// No description provided for @moocNoSession.
   ///
   /// In en, this message translates to:
-  /// **'No Chinese University MOOC session was found. Sign in first.'**
+  /// **'No China University MOOC session was found. Sign in first.'**
   String get moocNoSession;
 
   /// No description provided for @moocLoginExpired.
   ///
   /// In en, this message translates to:
-  /// **'The Chinese University MOOC session expired. Sign in again.'**
+  /// **'The China University MOOC session expired. Sign in again.'**
   String get moocLoginExpired;
 
   /// No description provided for @moocRequestBusy.

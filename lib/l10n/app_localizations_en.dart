@@ -1087,7 +1087,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deadlineMoocScopeDescription =>
-      'DDLs synchronized from the Chinese MOOC platform, including locally edited items';
+      'DDLs synchronized from China University MOOC, including locally edited items';
 
   @override
   String get deadlineSourceLexue => 'Lexue';
@@ -1096,7 +1096,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deadlineSourceEclass => 'E-Learning';
 
   @override
-  String get deadlineSourceMooc => 'Chinese MOOC';
+  String get deadlineSourceMooc => 'China University MOOC';
 
   @override
   String get deadlineSourcePlatform => 'Platform DDL';
@@ -1315,10 +1315,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accountImageRequired => 'Image verification required';
 
   @override
-  String get moocName => 'Chinese University MOOC';
+  String get moocName => 'China University MOOC';
 
   @override
-  String get moocSignOutQuestion => 'Sign out of Chinese University MOOC?';
+  String get moocSignOutQuestion => 'Sign out of China University MOOC?';
 
   @override
   String get moocSignOutBody =>
@@ -1368,7 +1368,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get openOfficialLogin => 'Open official sign-in page';
 
   @override
-  String get moocLoginTitle => 'Sign in to Chinese University MOOC';
+  String get moocLoginTitle => 'Sign in to China University MOOC';
 
   @override
   String get refreshLoginPage => 'Refresh sign-in page';
@@ -1417,7 +1417,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get moocLoginRequired =>
-      'Sign in to your Chinese University MOOC account';
+      'Sign in to your China University MOOC account';
 
   @override
   String get moocUserFallback => 'MOOC user';
@@ -1435,11 +1435,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get moocNoSession =>
-      'No Chinese University MOOC session was found. Sign in first.';
+      'No China University MOOC session was found. Sign in first.';
 
   @override
   String get moocLoginExpired =>
-      'The Chinese University MOOC session expired. Sign in again.';
+      'The China University MOOC session expired. Sign in again.';
 
   @override
   String get moocRequestBusy =>
