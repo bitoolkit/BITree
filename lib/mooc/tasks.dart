@@ -20,9 +20,15 @@ class MoocCourse {
   );
 }
 
-/// The term response contains metadata, not a user's answer forms. Merely
-/// starting an attempt is not evidence that a submission has been completed.
-List<AgendaEntry> readMoocTasks(
+class MoocTask {
+  const MoocTask._(this.entry, {this.reviewTestId});
+  final AgendaEntry entry;
+  final String? reviewTestId;
+}
+
+/// Reads the learner's term DTO. usedTryCount counts valid submissions, not
+/// opened attempts; peer review completion comes from its separate status API.
+List<MoocTask> readMoocTasks(
   Map<String, dynamic> term,
   MoocCourse course,
   String memberId,
@@ -31,7 +37,7 @@ List<AgendaEntry> readMoocTasks(
       moocId(term['courseId']) != course.id) {
     throw const FormatException('课程结构与所选课程不匹配。');
   }
-  final entries = <String, AgendaEntry>{};
+  final entries = <String, MoocTask>{};
 
   void add(Map<String, dynamic> activity, String kind, {bool exam = false}) {
     final test = moocMap(activity['test']) ?? activity;
@@ -48,24 +54,25 @@ List<AgendaEntry> readMoocTasks(
     final key = 'mooc:$memberId:${course.termId}:$kind:$id';
     final deadline = _time(test['deadline']);
     final release = _time(test['releaseTime'] ?? activity['releaseTime']);
-    final score = test['userScore'];
     final notes = [
       course.spoc ? 'SPOC' : 'MOOC',
       kind,
       if (release != null) '开放：${_dateTime(release)}',
     ];
     if (deadline != null) {
-      entries[key] = AgendaEntry(
-        id: key,
-        title: name,
-        kind: AgendaKind.deadline,
-        startsAt: deadline,
-        course: course.name,
-        source: DeadlineSource.mooc,
-        url: course.url,
-        local: false,
-        done: score is num && score.isFinite && score >= 0,
-        notes: notes.join(' · '),
+      entries[key] = MoocTask._(
+        AgendaEntry(
+          id: key,
+          title: name,
+          kind: AgendaKind.deadline,
+          startsAt: deadline,
+          course: course.name,
+          source: DeadlineSource.mooc,
+          url: course.url,
+          local: false,
+          done: _submitted(test, exam: exam),
+          notes: notes.join(' · '),
+        ),
       );
     }
     // Official JUDGE_TYPE_EVALUATE=1; JUDGE_TYPE_LECTOR=2 is teacher grading.
@@ -76,21 +83,27 @@ List<AgendaEntry> readMoocTasks(
       if (start != null && !end.isAfter(start)) {
         throw const FormatException('互评的结束时间早于开始时间。');
       }
-      entries['$key:review'] = AgendaEntry(
-        id: '$key:review',
-        title: '互评：$name',
-        kind: AgendaKind.deadline,
-        startsAt: end,
-        course: course.name,
-        source: DeadlineSource.mooc,
-        url: course.url,
-        local: false,
-        notes: [
-          course.spoc ? 'SPOC' : 'MOOC',
-          '互评',
-          if (start != null) '开始：${_dateTime(start)}',
-          if (deadline != null) '提交截止：${_dateTime(deadline)}',
-        ].join(' · '),
+      final reviewTestId =
+          moocId(exam ? test['subjectTestId'] : null) ?? moocId(peer['id']);
+      if (reviewTestId == null) throw const FormatException('互评任务缺少编号。');
+      entries['$key:review'] = MoocTask._(
+        AgendaEntry(
+          id: '$key:review',
+          title: '互评：$name',
+          kind: AgendaKind.deadline,
+          startsAt: end,
+          course: course.name,
+          source: DeadlineSource.mooc,
+          url: course.url,
+          local: false,
+          notes: [
+            course.spoc ? 'SPOC' : 'MOOC',
+            '互评',
+            if (start != null) '开始：${_dateTime(start)}',
+            if (deadline != null) '提交截止：${_dateTime(deadline)}',
+          ].join(' · '),
+        ),
+        reviewTestId: reviewTestId,
       );
     }
   }
@@ -130,7 +143,25 @@ List<AgendaEntry> readMoocTasks(
     exam(value);
   }
   return entries.values.toList()
-    ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+    ..sort((a, b) => a.entry.startsAt.compareTo(b.entry.startsAt));
+}
+
+bool _submitted(Map<String, dynamic> test, {bool exam = false}) {
+  bool submitted(Map<String, dynamic> value) {
+    final score = value['userScore'];
+    final count = value['usedTryCount'];
+    return value['userSubmitStatus'] == 2 ||
+        (count is int && count > 0) ||
+        (score is num && score.isFinite && score >= 0);
+  }
+
+  if (submitted(test)) return true;
+  if (!exam) return false;
+  final components = [
+    ?moocMap(test['objectTest']),
+    ?moocMap(test['subjectTest']),
+  ];
+  return components.isNotEmpty && components.every(submitted);
 }
 
 String _dateTime(DateTime date) =>

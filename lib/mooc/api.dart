@@ -124,19 +124,34 @@ class MoocApi {
       _cancellation.check();
       progress('正在读取 ${++count}/${courses.length}：《${course.name}》');
       try {
-        final term = moocMap(
+        final learned = moocMap(
           await _rpc(
-            'courseBean.getMocTermDto',
-            form: {
-              'termId': course.termId,
-              'isDraft': '0',
-              'excludeUnrelease': 'false',
-            },
+            'courseBean.getLastLearnedMocTermDto',
+            form: {'termId': course.termId},
             referer: course.url,
           ),
         );
+        final term = moocMap(learned?['mocTermDto']);
         if (term == null) throw const FormatException('MOOC 未返回课程结构。');
-        entries.addAll(readMoocTasks(term, course, memberId));
+        final courseEntries = <AgendaEntry>[];
+        for (final task in readMoocTasks(term, course, memberId)) {
+          var entry = task.entry;
+          if (task.reviewTestId case final testId?) {
+            final response = await _rpc(
+              'mocEvaluateBean.getEvaluateStatus',
+              form: {'testId': testId, 'evaluatorId': memberId},
+              referer: course.url,
+            );
+            final status = moocMap(response);
+            final completed = status?['stepEvaluated'];
+            if (response != null && completed is! bool) {
+              throw const FormatException('MOOC 互评状态格式不正确。');
+            }
+            entry = entry.copyWith(done: completed == true);
+          }
+          courseEntries.add(entry);
+        }
+        entries.addAll(courseEntries);
       } on MoocLoginRequired {
         rethrow;
       } on MoocFailure catch (error) {

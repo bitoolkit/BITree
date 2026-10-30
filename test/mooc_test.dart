@@ -23,9 +23,14 @@ final due = DateTime.utc(2026, 11, 2, 23, 59);
 int timestamp(DateTime beijing) =>
     beijing.subtract(const Duration(hours: 8)).millisecondsSinceEpoch;
 
-// Field names and nesting follow the public term response and the official
-// personal-centre modules; identifiers, times and account data are test inputs.
-Map<String, dynamic> task(int id, {int judge = 1, num? score}) => {
+// Field names and nesting follow the official learner term response;
+// identifiers, times and account data are test inputs.
+Map<String, dynamic> task(
+  int id, {
+  int judge = 1,
+  num? score,
+  int submitted = 0,
+}) => {
   'id': id,
   'name': '第 $id 周作业',
   'deadline': timestamp(due),
@@ -34,7 +39,7 @@ Map<String, dynamic> task(int id, {int judge = 1, num? score}) => {
   'evaluateStart': timestamp(due.add(const Duration(hours: 1))),
   'evaluateEnd': timestamp(due.add(const Duration(days: 3))),
   'userScore': score,
-  'usedTryCount': 1,
+  'usedTryCount': submitted,
 };
 
 Map<String, dynamic> term(int course) => {
@@ -47,7 +52,7 @@ Map<String, dynamic> term(int course) => {
       'visible': 1,
       'lessons': [],
       'homeworks': [
-        {'id': 30, 'contentType': 3, 'test': task(31)},
+        {'id': 30, 'contentType': 3, 'test': task(31 + course)},
       ],
       'quizs': [],
     },
@@ -107,7 +112,8 @@ void main() {
           'objectTest': task(53, judge: 2),
         },
       ];
-      final entries = readMoocTasks(data, course, '8');
+      final tasks = readMoocTasks(data, course, '8');
+      final entries = tasks.map((task) => task.entry).toList();
       expect(entries, hasLength(6));
       expect(entries.where((e) => e.title.startsWith('互评：')), hasLength(2));
       expect(entries.where((e) => e.title == '互评：第 32 周作业'), isEmpty);
@@ -127,12 +133,71 @@ void main() {
       expect(review.course, course.name);
       expect(review.url!.path, '/spoc/learn/7');
       expect(AgendaEntry.fromJson(review.toJson()).id, review.id);
+      expect(
+        tasks.firstWhere((task) => task.entry.id == review.id).reviewTestId,
+        '52',
+      );
     });
 
     test('A different member has separate imported tasks', () {
       expect(
-        readMoocTasks(term(7), course, '8').first.id,
-        isNot(readMoocTasks(term(7), course, '9').first.id),
+        readMoocTasks(term(7), course, '8').first.entry.id,
+        isNot(readMoocTasks(term(7), course, '9').first.entry.id),
+      );
+    });
+
+    test('Valid submissions complete ungraded tasks, while drafts and overdue tasks remain open', () {
+      final data = term(7);
+      final chapter = (data['chapters'] as List).single as Map<String, dynamic>;
+      chapter['homeworks'] = [
+        {'test': task(31, submitted: 1)},
+        {'test': task(32, judge: 2, score: 0)},
+        {'test': task(33)..['userSubmitStatus'] = 1},
+        {
+          'test': task(34)
+            ..['deadline'] = timestamp(due.subtract(const Duration(days: 30))),
+        },
+      ];
+      final entries = readMoocTasks(data, course, '8')
+          .map((task) => task.entry)
+          .where((entry) => !entry.id.endsWith(':review'));
+      expect(
+        {for (final entry in entries) entry.title: entry.done},
+        {
+          '第 31 周作业': true,
+          '第 32 周作业': true,
+          '第 33 周作业': false,
+          '第 34 周作业': false,
+        },
+      );
+    });
+
+    test('Composite exams require submission of every present component', () {
+      final data = term(7)
+        ..['exams'] = [
+          {
+            ...task(51),
+            'objectTest': task(52)..['userSubmitStatus'] = 2,
+            'subjectTest': task(53)..['userSubmitStatus'] = 2,
+          },
+          {
+            ...task(61),
+            'objectTest': task(62)..['userSubmitStatus'] = 2,
+            'subjectTest': task(63)..['userSubmitStatus'] = 1,
+          },
+        ];
+      final entries = readMoocTasks(
+        data,
+        course,
+        '8',
+      ).map((task) => task.entry);
+      expect(
+        entries.singleWhere((entry) => entry.id.endsWith(':考试:51')).done,
+        isTrue,
+      );
+      expect(
+        entries.singleWhere((entry) => entry.id.endsWith(':考试:61')).done,
+        isFalse,
       );
     });
 
@@ -210,6 +275,9 @@ void main() {
     var expired = false;
     var brokenCourse = false;
     var malformedPage = false;
+    var completed = false;
+    var reviewed = false;
+    var brokenReview = false;
     Completer<void>? waiting;
     final pages = <String>[];
 
@@ -217,6 +285,9 @@ void main() {
       expired = false;
       brokenCourse = false;
       malformedPage = false;
+      completed = false;
+      reviewed = false;
+      brokenReview = false;
       waiting = null;
       pages.clear();
       credential = MoocCredentials(
@@ -310,10 +381,10 @@ void main() {
               },
             }),
           );
-        } else if (request.uri.path.endsWith('getMocTermDto.rpc')) {
+        } else if (request.uri.path.endsWith('getLastLearnedMocTermDto.rpc')) {
           expect(cookie, contains('_ntes_nnid=rotated,value=='));
           expect(request.uri.queryParameters['csrfKey'], 'rotated');
-          expect(form['isDraft'], '0');
+          expect(form.keys, ['termId']);
           final id = int.parse(form['termId']!) - 100;
           if (waiting case final signal?) {
             signal.complete();
@@ -322,7 +393,36 @@ void main() {
           if (brokenCourse && id == 10) {
             request.response.statusCode = 503;
           } else {
-            request.response.write(jsonEncode({'code': 0, 'result': term(id)}));
+            final data = term(id);
+            final chapter =
+                (data['chapters'] as List).single as Map<String, dynamic>;
+            final test =
+                ((chapter['homeworks'] as List).single as Map)['test'] as Map;
+            test['usedTryCount'] = completed ? 1 : 0;
+            request.response.write(
+              jsonEncode({
+                'code': 0,
+                'result': {'mocTermDto': data, 'lastLearnUnitId': null},
+              }),
+            );
+          }
+        } else if (request.uri.path.endsWith('getEvaluateStatus.rpc')) {
+          expect(form['evaluatorId'], '8');
+          expect(int.parse(form['testId']!), inInclusiveRange(32, 41));
+          if (brokenReview && form['testId'] == '41') {
+            request.response.statusCode = 503;
+          } else {
+            request.response.write(
+              jsonEncode({
+                'code': 0,
+                'result': {
+                  'stepSubmitted': completed,
+                  'stepEvaluated': reviewed,
+                  'stepTrained': false,
+                  'stepSelfEvaluated': false,
+                },
+              }),
+            );
           }
         } else {
           fail('Unexpected authenticated request');
@@ -381,6 +481,53 @@ void main() {
         expect(edited.title, '我编辑的标题');
         expect(edited.done, isTrue);
         expect(controller.busy, isFalse);
+      }, network),
+    );
+
+    test(
+      'Remote submissions and reviews update existing tasks independently',
+      () => HttpOverrides.runWithHttpOverrides(() async {
+        await controller.connect(account);
+        await controller.synchronize();
+        final ids = agenda.entries.map((entry) => entry.id).toSet();
+        expect(agenda.entries.every((entry) => !entry.done), isTrue);
+
+        completed = true;
+        await controller.synchronize();
+        expect(
+          agenda.entries.where((entry) => !entry.id.endsWith(':review')),
+          everyElement(
+            isA<AgendaEntry>().having((entry) => entry.done, 'done', isTrue),
+          ),
+        );
+        expect(
+          agenda.entries.where((entry) => entry.id.endsWith(':review')),
+          everyElement(
+            isA<AgendaEntry>().having((entry) => entry.done, 'done', isFalse),
+          ),
+        );
+
+        reviewed = true;
+        await controller.synchronize();
+        expect(agenda.entries.every((entry) => entry.done), isTrue);
+        expect(agenda.entries, hasLength(20));
+        expect(agenda.entries.map((entry) => entry.id).toSet(), ids);
+      }, network),
+    );
+
+    test(
+      'Review read failure does not import a partial course',
+      () => HttpOverrides.runWithHttpOverrides(() async {
+        await controller.connect(account);
+        brokenReview = true;
+        final result = (await controller.synchronize())!;
+        expect(result.courseCount, 9);
+        expect(result.failures.single.course, '课程 10');
+        expect(agenda.entries, hasLength(18));
+        expect(
+          agenda.entries.where((entry) => entry.course == '课程 10'),
+          isEmpty,
+        );
       }, network),
     );
 
