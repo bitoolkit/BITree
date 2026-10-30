@@ -28,11 +28,7 @@ class _SchoolAccountState extends State<SchoolAccount> {
   }
 
   Future<void> _login() async {
-    await openSchoolPage(
-      context,
-      widget.controller,
-      action: SchoolAction.signIn,
-    );
+    await openSchoolLogin(context, widget.controller);
   }
 
   Future<void> _verify() async {
@@ -112,7 +108,10 @@ class _SchoolAccountState extends State<SchoolAccount> {
                 ),
               ],
             )
-          : const Icon(Icons.chevron_right_rounded, size: 20),
+          : const SizedBox.square(
+              dimension: 48,
+              child: Center(child: Icon(Icons.chevron_right_rounded, size: 20)),
+            ),
       onTap: canTap ? () => _perform(onTap) : null,
     );
   }

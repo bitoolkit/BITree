@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../core/diagnostics.dart';
@@ -14,6 +16,8 @@ class AgendaController extends ChangeNotifier {
   List<AgendaEntry> _entries = const [];
   bool _ready = false;
   bool _busy = false;
+  Future<void> _imports = Future<void>.value();
+  Completer<void>? _writing;
 
   bool get ready => _ready;
   bool get busy => _busy;
@@ -66,7 +70,12 @@ class AgendaController extends ChangeNotifier {
   Future<bool> restoreDeletedDeadlines() =>
       _write([for (final entry in _entries) entry.copyWith(deleted: false)]);
 
-  Future<bool> replaceExams(String term, List<AgendaEntry> exams) {
+  Future<bool> replaceExams(
+    String term,
+    List<AgendaEntry> exams, {
+    void Function()? checkActive,
+  }) => _import(() {
+    checkActive?.call();
     final edited = {
       for (final entry in _entries)
         if (entry.kind == AgendaKind.exam && entry.term == term && entry.local)
@@ -79,9 +88,13 @@ class AgendaController extends ChangeNotifier {
       ),
       ...exams.where((entry) => !edited.contains(entry.id)),
     ]);
-  }
+  });
 
-  Future<bool> mergeDeadlines(List<AgendaEntry> incoming) {
+  Future<bool> mergeDeadlines(
+    List<AgendaEntry> incoming, {
+    void Function()? checkActive,
+  }) => _import(() {
+    checkActive?.call();
     final entries = {for (final entry in _entries) entry.id: entry};
     for (final entry in incoming) {
       final saved = entries[entry.id];
@@ -92,6 +105,19 @@ class AgendaController extends ChangeNotifier {
       );
     }
     return _write(entries.values.toList());
+  });
+
+  // Concurrent platform reads merge against the latest saved entries. Local
+  // edits that finish while a platform is reading are included in that merge.
+  Future<T> _import<T>(Future<T> Function() write) {
+    final result = _imports.then((_) async {
+      while (_writing != null) {
+        await _writing!.future;
+      }
+      return write();
+    });
+    _imports = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return result;
   }
 
   int countDeadlines(DeadlineClearScope scope) =>
@@ -135,7 +161,9 @@ class AgendaController extends ChangeNotifier {
   Future<int?> updatePhysicsLabDeadlines(
     SemesterSchedule schedule, {
     DateTime? now,
-  }) async {
+    void Function()? checkActive,
+  }) => _import(() async {
+    checkActive?.call();
     final importedAt = now ?? campusNow();
     final incoming = physicsLabDeadlines(schedule);
     final savedById = {for (final entry in _entries) entry.id: entry};
@@ -158,7 +186,7 @@ class AgendaController extends ChangeNotifier {
             );
     }
     return await _write(next.values.toList()) ? incoming.length : null;
-  }
+  });
 
   Future<bool> _write(List<AgendaEntry> next) async {
     if (!_ready || _busy) {
@@ -168,6 +196,8 @@ class AgendaController extends ChangeNotifier {
       return false;
     }
     _busy = true;
+    final writing = Completer<void>();
+    _writing = writing;
     notifyListeners();
     try {
       await _store.write(next);
@@ -178,6 +208,8 @@ class AgendaController extends ChangeNotifier {
       return false;
     } finally {
       _busy = false;
+      _writing = null;
+      writing.complete();
       notifyListeners();
     }
   }

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../agenda/deadline_clear_scope.dart';
 import '../../agenda/ui/clear_deadlines_dialog.dart';
+import '../../mooc/ui/mooc_sheet.dart';
 import '../../schedule/ui/week_range_dialog.dart';
 import '../../school/ui/school_account.dart';
-import '../../school/ui/school_screen.dart';
+import '../../sync/controller.dart';
+import '../../sync/ui/sync.dart';
 import '../../ui/app_menu_anchor.dart';
 import '../../ui/app_menu_trigger.dart';
 import '../../ui/app_page.dart';
@@ -30,10 +32,10 @@ class SettingsScreen extends StatelessWidget {
         term,
         importTerm: (term) async {
           if (!context.mounted) return false;
-          return await openSchoolPage(
+          return await startSync(
                 context,
                 controller,
-                action: SchoolAction.importSchedule,
+                targets: {SyncTarget.schedule},
                 term: term,
               ) ==
               true;
@@ -231,6 +233,7 @@ class SettingsScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           SchoolAccount(controller: controller),
+          MoocAccountTile(controller: controller.mooc),
           section('外观', [
             SegmentedButton<ThemeMode>(
               expandedInsets: EdgeInsets.zero,

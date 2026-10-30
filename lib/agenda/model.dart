@@ -41,7 +41,7 @@ class AgendaEntry {
             url!.scheme != 'https' ||
             url!.host != source!.host ||
             url!.userInfo.isNotEmpty)) {
-      throw const FormatException('作业链接不属于对应的学校平台');
+      throw const FormatException('作业链接不属于对应的来源平台');
     }
   }
 

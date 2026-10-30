@@ -6,11 +6,14 @@ import '../agenda/controller.dart';
 import '../agenda/view_mode.dart';
 import '../classrooms/repository.dart';
 import '../core/diagnostics.dart';
+import '../mooc/controller.dart';
+import '../mooc/storage.dart';
 import '../schedule/controller.dart';
 import '../schedule/store.dart';
 import '../school/controller.dart';
 import '../school/service.dart';
 import '../school/storage.dart';
+import '../sync/controller.dart';
 
 /// Composes feature state and owns application startup and appearance.
 /// Feature changes are observed by their views, not relayed through this object.
@@ -22,6 +25,7 @@ class AppController extends ChangeNotifier {
     required this._preferences,
     required this.agenda,
     required this.academics,
+    MoocStorage? moocStorage,
   }) : timetable = TimetableController(store) {
     this.school = SchoolController(
       service: school,
@@ -31,6 +35,16 @@ class AppController extends ChangeNotifier {
       academics: academics,
     );
     classrooms = ClassroomRepository(this.school);
+    mooc = MoocController(
+      storage: moocStorage ?? MoocStorage(),
+      agenda: agenda,
+    );
+    sync = SyncController(
+      school: this.school,
+      mooc: mooc,
+      timetable: timetable,
+      agenda: agenda,
+    );
   }
 
   final TimetableController timetable;
@@ -38,6 +52,8 @@ class AppController extends ChangeNotifier {
   late final ClassroomRepository classrooms;
   final AgendaController agenda;
   final AcademicController academics;
+  late final MoocController mooc;
+  late final SyncController sync;
   final SharedPreferencesAsync _preferences;
   final agendaViewMode = ValueNotifier(AgendaViewMode.timeline);
   Future<void> _agendaViewWrite = Future<void>.value();
@@ -61,7 +77,8 @@ class AppController extends ChangeNotifier {
     try {
       final savedView = await _preferences.getString('agendaViewMode');
       if (!_agendaViewChosen) {
-        agendaViewMode.value = AgendaViewMode.values
+        agendaViewMode.value =
+            AgendaViewMode.values
                 .where((mode) => mode.name == savedView)
                 .firstOrNull ??
             AgendaViewMode.timeline;
@@ -71,6 +88,7 @@ class AppController extends ChangeNotifier {
     }
     await school.loadAccount();
     await agenda.load();
+    await mooc.load();
     await academics.load(school.username);
     _ready = true;
     notifyListeners();
@@ -104,8 +122,10 @@ class AppController extends ChangeNotifier {
   @override
   void dispose() {
     agendaViewMode.dispose();
+    sync.dispose();
     classrooms.dispose();
     school.dispose();
+    mooc.dispose();
     timetable.dispose();
     agenda.dispose();
     academics.dispose();

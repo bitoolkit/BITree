@@ -395,7 +395,7 @@ void main() {
     }, network),
   );
 
-  for (final source in DeadlineSource.values) {
+  for (final source in [DeadlineSource.lexue, DeadlineSource.eclass]) {
     for (final stillExpired in [false, true]) {
       test(
         '${source.label} retries authentication once when a DDL read expires, stillExpired=$stillExpired',

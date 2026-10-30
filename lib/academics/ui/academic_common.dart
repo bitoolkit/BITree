@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../../agenda/model.dart';
 import '../../app/controller.dart';
 import '../../schedule/model.dart';
-import '../../school/ui/school_screen.dart';
+import '../../sync/controller.dart';
+import '../../sync/ui/sync.dart';
 import '../../ui/external_link.dart';
 import '../model.dart';
 
@@ -62,16 +63,24 @@ class AcademicImportButton extends StatelessWidget {
     this.term,
   });
   final AppController controller;
-  final SchoolAction action;
+  final SyncTarget action;
   final String? term;
 
   @override
-  Widget build(BuildContext context) => IconButton(
-    tooltip: action.label,
-    onPressed: controller.school.busy || controller.academics.busy
-        ? null
-        : () => openSchoolPage(context, controller, action: action, term: term),
-    icon: const Icon(Icons.refresh_rounded),
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: controller.sync,
+    builder: (context, _) => IconButton(
+      tooltip: controller.sync.busy ? '查看同步进度' : action.label,
+      onPressed: () => controller.sync.busy
+          ? showSyncProgress(context, controller)
+          : startSync(context, controller, targets: {action}, term: term),
+      icon: controller.sync.busy
+          ? const SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.refresh_rounded),
+    ),
   );
 }
 

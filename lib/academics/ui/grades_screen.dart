@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../app/controller.dart';
-import '../../school/ui/school_screen.dart';
+import '../../sync/controller.dart';
+import '../../sync/ui/sync.dart';
 import '../../ui/app_dropdown_field.dart';
 import '../model.dart';
 import 'academic_common.dart';
@@ -50,7 +51,7 @@ class _GradesScreenState extends State<GradesScreen> {
           ),
           AcademicImportButton(
             controller: controller,
-            action: SchoolAction.importGrades,
+            action: SyncTarget.grades,
           ),
         ],
         children: [
@@ -64,14 +65,9 @@ class _GradesScreenState extends State<GradesScreen> {
           else if (record.gradesUpdatedAt == null)
             AcademicEmpty(
               title: '还没有同步成绩',
-              label: SchoolAction.importGrades.label,
-              onPressed: controller.school.busy
-                  ? null
-                  : () => openSchoolPage(
-                      context,
-                      controller,
-                      action: SchoolAction.importGrades,
-                    ),
+              label: SyncTarget.grades.label,
+              onPressed: () =>
+                  startSync(context, controller, targets: {SyncTarget.grades}),
             )
           else ...[
             AppDropdownField<String?>(
