@@ -151,13 +151,16 @@ void main() {
 
   for (final occupied in [(day: 4, section: 3), (day: 5, section: 5)]) {
     testWidgets(
-      'Tapping an occupied cell ${occupied.day} closes the menu and opens details',
+      'Tapping an occupied cell ${occupied.day} dismisses before opening details',
       (tester) async {
         await showGrid(tester);
         await openMenu(tester);
         await tester.tapAt(cell(tester, occupied.day, occupied.section));
         await tester.pumpAndSettle();
         expectClosed(tester);
+        expect(find.byType(BottomSheet), findsNothing);
+        await tester.tapAt(cell(tester, occupied.day, occupied.section));
+        await tester.pumpAndSettle();
         expect(find.byType(BottomSheet), findsOneWidget);
         if (occupied.day == 4) {
           expect(
@@ -172,13 +175,18 @@ void main() {
     );
   }
 
-  testWidgets('Outside controls still receive their tap', (tester) async {
+  testWidgets('Outside controls activate only after dismissing the menu', (
+    tester,
+  ) async {
     var taps = 0;
     await showGrid(tester, onOutsideTap: () => taps++);
     await openMenu(tester);
     await tester.tap(find.byTooltip('其他操作'));
     await tester.pumpAndSettle();
     expectClosed(tester);
+    expect(taps, 0);
+    await tester.tap(find.byTooltip('其他操作'));
+    await tester.pumpAndSettle();
     expect(taps, 1);
   });
 
@@ -189,7 +197,7 @@ void main() {
       await showGrid(tester);
       await openMenu(tester, day: 6, section: 9);
       final panel = find.byWidgetPredicate(
-        (widget) => widget is Material && widget.elevation == 6,
+        (widget) => widget is Material && widget.elevation == 3,
       );
       final opened = tester.getRect(panel);
       var height = opened.height;
@@ -378,19 +386,17 @@ void main() {
         await tester.pumpAndSettle();
         final panel = tester.getRect(
           find.byWidgetPredicate(
-            (widget) => widget is Material && widget.elevation == 6,
+            (widget) => widget is Material && widget.elevation == 3,
           ),
         );
-        expect(
-          panel.left,
-          closeTo(start.dx.clamp(8, size.width - panel.width - 8), .1),
-        );
-        final top = release.dy + panel.height <= size.height - 8
-            ? release.dy
-            : release.dy - panel.height;
-        expect(panel.top, closeTo(top, .1));
-        expect(panel.left, greaterThanOrEqualTo(8));
-        expect(panel.right, lessThanOrEqualTo(size.width - 8));
+        expect(panel.left, lessThanOrEqualTo(start.dx + 0.1));
+        expect(panel.right, greaterThanOrEqualTo(start.dx - 0.1));
+        expect(panel.top, lessThanOrEqualTo(release.dy + 0.1));
+        expect(panel.bottom, greaterThanOrEqualTo(release.dy - 0.1));
+        expect(panel.left, greaterThanOrEqualTo(0));
+        expect(panel.right, lessThanOrEqualTo(size.width));
+        expect(panel.top, greaterThanOrEqualTo(0));
+        expect(panel.bottom, lessThanOrEqualTo(size.height));
         final selection = tester
             .widget<AddMenu>(find.byType(AddMenu))
             .selection!;

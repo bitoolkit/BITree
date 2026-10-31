@@ -17,7 +17,8 @@ class WeekSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final schedule = controller.timetable.schedule;
     final screen = MediaQuery.sizeOf(context);
     final cellSize = math.max(
@@ -43,7 +44,7 @@ class WeekSelector extends StatelessWidget {
                     dimension: cellSize,
                     child: Semantics(
                       selected: controller.timetable.week == week,
-                      child: AppMenuItemButton(
+                      child: MenuItemButton(
                         onPressed: () => controller.timetable.selectWeek(week),
                         style: MenuItemButton.styleFrom(
                           padding: EdgeInsets.zero,
@@ -58,7 +59,7 @@ class WeekSelector extends StatelessWidget {
                           side: week == currentWeek
                               ? BorderSide(color: scheme.primary)
                               : BorderSide.none,
-                          textStyle: TextStyle(
+                          textStyle: theme.textTheme.labelLarge?.copyWith(
                             fontWeight:
                                 controller.timetable.week == week ||
                                     week == currentWeek
@@ -89,7 +90,7 @@ class WeekSelector extends StatelessWidget {
         semanticsLabel: l10n.chooseWeek,
         isOpen: isOpen,
         foregroundColor: scheme.onSurface,
-        textStyle: Theme.of(context).appBarTheme.titleTextStyle,
+        textStyle: theme.appBarTheme.titleTextStyle,
         onPressed: schedule == null
             ? null
             : () => isOpen ? menu.close() : menu.open(),

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'design.dart';
-
 /// A compact menu trigger for page headings. Form fields use AppDropdownField.
 class AppMenuTrigger extends StatelessWidget {
   const AppMenuTrigger({
@@ -64,8 +62,8 @@ class AppMenuArrow extends StatelessWidget {
     turns: isOpen ? .5 : 0,
     duration: MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
-        : appMenuMotion.reverseDuration!,
-    curve: appMenuMotion.reverseCurve!,
+        : Durations.short3,
+    curve: Curves.easeInOutCubic,
     child: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
   );
 }

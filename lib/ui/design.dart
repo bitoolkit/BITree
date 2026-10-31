@@ -20,10 +20,3 @@ const appSheetActionPadding = EdgeInsets.symmetric(
   horizontal: 24,
   vertical: 12,
 );
-
-const appMenuMotion = AnimationStyle(
-  duration: Durations.medium2,
-  reverseDuration: Durations.short4,
-  curve: Curves.easeOutCubic,
-  reverseCurve: Curves.easeInOutCubic,
-);

@@ -297,7 +297,7 @@ class _AgendaKindFilter extends StatelessWidget {
         ])
           Semantics(
             selected: value == kind,
-            child: AppMenuItemButton(
+            child: MenuItemButton(
               onPressed: () => onChanged(kind),
               trailingIcon: value == kind
                   ? const Icon(Icons.check_rounded, size: 18)

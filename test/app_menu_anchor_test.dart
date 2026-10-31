@@ -12,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/test_app.dart';
 
 final _panel = find.byWidgetPredicate(
-  (widget) => widget is Material && widget.elevation == 6,
+  (widget) => widget is Material && widget.elevation == 3,
 );
 
 Future<void> _showMenu(
@@ -33,9 +33,10 @@ Future<void> _showMenu(
           alignment: alignment,
           child: AppMenuAnchor(
             controller: controller,
+            style: const MenuStyle(alignment: AlignmentDirectional.bottomStart),
             menuChildren: [
               for (var i = 0; i < 8; i++)
-                AppMenuItemButton(onPressed: () {}, child: Text('Item $i')),
+                MenuItemButton(onPressed: () {}, child: Text('Item $i')),
             ],
             builder: (context, menu, isOpen) => TextButton(
               onPressed: () => isOpen ? menu.close() : menu.open(),
@@ -99,7 +100,9 @@ Future<TestAppController> _showWeekHeader(
 
 void main() {
   for (final alignment in [Alignment.topLeft, Alignment.bottomRight]) {
-    testWidgets('Menu at $alignment closes fully in 200 ms', (tester) async {
+    testWidgets('Menu at $alignment stays anchored while fading out', (
+      tester,
+    ) async {
       final controller = MenuController();
       await _showMenu(tester, controller: controller, alignment: alignment);
       controller.open();
@@ -107,29 +110,18 @@ void main() {
       final opened = tester.getRect(_panel);
       controller.close();
       await tester.pump();
-      for (var elapsed = 25; elapsed < 200; elapsed += 25) {
-        await tester.pump(const Duration(milliseconds: 25));
-        expect(_panel, findsOneWidget, reason: 'Menu removed at $elapsed ms');
-        final closing = tester.getRect(_panel);
-        expect(
-          closing.height,
-          closeTo(
-            opened.height *
-                (1 - Curves.easeInOutCubic.transform(elapsed / 200)),
-            0.1,
-          ),
-        );
-        expect(closing.left, closeTo(opened.left, 0.1));
-        expect(
-          alignment == Alignment.topLeft ? closing.top : closing.bottom,
-          closeTo(
-            alignment == Alignment.topLeft ? opened.top : opened.bottom,
-            0.1,
-          ),
-        );
-      }
-      await tester.pump(const Duration(milliseconds: 25));
-      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(_panel, findsOneWidget);
+      final closing = tester.getRect(_panel);
+      expect(closing.left, closeTo(opened.left, 0.1));
+      expect(closing.right, closeTo(opened.right, 0.1));
+      expect(
+        tester
+            .widgetList<FadeTransition>(find.byType(FadeTransition))
+            .any((fade) => fade.opacity.value > 0 && fade.opacity.value < 1),
+        isTrue,
+      );
+      await tester.pumpAndSettle();
       expect(_panel, findsNothing);
       expect(controller.isOpen, isFalse);
       expect(tester.takeException(), isNull);
@@ -146,12 +138,10 @@ void main() {
     await tester.tap(find.text('Toggle'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 75));
-    final closingHeight = tester.getSize(_panel).height;
+    final closing = tester.getRect(_panel);
     await tester.tap(find.text('Toggle'));
     await tester.pump();
-    expect(tester.getSize(_panel).height, closeTo(closingHeight, 0.1));
-    await tester.pump(const Duration(milliseconds: 50));
-    expect(tester.getSize(_panel).height, greaterThan(closingHeight));
+    expect(tester.getRect(_panel).left, closeTo(closing.left, 0.1));
     await tester.pumpAndSettle();
     expect(controller.isOpen, isTrue);
     await tester.tap(find.text('Item 1'));
@@ -174,6 +164,106 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'Outside dismissal consumes the tap instead of activating another action',
+    (tester) async {
+      final controller = MenuController();
+      var calls = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: bitreeTheme(Brightness.light),
+          home: Scaffold(
+            body: Column(
+              children: [
+                AppMenuAnchor(
+                  controller: controller,
+                  menuChildren: [
+                    MenuItemButton(
+                      onPressed: () {},
+                      child: const Text('Choice'),
+                    ),
+                  ],
+                  builder: (context, menu, isOpen) => TextButton(
+                    onPressed: menu.open,
+                    child: const Text('Open'),
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => calls++,
+                  child: const Text('Other action'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      controller.open();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Other action'));
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isFalse);
+      expect(calls, 0);
+      await tester.tap(find.text('Other action'));
+      await tester.pumpAndSettle();
+      expect(calls, 1);
+    },
+  );
+
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'Menus use the MD3 surface and lightweight shape in $brightness',
+      (tester) async {
+        final controller = MenuController();
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: bitreeTheme(brightness),
+            home: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: AppMenuAnchor(
+                    controller: controller,
+                    menuChildren: [
+                      MenuItemButton(
+                        onPressed: () {},
+                        child: const Text('Choice'),
+                      ),
+                    ],
+                    builder: (context, menu, isOpen) => IconButton(
+                      tooltip: 'More',
+                      onPressed: menu.open,
+                      icon: const Icon(Icons.more_vert),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final anchor = tester.getRect(find.byTooltip('More'));
+        controller.open();
+        await tester.pumpAndSettle();
+        final material = tester.widget<Material>(_panel);
+        final shape = material.shape! as RoundedRectangleBorder;
+        expect(
+          material.color,
+          bitreeTheme(brightness).colorScheme.surfaceContainer,
+        );
+        expect(shape.borderRadius, BorderRadius.circular(4));
+        expect(shape.side, BorderSide.none);
+        final panel = tester.getRect(_panel);
+        expect(panel.left, lessThanOrEqualTo(anchor.center.dx));
+        expect(panel.right, greaterThanOrEqualTo(anchor.center.dx));
+        expect(panel.top, closeTo(anchor.bottom, 0.1));
+        controller.close();
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('Week selection uses the shared closing transition', (
     tester,
   ) async {
@@ -183,16 +273,12 @@ void main() {
     );
     await tester.tap(find.text('第6周'));
     await tester.pumpAndSettle();
-    final height = tester.getSize(_panel).height;
     await tester.tap(find.text('8'));
     await tester.pump();
     expect(controller.timetable.week, 8);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(
-      tester.getSize(_panel).height,
-      closeTo(height * (1 - Curves.easeInOutCubic.transform(0.5)), 0.1),
-    );
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(_panel, findsOneWidget);
     await tester.pumpAndSettle();
     expect(_panel, findsNothing);
     expect(find.text('第8周'), findsOneWidget);
@@ -289,20 +375,19 @@ void main() {
   }
 
   testWidgets(
-    'A short viewport scrolls weeks within the space below the trigger',
+    'A short viewport keeps weeks accessible within the visible area',
     (tester) async {
       const size = Size(900, 320);
       final controller = await _showWeekHeader(tester, size: size);
       await tester.tap(find.text('第6周'));
       await tester.pumpAndSettle();
-      final trigger = tester.getRect(find.widgetWithText(TextButton, '第6周'));
       final panel = tester.getRect(_panel);
       final scrollable = tester.state<ScrollableState>(
         find.descendant(of: _panel, matching: find.byType(Scrollable)),
       );
       expect(scrollable.position.maxScrollExtent, greaterThan(0));
-      expect(panel.top, closeTo(trigger.bottom, 0.1));
-      expect(panel.bottom, lessThanOrEqualTo(size.height - 8));
+      expect(panel.top, greaterThanOrEqualTo(0));
+      expect(panel.bottom, lessThanOrEqualTo(size.height));
       await tester.ensureVisible(find.text('25'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('25'));
@@ -407,8 +492,8 @@ void main() {
       final panel = tester.getRect(_panel);
       expect(panel.width, greaterThanOrEqualTo(tester.getSize(field).width));
       expect(panel.top, closeTo(tester.getRect(field).bottom, 0.1));
-      expect(panel.left, greaterThanOrEqualTo(8));
-      expect(panel.right, lessThanOrEqualTo(size.width - 8));
+      expect(panel.left, greaterThanOrEqualTo(0));
+      expect(panel.right, lessThanOrEqualTo(size.width));
       if (scale == 1) expect(panel.width, lessThan(340));
       final afternoon = find.text('下午');
       await tester.ensureVisible(afternoon);

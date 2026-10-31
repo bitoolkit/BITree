@@ -36,7 +36,7 @@ class AddMenu extends StatelessWidget {
       controller: menuController,
       onClose: onClose,
       menuChildren: [
-        AppMenuItemButton(
+        MenuItemButton(
           onPressed: controller.timetable.busy
               ? null
               : () => editCourse(context, controller, selection: selection),
@@ -47,7 +47,7 @@ class AddMenu extends StatelessWidget {
           (AgendaKind.event, l10n.addAgenda, Icons.event_outlined),
           (AgendaKind.deadline, l10n.addDeadline, Icons.flag_outlined),
         ])
-          AppMenuItemButton(
+          MenuItemButton(
             onPressed: agendaEnabled
                 ? () => editAgenda(
                     context,

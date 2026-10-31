@@ -301,12 +301,16 @@ class SettingsScreen extends StatelessWidget {
             section(l10n.settingsLocalSchedule, [
               LayoutBuilder(
                 builder: (context, constraints) => AppMenuAnchor(
-                  menuWidth: constraints.maxWidth,
+                  style: MenuStyle(
+                    fixedSize: WidgetStatePropertyAll(
+                      Size(constraints.maxWidth, double.infinity),
+                    ),
+                  ),
                   menuChildren: [
                     for (final term in controller.timetable.terms)
                       Semantics(
                         selected: controller.timetable.schedule!.term == term,
-                        child: AppMenuItemButton(
+                        child: MenuItemButton(
                           onPressed: controller.timetable.busy
                               ? null
                               : () => _selectTerm(context, term),

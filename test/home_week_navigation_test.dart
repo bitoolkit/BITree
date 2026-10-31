@@ -186,7 +186,7 @@ void main() {
     await tester.tap(find.text('第6周'));
     await tester.pumpAndSettle();
     final panel = find.byWidgetPredicate(
-      (widget) => widget is Material && widget.elevation == 6,
+      (widget) => widget is Material && widget.elevation == 3,
     );
     final height = tester.getSize(panel).height;
     await tester.tap(find.widgetWithText(MenuItemButton, '7'));

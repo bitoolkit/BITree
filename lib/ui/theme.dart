@@ -207,22 +207,6 @@ ThemeData bitreeTheme(Brightness brightness) {
         color: scheme.onSurfaceVariant,
       ),
     ),
-    menuTheme: MenuThemeData(
-      style: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerLow),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-        elevation: const WidgetStatePropertyAll(6),
-        side: WidgetStatePropertyAll(BorderSide(color: scheme.outlineVariant)),
-        shape: const WidgetStatePropertyAll(appControlShape),
-      ),
-    ),
-    menuButtonTheme: MenuButtonThemeData(
-      style: MenuItemButton.styleFrom(
-        minimumSize: const Size(48, 48),
-        textStyle: const TextStyle(fontSize: 14),
-        shape: appControlShape,
-      ),
-    ),
     inputDecorationTheme: InputDecorationTheme(
       isDense: true,
       filled: true,
