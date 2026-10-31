@@ -1,5 +1,6 @@
 import '../../agenda/deadline_source.dart';
 import '../../agenda/model.dart';
+import '../../core/async/cancelable_request.dart';
 import '../../core/json.dart';
 import '../errors.dart';
 import '../session.dart';
@@ -23,6 +24,45 @@ Future<Map<String, dynamic>> _eclassJson(
 }
 
 Future<List<AgendaEntry>> fetchEclassDeadlines(SchoolSession session) async {
+  final tasks = await _courseTasks(session);
+
+  final result = <AgendaEntry>[];
+  Object? firstFailure;
+  StackTrace? firstStack;
+  for (final task in tasks) {
+    try {
+      result.add(
+        AgendaEntry(
+          id: 'eclass-${task.id}',
+          title: task.title,
+          kind: AgendaKind.deadline,
+          startsAt: _eclassDate(task.deadline),
+          done: await _submitted(session, task.id),
+          course: task.course,
+          source: DeadlineSource.eclass,
+          local: false,
+          url: DeadlineSource.eclass.origin.resolve(
+            '/course/${Uri.encodeComponent(task.courseId)}'
+            '/learning-activity/full-screen#/${task.id}',
+          ),
+        ),
+      );
+    } on RequestCancelled {
+      rethrow;
+    } on SessionExpired {
+      rethrow;
+    } on Exception catch (error, stack) {
+      firstFailure ??= error;
+      firstStack ??= stack;
+    }
+  }
+  if (result.isEmpty && firstFailure != null) {
+    Error.throwWithStackTrace(firstFailure, firstStack!);
+  }
+  return result;
+}
+
+Future<List<_EclassTask>> _courseTasks(SchoolSession session) async {
   final courses = <Map<String, dynamic>>[];
   var page = 1;
   while (true) {
@@ -51,62 +91,84 @@ Future<List<AgendaEntry>> fetchEclassDeadlines(SchoolSession session) async {
     page++;
   }
 
-  final result = <AgendaEntry>[];
+  final result = <_EclassTask>[];
+  final activityIds = <String>{};
+  Object? firstFailure;
+  StackTrace? firstStack;
   for (final course in courses) {
-    final courseId = _identifier(course['id'], 'course.id');
-    final coursePath = Uri.encodeComponent(courseId);
-    final response = await _eclassJson(
-      session,
-      '/api/courses/$coursePath/activities',
-    );
-    for (final value in jsonListField(response, 'activities')) {
-      final task = jsonObject(value, 'activities[]');
-      if (!_isDeadlineActivity(task)) continue;
-      final deadline = jsonStringOrNull(
-        task['end_time'] ?? task['visible_end_at'],
-        'activity deadline',
-      );
-      if (deadline == null || deadline.isEmpty || deadline == 'null') continue;
-      final id = _identifier(task['id'], 'activity.id');
-      final detail = await _eclassJson(
+    try {
+      final courseId = _identifier(course['id'], 'course.id');
+      final courseName = jsonStringField(course, 'name');
+      final response = await _eclassJson(
         session,
-        '/api/activities/${Uri.encodeComponent(id)}',
+        '/api/courses/${Uri.encodeComponent(courseId)}/activities',
       );
-      result.add(
-        AgendaEntry(
-          id: 'eclass-$id',
-          title: jsonStringOrNull(task['title'], 'activity.title') ?? '未命名作业',
-          kind: AgendaKind.deadline,
-          startsAt: _eclassDate(deadline),
-          done:
-              (jsonIntOrNull(
-                    detail['user_submit_count'],
-                    'user_submit_count',
-                  ) ??
-                  0) >
-              0,
-          course: jsonStringField(course, 'name'),
-          source: DeadlineSource.eclass,
-          local: false,
-          url: DeadlineSource.eclass.origin.resolve(
-            '/course/$coursePath/learning-activity/full-screen#/$id',
-          ),
-        ),
-      );
+      for (final value in jsonListField(response, 'activities')) {
+        final task = _taskFromActivity(
+          jsonObject(value, 'activities[]'),
+          courseId: courseId,
+          courseName: courseName,
+        );
+        if (task != null && activityIds.add(task.id)) result.add(task);
+      }
+    } on RequestCancelled {
+      rethrow;
+    } on SessionExpired {
+      rethrow;
+    } on Exception catch (error, stack) {
+      firstFailure ??= error;
+      firstStack ??= stack;
     }
+  }
+  if (result.isEmpty && firstFailure != null) {
+    Error.throwWithStackTrace(firstFailure, firstStack!);
   }
   return result;
 }
 
-bool _isDeadlineActivity(Map<String, dynamic> task) {
-  final type = (jsonStringOrNull(task['type'], 'activity.type') ?? '')
-      .trim()
-      .toLowerCase();
-  if (type == 'material') return false;
-  return const {'quiz', 'courseware_quiz', 'courseware-quiz'}.contains(type) ||
-      task['submit_times'] != null ||
-      task['is_review_homework'] != null ||
-      task['late_submission_count'] != null;
+_EclassTask? _taskFromActivity(
+  Map<String, dynamic> task, {
+  required String courseId,
+  required String courseName,
+}) {
+  if (task['type'] == 'material') return null;
+  final deadline = _deadline(task);
+  if (deadline == null) return null;
+  return (
+    id: _identifier(task['id'], 'activity.id'),
+    title: jsonStringOrNull(task['title'], 'activity.title') ?? '未命名作业',
+    courseId: courseId,
+    course: courseName,
+    deadline: deadline,
+  );
+}
+
+String? _deadline(Map<String, dynamic> task) {
+  final deadline = jsonStringOrNull(
+    task['end_time'] ?? task['visible_end_at'],
+    'activity deadline',
+  );
+  return deadline == null || deadline.isEmpty || deadline == 'null'
+      ? null
+      : deadline;
+}
+
+Future<bool> _submitted(SchoolSession session, String id) async {
+  try {
+    final detail = await _eclassJson(
+      session,
+      '/api/activities/${Uri.encodeComponent(id)}',
+    );
+    return (jsonIntOrNull(detail['user_submit_count'], 'user_submit_count') ??
+            0) >
+        0;
+  } on RequestCancelled {
+    rethrow;
+  } on SessionExpired {
+    rethrow;
+  } on Exception {
+    return false;
+  }
 }
 
 String _identifier(Object? value, String field) {
@@ -129,3 +191,11 @@ DateTime _eclassDate(String value) {
     parsed.second,
   );
 }
+
+typedef _EclassTask = ({
+  String id,
+  String title,
+  String courseId,
+  String course,
+  String deadline,
+});
