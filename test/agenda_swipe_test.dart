@@ -14,6 +14,7 @@ void main() {
     WidgetTester tester, {
     AgendaKind kind = AgendaKind.deadline,
     int count = 1,
+    bool deleted = false,
   }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 800);
@@ -30,6 +31,7 @@ void main() {
             endsAt: kind == AgendaKind.deadline
                 ? null
                 : DateTime.utc(2099, 1, 2, 21, index),
+            deleted: deleted,
           ),
       ],
     );
@@ -94,6 +96,23 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('Deleted deadlines can be restored from the agenda header', (
+    tester,
+  ) async {
+    final app = await showAgenda(tester, deleted: true);
+    final restoreButton = find.byTooltip('已删除的 DDL');
+    expect(restoreButton, findsOneWidget);
+    await tester.tap(restoreButton);
+    await tester.pumpAndSettle();
+    expect(find.text('已删除的 DDL'), findsOneWidget);
+    await tester.tap(find.text('恢复'));
+    await tester.pumpAndSettle();
+    expect(app.agenda.entries.single.id, 'task');
+    expect(app.agenda.deletedDeadlines, isEmpty);
+    expect(restoreButton, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final kind in [PointerDeviceKind.touch, PointerDeviceKind.mouse]) {
     testWidgets(
