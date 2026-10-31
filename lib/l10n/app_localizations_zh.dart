@@ -1050,9 +1050,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get syncDeadlineData => 'DDL 与课业';
 
   @override
-  String get deletedDdlMenu => '已删除的 DDL';
-
-  @override
   String get syncTooltip => '同步';
 
   @override

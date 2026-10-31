@@ -1123,9 +1123,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncDeadlineData => 'Deadlines and coursework';
 
   @override
-  String get deletedDdlMenu => 'Deleted DDLs';
-
-  @override
   String get syncTooltip => 'Sync';
 
   @override
