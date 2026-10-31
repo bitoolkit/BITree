@@ -388,6 +388,7 @@ void main() {
           title: '第五周作业',
           kind: AgendaKind.deadline,
           startsAt: DateTime.utc(2026, 11, 7, 3, 30),
+          done: true,
           course: '概率论与数理统计',
           source: DeadlineSource.lexue,
           local: false,
@@ -401,5 +402,84 @@ void main() {
     expect(agenda.entries.single.id, 'lexue-cmid-541355');
     expect(agenda.entries.single.title, '第五周作业');
     expect(agenda.entries.single.done, isTrue);
+  });
+
+  test('An unfinished remote deadline clears stale completion', () async {
+    final url = Uri.https('zy-eclass.bit.edu.cn', '/activity', {'id': '4381'});
+    final store = MemoryAgendaStore([
+      AgendaEntry(
+        id: 'eclass-4381',
+        title: '第五章作业',
+        kind: AgendaKind.deadline,
+        startsAt: DateTime.utc(2026, 11, 1, 23, 59),
+        done: true,
+        course: '离散数学',
+        source: DeadlineSource.eclass,
+        local: false,
+        url: url,
+      ),
+    ]);
+    final agenda = AgendaController(store);
+    addTearDown(agenda.dispose);
+    await agenda.load();
+
+    expect(
+      await agenda.mergeDeadlines([
+        AgendaEntry(
+          id: 'eclass-4381',
+          title: '第五章作业',
+          kind: AgendaKind.deadline,
+          startsAt: DateTime.utc(2026, 11, 1, 23, 59),
+          done: false,
+          course: '离散数学',
+          source: DeadlineSource.eclass,
+          local: false,
+          url: url,
+        ),
+      ]),
+      isTrue,
+    );
+
+    expect(agenda.entries.single.done, isFalse);
+  });
+
+  test('Eclass activities in one course do not share completion', () async {
+    AgendaEntry eclassActivity(
+      String id,
+      DateTime startsAt, {
+      bool done = false,
+    }) => AgendaEntry(
+      id: 'eclass-$id',
+      title: '作业$id',
+      kind: AgendaKind.deadline,
+      startsAt: startsAt,
+      done: done,
+      course: '离散数学',
+      source: DeadlineSource.eclass,
+      local: false,
+      url: Uri.https(
+        'zy-eclass.bit.edu.cn',
+        '/course/20336/learning-activity/full-screen',
+          ).replace(fragment: '/$id'),
+    );
+
+    final store = MemoryAgendaStore([
+      eclassActivity('4381', DateTime.utc(2026, 11, 1, 23, 59), done: true),
+    ]);
+    final agenda = AgendaController(store);
+    addTearDown(agenda.dispose);
+    await agenda.load();
+
+    expect(
+      await agenda.mergeDeadlines([
+        eclassActivity('4383', DateTime.utc(2026, 11, 8, 23, 59)),
+      ]),
+      isTrue,
+    );
+
+    expect(
+      agenda.entries.singleWhere((entry) => entry.id == 'eclass-4383').done,
+      isFalse,
+    );
   });
 }

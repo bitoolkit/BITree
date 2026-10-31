@@ -220,21 +220,13 @@ String? _deadline(Map<String, dynamic> task) {
 }
 
 Future<bool> _submitted(SchoolSession session, String id) async {
-  try {
-    final detail = await _eclassJson(
-      session,
-      '/api/activities/${Uri.encodeComponent(id)}',
-    );
-    return (jsonIntOrNull(detail['user_submit_count'], 'user_submit_count') ??
-            0) >
-        0;
-  } on RequestCancelled {
-    rethrow;
-  } on SessionExpired {
-    rethrow;
-  } on Exception {
-    return false;
-  }
+  final detail = await _eclassJson(
+    session,
+    '/api/activities/${Uri.encodeComponent(id)}',
+  );
+  return (jsonIntOrNull(detail['user_submit_count'], 'user_submit_count') ??
+          0) >
+      0;
 }
 
 String _identifier(Object? value, String field) {

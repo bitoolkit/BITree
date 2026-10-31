@@ -117,9 +117,7 @@ class AgendaController extends ChangeNotifier {
       final entry = unmatched.removeAt(index);
       matched.add(entry);
       final next = saved.local ? saved : entry;
-      merged.add(
-        next.copyWith(done: entry.done || saved.done, deleted: saved.deleted),
-      );
+      merged.add(next.copyWith(done: entry.done, deleted: saved.deleted));
     }
     return [...merged, ...unmatched];
   }, checkActive: checkActive);
@@ -282,6 +280,11 @@ bool _sameRemoteEntry(AgendaEntry left, AgendaEntry right) {
     final leftId = leftUrl.queryParameters['id'];
     final rightId = rightUrl.queryParameters['id'];
     if (leftId != null || rightId != null) return leftId == rightId;
+    final leftActivity = leftUrl.fragment;
+    final rightActivity = rightUrl.fragment;
+    if (leftActivity.isNotEmpty && rightActivity.isNotEmpty) {
+      return leftActivity == rightActivity;
+    }
     return leftUrl.replace(fragment: '') == rightUrl.replace(fragment: '');
   }
 
