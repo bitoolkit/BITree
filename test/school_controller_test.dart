@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:bitree/agenda/deadline_source.dart';
+import 'package:bitree/agenda/model.dart';
 import 'package:bitree/core/async/cancelable_request.dart';
 import 'package:bitree/school/controller.dart';
 import 'package:bitree/school/service.dart';
@@ -197,6 +198,92 @@ void main() {
       expect(app.school.busy, isFalse);
     });
   }
+
+  test('New eclass quizzes with deadlines are imported as DDLs', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final detailRequests = <String>[];
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      switch (request.uri.path) {
+        case '/zy-eclass.bit.edu.cn/user/courses':
+          request.response.write('{}');
+        case '/zy-eclass.bit.edu.cn/api/my-courses':
+          request.response.write(
+            jsonEncode({
+              'courses': [
+                {'id': 7, 'name': '概率论与数理统计'},
+              ],
+              'pages': 1,
+            }),
+          );
+        case '/zy-eclass.bit.edu.cn/api/courses/7/activities':
+          request.response.write(
+            jsonEncode({
+              'activities': [
+                {
+                  'id': 41,
+                  'title': '第一周测验',
+                  'type': 'QUIZ',
+                  'end_time': '2026-12-01 23:59',
+                },
+                {
+                  'id': 42,
+                  'title': '第二周测验',
+                  'type': 'courseware_quiz',
+                  'visible_end_at': '2026-12-02 23:59',
+                },
+                {
+                  'id': 43,
+                  'title': '课程资料',
+                  'type': 'material',
+                  'submit_times': 1,
+                  'end_time': '2026-12-03 23:59',
+                },
+              ],
+            }),
+          );
+        case final path
+            when path.startsWith('/zy-eclass.bit.edu.cn/api/activities/'):
+          final id = request.uri.pathSegments.last;
+          detailRequests.add(id);
+          request.response.write(
+            jsonEncode({'user_submit_count': id == '42' ? 1 : 0}),
+          );
+        default:
+          throw StateError('Unexpected request: ${request.uri.path}');
+      }
+      await request.response.close();
+    });
+    final app = TestAppController();
+    await app.initialize();
+
+    final success = await HttpOverrides.runWithHttpOverrides(
+      () => app.school.importDeadlines(
+        source: DeadlineSource.eclass,
+        verify: (_) async => null,
+      ),
+      LocalHttpOverrides(server.port),
+    );
+
+    expect(success, isTrue);
+    expect(detailRequests, ['41', '42']);
+    expect(app.agenda.entries, hasLength(2));
+    final first = app.agenda.entries.singleWhere(
+      (entry) => entry.id == 'eclass-41',
+    );
+    expect(first.title, '第一周测验');
+    expect(first.course, '概率论与数理统计');
+    expect(first.kind, AgendaKind.deadline);
+    expect(first.source, DeadlineSource.eclass);
+    expect(first.startsAt, DateTime.utc(2026, 12, 1, 23, 59));
+    expect(first.done, isFalse);
+    final second = app.agenda.entries.singleWhere(
+      (entry) => entry.id == 'eclass-42',
+    );
+    expect(second.startsAt, DateTime.utc(2026, 12, 2, 23, 59));
+    expect(second.done, isTrue);
+  });
 
   test('Cancelling a DDL update releases the school controller', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);

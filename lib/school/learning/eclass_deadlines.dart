@@ -61,11 +61,7 @@ Future<List<AgendaEntry>> fetchEclassDeadlines(SchoolSession session) async {
     );
     for (final value in jsonListField(response, 'activities')) {
       final task = jsonObject(value, 'activities[]');
-      final homework =
-          task['submit_times'] != null ||
-          task['is_review_homework'] != null ||
-          task['late_submission_count'] != null;
-      if (task['type'] == 'material' || !homework) continue;
+      if (!_isDeadlineActivity(task)) continue;
       final deadline = jsonStringOrNull(
         task['end_time'] ?? task['visible_end_at'],
         'activity deadline',
@@ -100,6 +96,17 @@ Future<List<AgendaEntry>> fetchEclassDeadlines(SchoolSession session) async {
     }
   }
   return result;
+}
+
+bool _isDeadlineActivity(Map<String, dynamic> task) {
+  final type = (jsonStringOrNull(task['type'], 'activity.type') ?? '')
+      .trim()
+      .toLowerCase();
+  if (type == 'material') return false;
+  return const {'quiz', 'courseware_quiz', 'courseware-quiz'}.contains(type) ||
+      task['submit_times'] != null ||
+      task['is_review_homework'] != null ||
+      task['late_submission_count'] != null;
 }
 
 String _identifier(Object? value, String field) {
