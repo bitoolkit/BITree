@@ -836,6 +836,7 @@
   "deletedDeadlinesNone": "No deleted DDLs",
   "deletedDeadlinesRestoreAll": "Restore all",
   "deletedDeadlinesRestoreAction": "Restore",
+  "deletedDeadlinesRestoreSelected": "Restore selected",
   "deletedDeadlinesRestored": "Restored “{title}”",
   "@deletedDeadlinesRestored": {
     "placeholders": {
@@ -845,6 +846,14 @@
     }
   },
   "deletedDeadlinesRestoredAll": "Restored all DDLs",
+  "deletedDeadlinesRestoredCount": "Restored {count} DDLs",
+  "@deletedDeadlinesRestoredCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "deadlineManual": "Manually created",
   "deadlineManualScope": "Manually created DDLs",
   "deadlineManualScopeDescription": "Manually added DDLs, excluding physics lab and synchronized platform items",
