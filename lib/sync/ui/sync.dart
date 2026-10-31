@@ -163,11 +163,13 @@ class _CustomSyncSheetState extends State<_CustomSyncSheet> {
         ],
       ],
     ),
-    actions: FilledButton(
-      onPressed: _selected.isEmpty
-          ? null
-          : () => Navigator.pop(context, _selected),
-      child: Text(context.l10n.syncSelected),
+    actions: SheetActionBar.primary(
+      primary: FilledButton(
+        onPressed: _selected.isEmpty
+            ? null
+            : () => Navigator.pop(context, _selected),
+        child: Text(context.l10n.syncSelected),
+      ),
     ),
   );
 
@@ -304,10 +306,12 @@ class _SyncProgressSheetState extends State<_SyncProgressSheet> {
                 ],
               )
             : model.incompleteTargets.isNotEmpty
-            ? FilledButton(
-                onPressed: _authenticating ? null : _retry,
-                child: Text(
-                  _authenticating ? l10n.verifying : l10n.retryIncomplete,
+            ? SheetActionBar.primary(
+                primary: FilledButton(
+                  onPressed: _authenticating ? null : _retry,
+                  child: Text(
+                    _authenticating ? l10n.verifying : l10n.retryIncomplete,
+                  ),
                 ),
               )
             : null,
