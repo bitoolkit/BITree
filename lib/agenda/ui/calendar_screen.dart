@@ -15,6 +15,7 @@ import '../model.dart';
 import '../view_mode.dart';
 import 'agenda_list_tile.dart';
 import 'agenda_timeline.dart';
+import 'deleted_deadlines.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({
@@ -60,6 +61,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         .where((entry) => _kind == null || entry.kind == _kind)
         .toList();
     final doneCount = entries.where((entry) => entry.isFinished(now)).length;
+    final deletedDeadlineCount = controller.agenda.deletedDeadlines.length;
     final timeline = controller.agendaViewMode.value == AgendaViewMode.timeline;
 
     Widget loadStatus() => Column(
@@ -128,6 +130,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
       actions: [
         AddButton(controller: controller),
         SyncButton(controller: controller),
+        if (deletedDeadlineCount > 0)
+          IconButton(
+            tooltip: l10n.deletedDeadlinesTitle,
+            onPressed: controller.agenda.busy
+                ? null
+                : () => showDeletedDeadlines(context, controller.agenda),
+            icon: Badge.count(
+              count: deletedDeadlineCount,
+              backgroundColor: scheme.primary,
+              textColor: scheme.onPrimary,
+              child: const Icon(Icons.restore_from_trash_outlined),
+            ),
+          ),
         IconButton(
           tooltip: timeline
               ? l10n.agendaSwitchToList
