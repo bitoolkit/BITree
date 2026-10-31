@@ -611,12 +611,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get weekSelectionAll => 'All';
-
-  @override
-  String get weekSelectionNone => 'None';
-
-  @override
   String get weekSelectionSummer => 'Summer term';
 
   @override
@@ -998,9 +992,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Select one or more sources. Counts include every term and completed or deleted DDLs.';
 
   @override
-  String get clearDeadlinesSelectAll => 'Select all';
-
-  @override
   String clearDeadlinesSourceCount(String source, int count) {
     return '$source ($count)';
   }
@@ -1124,6 +1115,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get customSync => 'Custom sync';
+
+  @override
+  String get syncSchoolData => 'School data';
+
+  @override
+  String get syncDeadlineData => 'Deadlines and coursework';
 
   @override
   String get deletedDdlMenu => 'Deleted DDLs';

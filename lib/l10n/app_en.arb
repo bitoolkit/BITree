@@ -439,8 +439,6 @@
       }
     }
   },
-  "weekSelectionAll": "All",
-  "weekSelectionNone": "None",
   "weekSelectionSummer": "Summer term",
   "weekSelectionRegular": "Regular term",
   "weekManagement": "Week range",
@@ -792,7 +790,6 @@
   "agendaTimelineStatusEnded": "Status: ended",
   "clearDeadlinesTitle": "Delete DDLs",
   "clearDeadlinesIntro": "Select one or more sources. Counts include every term and completed or deleted DDLs.",
-  "clearDeadlinesSelectAll": "Select all",
   "clearDeadlinesSourceCount": "{source} ({count})",
   "@clearDeadlinesSourceCount": {
     "placeholders": {
@@ -879,6 +876,8 @@
   },
   "syncAll": "Sync all",
   "customSync": "Custom sync",
+  "syncSchoolData": "School data",
+  "syncDeadlineData": "Deadlines and coursework",
   "deletedDdlMenu": "Deleted DDLs",
   "syncTooltip": "Sync",
   "viewSyncProgress": "View sync progress",

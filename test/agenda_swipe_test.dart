@@ -62,6 +62,7 @@ void main() {
       expect(app.agenda.deletedDeadlines.single.id, 'task');
       expect(find.text('第三章作业'), findsNothing);
       expect(find.text('未完成 0'), findsOneWidget);
+      expect(find.byTooltip('已删除的 DDL'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
