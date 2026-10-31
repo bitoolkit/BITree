@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../agenda/ui/deleted_deadlines.dart';
 import '../../app/controller.dart';
 import '../../l10n/l10n.dart';
 import '../../ui/app_menu_anchor.dart';
@@ -30,17 +29,6 @@ class SyncButton extends StatelessWidget {
                 ? () => customizeSync(context, controller)
                 : null,
             child: Text(l10n.customSync),
-          ),
-          const Divider(),
-          AppMenuItemButton(
-            leadingIcon: const Icon(Icons.restore_from_trash_outlined),
-            onPressed:
-                !controller.agenda.ready ||
-                    controller.agenda.busy ||
-                    controller.agenda.deletedDeadlines.isEmpty
-                ? null
-                : () => showDeletedDeadlines(context, controller.agenda),
-            child: Text(l10n.deletedDdlMenu),
           ),
         ],
         builder: (context, menu, isOpen) => IconButton(
