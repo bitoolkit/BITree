@@ -58,16 +58,7 @@ class AgendaListTile extends StatelessWidget {
       ),
       child: SwipeActionTile(
         enabled: !controller.agenda.busy,
-        leftAction: TileSwipeAction(
-          label: l10n.agendaSwipeDelete,
-          releaseLabel: l10n.agendaSwipeDeleteRelease,
-          icon: Icons.delete_outline,
-          background: scheme.error,
-          foreground: scheme.onError,
-          onInvoke: () =>
-              deleteAgendaEntry(context, controller, entry, confirm: false),
-        ),
-        rightAction: entry.isDeadline
+        leftAction: entry.isDeadline
             ? TileSwipeAction(
                 label: entry.done
                     ? l10n.agendaSwipeRestore
@@ -81,6 +72,15 @@ class AgendaListTile extends StatelessWidget {
                 onInvoke: _complete,
               )
             : null,
+        rightAction: TileSwipeAction(
+          label: l10n.agendaSwipeDelete,
+          releaseLabel: l10n.agendaSwipeDeleteRelease,
+          icon: Icons.delete_outline,
+          background: scheme.error,
+          foreground: scheme.onError,
+          onInvoke: () =>
+              deleteAgendaEntry(context, controller, entry, confirm: false),
+        ),
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(

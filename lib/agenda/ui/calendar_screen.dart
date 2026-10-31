@@ -100,6 +100,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
             Tab(text: l10n.agendaCompletedTab(doneCount)),
           ],
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+          child: Text(
+            l10n.agendaSwipeHint,
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ),
         loadStatus(),
       ],
     );

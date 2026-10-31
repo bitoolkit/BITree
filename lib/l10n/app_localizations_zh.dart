@@ -786,6 +786,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get agendaSwipeDoneRelease => '松手完成';
 
   @override
+  String get agendaSwipeHint => '按住后左滑完成 DDL，右滑删除';
+
+  @override
   String agendaDeleteQuestion(String kind) {
     return '删除$kind？';
   }

@@ -94,7 +94,7 @@ DDL 绘制与布局分离：右端为 `dueAt`，左侧渐隐，屏幕宽度为�
 ## 手势与布局
 
 - `SwipePager` 统一鼠标与触摸分页，拖过半页即报告新页，程序切页不报告中间页。
-- `SwipeActionTile` 使用原生 `Dismissible` 处理手势和滑出；保存失败回到原位。行的增删尺寸动画由 `AnimatedSliverChildren` 统一处理。
+- `SwipeActionTile` 让普通横滑交给分页；在条目上静止按住 220ms 后，明确横拖才接管单条操作。左滑完成或恢复 DDL，右滑删除；必须拖过距离阈值并松手才执行，短促甩动不触发。滑出与回弹使用同一动画，保存失败回到原位。行的增删尺寸动画由 `AnimatedSliverChildren` 统一处理。
 - `PullToRevealList` 管理下拉手势和展开状态，`RevealScrollController` 在布局阶段同步内容高度与滚动位置。用户重新拖动时解除滚动保持，直接接管滚动。
 - `AppMenuAnchor` 使用原生 `RawMenuAnchor` 管理焦点与菜单生命周期，统一面板的开合动效。菜单高度取触发器上下的实际可用空间。
 - `SheetLayout`、`EditorSheet` 和主题共同约束弹层尺寸、固定操作区与可滚动内容。地图的缩放、绘制和命中测试由 `WencuiFloorMap` 管理。

@@ -849,6 +849,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agendaSwipeDoneRelease => 'Release to complete';
 
   @override
+  String get agendaSwipeHint =>
+      'Hold, then swipe left to complete a DDL or right to delete';
+
+  @override
   String agendaDeleteQuestion(String kind) {
     return 'Delete $kind?';
   }
