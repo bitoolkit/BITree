@@ -28,10 +28,15 @@ Future<List<AgendaEntry>> fetchLexueDeadlines(
 ) async {
   final sesskey = RegExp(r'''["']sesskey["']\s*:\s*["']([^"']+)["']''')
       .firstMatch(page.text)?[1];
-  final calendar = sesskey == null
-      ? (value: const <AgendaEntry>[], error: null, stack: null)
-      : await _attempt(() => _calendarDeadlines(session, sesskey));
-  final activities = await _attempt(() => _activityDeadlines(session));
+  final outcomes = await Future.wait([
+    if (sesskey == null)
+      Future.value((value: const <AgendaEntry>[], error: null, stack: null))
+    else
+      _attempt(() => _calendarDeadlines(session, sesskey)),
+    _attempt(() => _activityDeadlines(session)),
+  ], eagerError: true);
+  final calendar = outcomes[0];
+  final activities = outcomes[1];
   if (calendar.value == null && activities.value == null) {
     Error.throwWithStackTrace(
       calendar.error ?? activities.error!,
@@ -96,97 +101,105 @@ Future<List<AgendaEntry>> _activityDeadlines(SchoolSession session) async {
     stopAtLogin: true,
   );
   final courses = _courseLinks(home.text, base: home.url);
-  final modules = <String, _ActivityLink>{};
-  Object? firstFailure;
-  StackTrace? firstStack;
-
-  for (final course in courses.values) {
-    try {
-      final coursePage = await session.request(course.url, stopAtLogin: true);
-      final document = html.parse(coursePage.text);
-      final courseName = _courseName(document) ?? course.name;
-      final sectionIds = _sectionIds(document, course.id, base: coursePage.url);
-      final pages = <({dom.Document document, Uri url})>[
-        (document: document, url: coursePage.url),
-      ];
-      for (final section in sectionIds) {
-        final sectionPage = await _courseSection(
-          session,
-          course,
-          section,
-          onFailure: (error, stack) {
-            firstFailure ??= error;
-            firstStack ??= stack;
-          },
-        );
-        if (sectionPage != null) pages.add(sectionPage);
-      }
-
-      for (final page in pages) {
-        final root =
-            page.document.querySelector('#region-main') ?? page.document.body;
-        if (root == null) continue;
-        for (final anchor in root.querySelectorAll(
-          '.activityinstance > a[href]',
-        )) {
-          final link = _activityLink(anchor, courseName, base: page.url);
-          if (link == null) continue;
-          modules[link.id] = link;
-        }
-      }
-    } on RequestCancelled {
-      rethrow;
-    } on SessionExpired {
-      rethrow;
-    } on Exception catch (error, stack) {
-      firstFailure ??= error;
-      firstStack ??= stack;
-    }
-  }
+  final scans = await Future.wait([
+    for (final course in courses.values)
+      _attempt(() => _courseActivities(session, course)),
+  ], eagerError: true);
 
   final result = <AgendaEntry>[];
-  for (final module in modules.values) {
-    try {
-      final response = await session.request(module.url, stopAtLogin: true);
-      final entry = _parseActivity(module, html.parse(response.text));
-      if (entry != null) result.add(entry);
-    } on RequestCancelled {
-      rethrow;
-    } on SessionExpired {
-      rethrow;
-    } on Exception catch (error, stack) {
-      firstFailure ??= error;
-      firstStack ??= stack;
+  final activityIds = <String>{};
+  Object? firstFailure;
+  StackTrace? firstStack;
+  for (final scan in scans) {
+    if (scan.value == null) {
+      firstFailure ??= scan.error;
+      firstStack ??= scan.stack;
+      continue;
     }
+    for (final entry in scan.value!.entries) {
+      if (activityIds.add(entry.id)) result.add(entry);
+    }
+    firstFailure ??= scan.value!.error;
+    firstStack ??= scan.value!.stack;
   }
   if (result.isEmpty && firstFailure != null) {
-    Error.throwWithStackTrace(firstFailure!, firstStack!);
+    Error.throwWithStackTrace(firstFailure, firstStack!);
   }
   return result;
+}
+
+Future<_ActivityScan> _courseActivities(
+  SchoolSession session,
+  _CourseLink course,
+) async {
+  final coursePage = await session.request(course.url, stopAtLogin: true);
+  final document = html.parse(coursePage.text);
+  final courseName = _courseName(document) ?? course.name;
+  final sectionIds = _sectionIds(document, course.id, base: coursePage.url);
+  final sections = await Future.wait([
+    for (final section in sectionIds)
+      _attempt(() => _courseSection(session, course, section)),
+  ], eagerError: true);
+
+  Object? firstFailure;
+  StackTrace? firstStack;
+  final pages = <({dom.Document document, Uri url})>[
+    (document: document, url: coursePage.url),
+  ];
+  for (final section in sections) {
+    final page = section.value;
+    if (page != null) {
+      pages.add(page);
+    } else {
+      firstFailure ??= section.error;
+      firstStack ??= section.stack;
+    }
+  }
+
+  final modules = <String, _ActivityLink>{};
+  for (final page in pages) {
+    final root =
+        page.document.querySelector('#region-main') ?? page.document.body;
+    if (root == null) continue;
+    for (final anchor in root.querySelectorAll('.activityinstance > a[href]')) {
+      final link = _activityLink(anchor, courseName, base: page.url);
+      if (link == null) continue;
+      modules[link.id] = link;
+    }
+  }
+
+  final outcomes = await Future.wait([
+    for (final module in modules.values)
+      _attempt(() async {
+        final response = await session.request(module.url, stopAtLogin: true);
+        return _parseActivity(module, html.parse(response.text));
+      }),
+  ], eagerError: true);
+  final entries = <AgendaEntry>[];
+  for (final outcome in outcomes) {
+    final entry = outcome.value;
+    if (entry != null) {
+      entries.add(entry);
+    } else {
+      firstFailure ??= outcome.error;
+      firstStack ??= outcome.stack;
+    }
+  }
+  return (entries: entries, error: firstFailure, stack: firstStack);
 }
 
 Future<({dom.Document document, Uri url})?> _courseSection(
   SchoolSession session,
   _CourseLink course,
-  int section, {
-  required void Function(Object error, StackTrace stack) onFailure,
-}) async {
-  try {
-    final response = await session.request(
-      course.url.replace(
-        queryParameters: {'id': course.id, 'section': '$section'},
-      ),
-      stopAtLogin: true,
-    );
-    return (document: html.parse(response.text), url: response.url);
-  } on RequestCancelled {
-    rethrow;
-  } on SessionExpired {
-    rethrow;
-  } on Exception catch (error, stack) {
-    onFailure(error, stack);
-    return null;
-  }
+  int section,
+) async {
+  final response = await session.request(
+    course.url.replace(
+      queryParameters: {'id': course.id, 'section': '$section'},
+    ),
+    stopAtLogin: true,
+  );
+  return (document: html.parse(response.text), url: response.url);
 }
 
 Map<String, _CourseLink> _courseLinks(String source, {required Uri base}) {
@@ -611,3 +624,8 @@ Future<({T? value, Object? error, StackTrace? stack})> _attempt<T>(
 
 typedef _CourseLink = ({String id, String name, Uri url});
 typedef _ActivityLink = ({String id, String course, String title, Uri url});
+typedef _ActivityScan = ({
+  List<AgendaEntry> entries,
+  Object? error,
+  StackTrace? stack,
+});

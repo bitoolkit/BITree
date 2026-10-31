@@ -26,40 +26,23 @@ Future<Map<String, dynamic>> _eclassJson(
 Future<List<AgendaEntry>> fetchEclassDeadlines(SchoolSession session) async {
   final tasks = await _courseTasks(session);
 
-  final result = <AgendaEntry>[];
-  Object? firstFailure;
-  StackTrace? firstStack;
-  for (final task in tasks) {
-    try {
-      result.add(
-        AgendaEntry(
-          id: 'eclass-${task.id}',
-          title: task.title,
-          kind: AgendaKind.deadline,
-          startsAt: _eclassDate(task.deadline),
-          done: await _submitted(session, task.id),
-          course: task.course,
-          source: DeadlineSource.eclass,
-          local: false,
-          url: DeadlineSource.eclass.origin.resolve(
-            '/course/${Uri.encodeComponent(task.courseId)}'
-            '/learning-activity/full-screen#/${task.id}',
-          ),
+  return [
+    for (final task in tasks)
+      AgendaEntry(
+        id: 'eclass-${task.id}',
+        title: task.title,
+        kind: AgendaKind.deadline,
+        startsAt: _eclassDate(task.deadline),
+        done: task.done,
+        course: task.course,
+        source: DeadlineSource.eclass,
+        local: false,
+        url: DeadlineSource.eclass.origin.resolve(
+          '/course/${Uri.encodeComponent(task.courseId)}'
+          '/learning-activity/full-screen#/${task.id}',
         ),
-      );
-    } on RequestCancelled {
-      rethrow;
-    } on SessionExpired {
-      rethrow;
-    } on Exception catch (error, stack) {
-      firstFailure ??= error;
-      firstStack ??= stack;
-    }
-  }
-  if (result.isEmpty && firstFailure != null) {
-    Error.throwWithStackTrace(firstFailure, firstStack!);
-  }
-  return result;
+      ),
+  ];
 }
 
 Future<List<_EclassTask>> _courseTasks(SchoolSession session) async {
@@ -91,39 +74,120 @@ Future<List<_EclassTask>> _courseTasks(SchoolSession session) async {
     page++;
   }
 
+  final outcomes = await Future.wait([
+    for (final course in courses) _courseTasksFor(session, course),
+  ], eagerError: true);
+
   final result = <_EclassTask>[];
   final activityIds = <String>{};
   Object? firstFailure;
   StackTrace? firstStack;
-  for (final course in courses) {
-    try {
-      final courseId = _identifier(course['id'], 'course.id');
-      final courseName = jsonStringField(course, 'name');
-      final response = await _eclassJson(
-        session,
-        '/api/courses/${Uri.encodeComponent(courseId)}/activities',
-      );
-      for (final value in jsonListField(response, 'activities')) {
-        final task = _taskFromActivity(
-          jsonObject(value, 'activities[]'),
-          courseId: courseId,
-          courseName: courseName,
-        );
-        if (task != null && activityIds.add(task.id)) result.add(task);
-      }
-    } on RequestCancelled {
-      rethrow;
-    } on SessionExpired {
-      rethrow;
-    } on Exception catch (error, stack) {
-      firstFailure ??= error;
-      firstStack ??= stack;
+  for (final outcome in outcomes) {
+    if (outcome.tasks == null) {
+      firstFailure ??= outcome.error;
+      firstStack ??= outcome.stack;
+      continue;
+    }
+    for (final task in outcome.tasks!) {
+      if (activityIds.add(task.id)) result.add(task);
     }
   }
   if (result.isEmpty && firstFailure != null) {
     Error.throwWithStackTrace(firstFailure, firstStack!);
   }
   return result;
+}
+
+Future<_CourseTasks> _courseTasksFor(
+  SchoolSession session,
+  Map<String, dynamic> course,
+) async {
+  try {
+    final courseId = _identifier(course['id'], 'course.id');
+    final courseName = jsonStringField(course, 'name');
+    final response = await _eclassJson(
+      session,
+      '/api/courses/${Uri.encodeComponent(courseId)}/activities',
+    );
+    final tasks = [
+      for (final value in jsonListField(response, 'activities'))
+        ?_taskFromActivity(
+          jsonObject(value, 'activities[]'),
+          courseId: courseId,
+          courseName: courseName,
+        ),
+    ];
+
+    final statuses = <String, bool>{};
+    if (tasks.any((task) => task.activityType == 'homework')) {
+      try {
+        statuses.addAll(await _homeworkSubmissionStatuses(session, courseId));
+      } on RequestCancelled {
+        rethrow;
+      } on SessionExpired {
+        rethrow;
+      } on Exception {
+        // Older server builds may not expose the course-level endpoint.
+      }
+    }
+
+    final pending = [
+      for (final task in tasks)
+        if (!statuses.containsKey(task.id)) task,
+    ];
+    final fallback = await Future.wait([
+      for (final task in pending) _submitted(session, task.id),
+    ], eagerError: true);
+    var fallbackIndex = 0;
+
+    return (
+      tasks: [
+        for (final task in tasks)
+          (
+            id: task.id,
+            title: task.title,
+            courseId: task.courseId,
+            course: task.course,
+            deadline: task.deadline,
+            activityType: task.activityType,
+            done:
+                statuses[task.id] ??
+                (statuses.containsKey(task.id)
+                    ? false
+                    : fallback[fallbackIndex++]),
+          ),
+      ],
+      error: null,
+      stack: null,
+    );
+  } on RequestCancelled {
+    rethrow;
+  } on SessionExpired {
+    rethrow;
+  } on Exception catch (error, stack) {
+    return (tasks: null, error: error, stack: stack);
+  }
+}
+
+Future<Map<String, bool>> _homeworkSubmissionStatuses(
+  SchoolSession session,
+  String courseId,
+) async {
+  final response = await _eclassJson(
+    session,
+    '/api/course/${Uri.encodeComponent(courseId)}'
+    '/homework/submission-status?no-intercept=true',
+  );
+  return {
+    for (final value in jsonListField(response, 'homework_activities'))
+      if (jsonObject(value, 'homework_activities[]') case final activity)
+        _identifier(activity['id'], 'homework_activities[].id'):
+            jsonStringOrNull(
+              activity['status_code'],
+              'homework_activities[].status_code',
+            ) ==
+            'submitted',
+  };
 }
 
 _EclassTask? _taskFromActivity(
@@ -140,6 +204,8 @@ _EclassTask? _taskFromActivity(
     courseId: courseId,
     course: courseName,
     deadline: deadline,
+    activityType: jsonStringOrNull(task['type'], 'activity.type') ?? '',
+    done: false,
   );
 }
 
@@ -198,4 +264,12 @@ typedef _EclassTask = ({
   String courseId,
   String course,
   String deadline,
+  String activityType,
+  bool done,
+});
+
+typedef _CourseTasks = ({
+  List<_EclassTask>? tasks,
+  Object? error,
+  StackTrace? stack,
 });

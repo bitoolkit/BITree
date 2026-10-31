@@ -15,70 +15,209 @@ import 'support/http.dart';
 import 'support/test_app.dart';
 
 void main() {
-  test(
-    'Eclass course scanning keeps later courses when one course fails',
-    () async {
-      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-      addTearDown(() => server.close(force: true));
-      final paths = <String>[];
-      server.listen((request) async {
-        paths.add(request.uri.path);
-        switch (request.uri.path) {
-          case '/zy-eclass.bit.edu.cn/api/my-courses':
-            request.response.headers.contentType = ContentType.json;
-            request.response.write(
-              jsonEncode({
-                'courses': [
-                  {'id': 1, 'name': '暂时不可用的课程'},
-                  {'id': 20759, 'name': '大学物理AⅡ'},
-                ],
-              }),
-            );
-          case '/zy-eclass.bit.edu.cn/api/courses/1/activities':
-            request.response.statusCode = HttpStatus.serviceUnavailable;
-            request.response.write('temporarily unavailable');
-          case '/zy-eclass.bit.edu.cn/api/courses/20759/activities':
-            request.response.headers.contentType = ContentType.json;
-            request.response.write(
-              jsonEncode({
-                'activities': [
-                  {
-                    'id': 9058,
-                    'type': 'homework',
-                    'title': '第4次作业：卷三第二章习题 18、21、23、24、27、29、31、35',
-                    'end_time': '2026-11-02T15:59:00Z',
-                    'visible_end_at': null,
-                  },
-                ],
-              }),
-            );
-          case '/zy-eclass.bit.edu.cn/api/activities/9058':
-            request.response.headers.contentType = ContentType.json;
-            request.response.write(jsonEncode({'user_submit_count': 0}));
-          default:
-            request.response.statusCode = HttpStatus.notFound;
-            request.response.write('unexpected request');
-        }
+  test('Eclass course scanning keeps later courses when one course fails', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final paths = <String>[];
+    server.listen((request) async {
+      paths.add(request.uri.path);
+      switch (request.uri.path) {
+        case '/zy-eclass.bit.edu.cn/api/my-courses':
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(
+            jsonEncode({
+              'courses': [
+                {'id': 1, 'name': '暂时不可用的课程'},
+                {'id': 20759, 'name': '大学物理AⅡ'},
+              ],
+            }),
+          );
+        case '/zy-eclass.bit.edu.cn/api/courses/1/activities':
+          request.response.statusCode = HttpStatus.serviceUnavailable;
+          request.response.write('temporarily unavailable');
+        case '/zy-eclass.bit.edu.cn/api/courses/20759/activities':
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(
+            jsonEncode({
+              'activities': [
+                {
+                  'id': 9058,
+                  'type': 'homework',
+                  'title': '第4次作业：卷三第二章习题 18、21、23、24、27、29、31、35',
+                  'end_time': '2026-11-02T15:59:00Z',
+                  'visible_end_at': null,
+                },
+                {
+                  'id': 9060,
+                  'type': 'quiz',
+                  'title': '第三章单元测验',
+                  'end_time': '2026-11-03T15:59:00Z',
+                  'visible_end_at': null,
+                },
+              ],
+            }),
+          );
+        case '/zy-eclass.bit.edu.cn/api/course/20759/homework/submission-status':
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(
+            jsonEncode({
+              'course_id': 20759,
+              'homework_activities': [
+                {'id': 9058, 'status_code': 'absent'},
+              ],
+            }),
+          );
+        case '/zy-eclass.bit.edu.cn/api/activities/9060':
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(jsonEncode({'user_submit_count': 1}));
+        default:
+          request.response.statusCode = HttpStatus.notFound;
+          request.response.write('unexpected request');
+      }
+      await request.response.close();
+    });
+
+    SchoolSession? session;
+    addTearDown(() => session?.close());
+    final entries = await HttpOverrides.runWithHttpOverrides(() {
+      session = SchoolSession(
+        network: SchoolNetwork.campus,
+        storage: MemorySchoolStorage(),
+      );
+      return fetchEclassDeadlines(session!);
+    }, LocalHttpOverrides(server.port));
+
+    expect(entries, hasLength(2));
+    final homework = entries.singleWhere((entry) => entry.id == 'eclass-9058');
+    expect(homework.course, '大学物理AⅡ');
+    expect(homework.startsAt, DateTime.utc(2026, 11, 2, 23, 59));
+    expect(homework.done, isFalse);
+    final quiz = entries.singleWhere((entry) => entry.id == 'eclass-9060');
+    expect(quiz.startsAt, DateTime.utc(2026, 11, 3, 23, 59));
+    expect(quiz.done, isTrue);
+    expect(paths, isNot(contains('/zy-eclass.bit.edu.cn/api/todos')));
+    expect(
+      paths,
+      contains(
+        '/zy-eclass.bit.edu.cn/api/course/20759/homework/submission-status',
+      ),
+    );
+    expect(paths, isNot(contains('/zy-eclass.bit.edu.cn/api/activities/9058')));
+    expect(paths, contains('/zy-eclass.bit.edu.cn/api/activities/9060'));
+  });
+
+  test('Eclass courses scan concurrently within the request limit', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final activityCourses = <String>[];
+    final statusCourses = <String>[];
+    var active = 0;
+    var maxActive = 0;
+    var detailRequests = 0;
+
+    Future<void> sendJson(
+      HttpRequest request,
+      Object body, {
+      bool delay = true,
+    }) async {
+      active++;
+      if (active > maxActive) maxActive = active;
+      try {
+        if (delay) await Future<void>.delayed(const Duration(milliseconds: 30));
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode(body));
         await request.response.close();
-      });
+      } finally {
+        active--;
+      }
+    }
 
-      SchoolSession? session;
-      addTearDown(() => session?.close());
-      final entries = await HttpOverrides.runWithHttpOverrides(() {
-        session = SchoolSession(
-          network: SchoolNetwork.campus,
-          storage: MemorySchoolStorage(),
-        );
-        return fetchEclassDeadlines(session!);
-      }, LocalHttpOverrides(server.port));
+    server.listen((request) async {
+      final path = request.uri.path;
+      if (path == '/zy-eclass.bit.edu.cn/api/my-courses') {
+        await sendJson(request, {
+          'courses': [
+            {'id': 100, 'name': '多作业课程'},
+            for (var index = 0; index < 5; index++)
+              {'id': 200 + index, 'name': '课程${index + 1}'},
+          ],
+        });
+        return;
+      }
 
-      expect(entries, hasLength(1));
-      expect(entries.single.id, 'eclass-9058');
-      expect(entries.single.course, '大学物理AⅡ');
-      expect(entries.single.startsAt, DateTime.utc(2026, 11, 2, 23, 59));
-      expect(paths, isNot(contains('/zy-eclass.bit.edu.cn/api/todos')));
-    },
-  );
+      final activity = RegExp(
+        r'^/zy-eclass\.bit\.edu\.cn/api/courses/(\d+)/activities$',
+      ).firstMatch(path);
+      if (activity != null) {
+        final courseId = activity[1]!;
+        activityCourses.add(courseId);
+        final ids = courseId == '100' ? [101, 102] : [int.parse(courseId) * 10];
+        await sendJson(request, {
+          'activities': [
+            for (final id in ids)
+              {
+                'id': id,
+                'type': 'homework',
+                'title': '作业$id',
+                'end_time': '2026-11-02T15:59:00Z',
+                'visible_end_at': null,
+              },
+          ],
+        });
+        return;
+      }
+
+      final status = RegExp(
+        r'^/zy-eclass\.bit\.edu\.cn/api/course/(\d+)/homework/submission-status$',
+      ).firstMatch(path);
+      if (status != null) {
+        final courseId = status[1]!;
+        statusCourses.add(courseId);
+        final ids = courseId == '100' ? [101, 102] : [int.parse(courseId) * 10];
+        await sendJson(request, {
+          'course_id': int.parse(courseId),
+          'homework_activities': [
+            for (final id in ids)
+              {'id': id, 'status_code': id == 101 ? 'submitted' : 'absent'},
+          ],
+        }, delay: false);
+        return;
+      }
+
+      if (path.startsWith('/zy-eclass.bit.edu.cn/api/activities/')) {
+        detailRequests++;
+      }
+      request.response.statusCode = HttpStatus.notFound;
+      request.response.write('unexpected request');
+      await request.response.close();
+    });
+
+    SchoolSession? session;
+    addTearDown(() => session?.close());
+    final entries = await HttpOverrides.runWithHttpOverrides(() {
+      session = SchoolSession(
+        network: SchoolNetwork.campus,
+        storage: MemorySchoolStorage(),
+      );
+      return fetchEclassDeadlines(session!);
+    }, LocalHttpOverrides(server.port));
+
+    expect(entries, hasLength(7));
+    expect(
+      entries.singleWhere((entry) => entry.id == 'eclass-101').done,
+      isTrue,
+    );
+    expect(
+      activityCourses,
+      unorderedEquals(['100', '200', '201', '202', '203', '204']),
+    );
+    expect(
+      statusCourses,
+      unorderedEquals(['100', '200', '201', '202', '203', '204']),
+    );
+    expect(detailRequests, 0);
+    expect(maxActive, inInclusiveRange(2, 4));
+  });
 
   test(
     'Lexue activity pages supply deadlines missing from calendar export',
@@ -207,7 +346,7 @@ void main() {
       );
       expect(submitted.startsAt, DateTime.utc(2026, 10, 25, 23, 30));
       expect(submitted.done, isTrue);
-      expect(activityIds, ['541355', '541356']);
+      expect(activityIds, unorderedEquals(['541355', '541356']));
     },
   );
 
