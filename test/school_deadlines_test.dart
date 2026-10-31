@@ -460,7 +460,7 @@ void main() {
       url: Uri.https(
         'zy-eclass.bit.edu.cn',
         '/course/20336/learning-activity/full-screen',
-          ).replace(fragment: '/$id'),
+      ).replace(fragment: '/$id'),
     );
 
     final store = MemoryAgendaStore([
@@ -481,5 +481,40 @@ void main() {
       agenda.entries.singleWhere((entry) => entry.id == 'eclass-4383').done,
       isFalse,
     );
+  });
+
+  test('A shared course URL does not identify different activities', () async {
+    final url = Uri.https(DeadlineSource.mooc.host, '/learn/1', {'tid': '101'});
+    AgendaEntry activity(String id, String title, {bool deleted = false}) =>
+        AgendaEntry(
+          id: id,
+          title: title,
+          kind: AgendaKind.deadline,
+          startsAt: DateTime.utc(2026, 11, 1),
+          deleted: deleted,
+          course: '课程 1',
+          source: DeadlineSource.mooc,
+          local: false,
+          url: url,
+        );
+
+    final store = MemoryAgendaStore([
+      activity('review', '互评：第 32 周作业'),
+      activity('assignment', '第 32 周作业', deleted: true),
+    ]);
+    final agenda = AgendaController(store);
+    addTearDown(agenda.dispose);
+    await agenda.load();
+
+    expect(
+      await agenda.mergeDeadlines([
+        activity('assignment', '第 32 周作业'),
+        activity('review', '互评：第 32 周作业'),
+      ]),
+      isTrue,
+    );
+
+    expect(agenda.entries.single.id, 'review');
+    expect(agenda.deletedDeadlines.single.id, 'assignment');
   });
 }
