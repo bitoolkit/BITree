@@ -16,14 +16,14 @@ class SyncButton extends StatelessWidget {
       final l10n = context.l10n;
       return AppMenuAnchor(
         menuChildren: [
-          MenuItemButton(
+          AppMenuItemButton(
             leadingIcon: const Icon(Icons.sync_rounded),
             onPressed: controller.agenda.ready
                 ? () => startSync(context, controller)
                 : null,
             child: Text(l10n.syncAll),
           ),
-          MenuItemButton(
+          AppMenuItemButton(
             leadingIcon: const Icon(Icons.tune_rounded),
             onPressed: controller.agenda.ready
                 ? () => customizeSync(context, controller)

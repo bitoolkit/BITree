@@ -44,7 +44,7 @@ class WeekSelector extends StatelessWidget {
                     dimension: cellSize,
                     child: Semantics(
                       selected: controller.timetable.week == week,
-                      child: MenuItemButton(
+                      child: AppMenuItemButton(
                         onPressed: () => controller.timetable.selectWeek(week),
                         style: MenuItemButton.styleFrom(
                           padding: EdgeInsets.zero,

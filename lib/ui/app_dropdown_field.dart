@@ -65,7 +65,7 @@ class _AppDropdownFieldState<T> extends State<AppDropdownField<T>> {
           for (final entry in widget.entries)
             Semantics(
               selected: entry.value == widget.value,
-              child: MenuItemButton(
+              child: AppMenuItemButton(
                 overflowAxis: Axis.vertical,
                 key: entry.value == widget.value ? _selectedItem : null,
                 autofocus: entry.value == widget.value,

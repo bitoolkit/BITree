@@ -310,7 +310,7 @@ class SettingsScreen extends StatelessWidget {
                     for (final term in controller.timetable.terms)
                       Semantics(
                         selected: controller.timetable.schedule!.term == term,
-                        child: MenuItemButton(
+                        child: AppMenuItemButton(
                           onPressed: controller.timetable.busy
                               ? null
                               : () => _selectTerm(context, term),

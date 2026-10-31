@@ -36,7 +36,7 @@ Future<void> _showMenu(
             style: const MenuStyle(alignment: AlignmentDirectional.bottomStart),
             menuChildren: [
               for (var i = 0; i < 8; i++)
-                MenuItemButton(onPressed: () {}, child: Text('Item $i')),
+                AppMenuItemButton(onPressed: () {}, child: Text('Item $i')),
             ],
             builder: (context, menu, isOpen) => TextButton(
               onPressed: () => isOpen ? menu.close() : menu.open(),
@@ -100,7 +100,7 @@ Future<TestAppController> _showWeekHeader(
 
 void main() {
   for (final alignment in [Alignment.topLeft, Alignment.bottomRight]) {
-    testWidgets('Menu at $alignment stays anchored while fading out', (
+    testWidgets('Menu at $alignment closes continuously to zero height', (
       tester,
     ) async {
       final controller = MenuController();
@@ -110,9 +110,24 @@ void main() {
       final opened = tester.getRect(_panel);
       controller.close();
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 60));
+      expect(tester.getSize(_panel).height, closeTo(opened.height, 0.1));
+      var previous = opened.height;
+      for (var frame = 0; frame < 14; frame++) {
+        await tester.pump(const Duration(milliseconds: 10));
+        final current = tester.getRect(_panel);
+        expect(current.height, lessThanOrEqualTo(previous + 0.1));
+        expect((current.height - previous).abs(), lessThan(opened.height * .2));
+        if (alignment == Alignment.topLeft) {
+          expect(current.top, closeTo(opened.top, 0.1));
+        } else {
+          expect(current.bottom, closeTo(opened.bottom, 0.1));
+        }
+        previous = current.height;
+      }
+      await tester.pump(const Duration(milliseconds: 8));
       expect(_panel, findsOneWidget);
       final closing = tester.getRect(_panel);
+      expect(closing.height, lessThan(opened.height * .15));
       expect(closing.left, closeTo(opened.left, 0.1));
       expect(closing.right, closeTo(opened.right, 0.1));
       expect(
@@ -141,7 +156,9 @@ void main() {
     final closing = tester.getRect(_panel);
     await tester.tap(find.text('Toggle'));
     await tester.pump();
-    expect(tester.getRect(_panel).left, closeTo(closing.left, 0.1));
+    final reopening = tester.getRect(_panel);
+    expect(reopening.left, closeTo(closing.left, 0.1));
+    expect(reopening.height, closeTo(closing.height, 0.1));
     await tester.pumpAndSettle();
     expect(controller.isOpen, isTrue);
     await tester.tap(find.text('Item 1'));
@@ -178,7 +195,7 @@ void main() {
                 AppMenuAnchor(
                   controller: controller,
                   menuChildren: [
-                    MenuItemButton(
+                    AppMenuItemButton(
                       onPressed: () {},
                       child: const Text('Choice'),
                     ),
@@ -226,7 +243,7 @@ void main() {
                   child: AppMenuAnchor(
                     controller: controller,
                     menuChildren: [
-                      MenuItemButton(
+                      AppMenuItemButton(
                         onPressed: () {},
                         child: const Text('Choice'),
                       ),

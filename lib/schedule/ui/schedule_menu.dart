@@ -71,7 +71,7 @@ class _ScheduleMenuState extends State<ScheduleMenu> {
     final enabled = !widget.controller.timetable.busy;
     return AppMenuAnchor(
       menuChildren: [
-        MenuItemButton(
+        AppMenuItemButton(
           leadingIcon: const Icon(Icons.date_range_outlined),
           onPressed: schedule == null || !enabled
               ? null
@@ -79,12 +79,12 @@ class _ScheduleMenuState extends State<ScheduleMenu> {
           child: Text(l10n.weekManagement),
         ),
         if (Platform.isAndroid)
-          MenuItemButton(
+          AppMenuItemButton(
             onPressed: () => showWidgetGuide(context),
             leadingIcon: const Icon(Icons.widgets_outlined),
             child: Text(l10n.desktopAgendaWidget),
           ),
-        MenuItemButton(
+        AppMenuItemButton(
           onPressed: schedule == null || !enabled || _exporting
               ? null
               : () => _export(schedule),
